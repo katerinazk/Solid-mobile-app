@@ -1,19 +1,16 @@
-import 'react-native-get-random-values'; // <-- Polyfill για το Solid
-import 'text-encoding'; // <-- Polyfill για το Solid
+import 'react-native-get-random-values';
+import 'text-encoding';
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Linking } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { supabase } from './supabase';
-// Εισαγωγή των εργαλείων του Solid Protocol!
-import { getSolidDataset, getThing, getStringNoLocale } from '@inrupt/solid-client';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Linking } from 'react-native';
 
 interface Patient {
   id: string;
   name: string;
   amka: string;
   accessType: string;
-  webId: string; // <-- Προσθέσαμε το WebID στο συμβόλαιο
+  webId: string;
 }
 
 export default function App() {
@@ -40,7 +37,7 @@ export default function App() {
           name: item.name,
           amka: item.amka,
           accessType: item.access_type,
-          webId: item.web_id, // <-- Τραβάμε το WebID από τη βάση
+          webId: item.web_id,
         }));
         setPatients(formattedPatients);
       }
@@ -51,56 +48,29 @@ export default function App() {
     }
   };
 
-// --- Η ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΠΟΥ ΑΝΟΙΓΕΙ ΤΟ PDF ---
-const handleViewFolder = async (webId: string, patientName: string) => {
-  if (!webId) {
-    Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID για αυτόν τον ασθενή.");
-    return;
-  }
-
-  try {
-    // Επειδή ξέρουμε ότι το αρχείο είναι public, φτιάχνουμε το απευθείας link του
-    // Αντικαθιστούμε το "profile/card#me" με το "public/earino202526_v4.pdf"
-    const pdfUrl = webId.replace('profile/card#me', 'public/earino202526_v4.pdf');
-
-    // Ζητάμε από το κινητό να ανοίξει αυτό το link!
-    const supported = await Linking.canOpenURL(pdfUrl);
-    
-    if (supported) {
-      await Linking.openURL(pdfUrl);
-    } else {
-      Alert.alert("Πρόβλημα", "Το κινητό δεν υποστηρίζει το άνοιγμα αυτού του link.");
+  // --- Η ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΠΟΥ ΑΝΟΙΓΕΙ ΤΟ PDF ---
+  const handleViewFolder = async (webId: string, patientName: string) => {
+    if (!webId) {
+      Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID για αυτόν τον ασθενή.");
+      return;
     }
 
-  } catch (error) {
-    console.error("Σφάλμα Solid:", error);
-    Alert.alert("Πρόβλημα Πρόσβασης", "Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
-  }
-};
-
     try {
-      setLoading(true);
+      // Επειδή ξέρουμε ότι το αρχείο είναι public, φτιάχνουμε το απευθείας link του
+      const pdfUrl = webId.replace('profile/card#me', 'public/earino202526_v4.pdf');
+
+      // Ζητάμε από το κινητό να ανοίξει αυτό το link!
+      const supported = await Linking.canOpenURL(pdfUrl);
       
-      // 1. Κατεβάζουμε το "Dataset" (τον φάκελο) από το WebID του ασθενή
-      const myDataset = await getSolidDataset(webId);
-
-      // 2. Εστιάζουμε στο συγκεκριμένο "Thing" (στο προφίλ του)
-      const profile = getThing(myDataset, webId);
-
-      // 3. Διαβάζουμε το όνομά του κατευθείαν μέσα από το Pod (χρησιμοποιώντας το λεξιλόγιο vCard)
-      const podName = profile ? getStringNoLocale(profile, "http://www.w3.org/2006/vcard/ns#fn") : "Άγνωστο";
-
-      // 4. Εμφανίζουμε τα δεδομένα σε ένα Pop-up (Alert)
-      Alert.alert(
-        "Επιτυχής Σύνδεση Solid! 🚀",
-        `Διαβάσαμε επιτυχώς το απομακρυσμένο Pod!\n\nΌνομα στο Pod: ${podName || patientName}\nWebID: ${webId}`
-      );
+      if (supported) {
+        await Linking.openURL(pdfUrl);
+      } else {
+        Alert.alert("Πρόβλημα", "Το κινητό δεν υποστηρίζει το άνοιγμα αυτού του link.");
+      }
 
     } catch (error) {
       console.error("Σφάλμα Solid:", error);
-      Alert.alert("Πρόβλημα Πρόσβασης", "Δεν ήταν δυνατή η ανάγνωση του Solid Pod. Μήπως είναι κλειδωμένο;");
-    } finally {
-      setLoading(false);
+      Alert.alert("Πρόβλημα Πρόσβασης", "Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
     }
   };
 
@@ -114,7 +84,6 @@ const handleViewFolder = async (webId: string, patientName: string) => {
         <Text style={styles.cardValue}>{item.accessType}</Text>
       </View>
 
-      {/* Συνδέσαμε το κουμπί με τη νέα συνάρτηση Solid! */}
       <TouchableOpacity 
         style={styles.cardActionButton}
         onPress={() => handleViewFolder(item.webId, item.name)}
