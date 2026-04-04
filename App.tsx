@@ -6,6 +6,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { supabase } from './supabase';
 // Εισαγωγή των εργαλείων του Solid Protocol!
 import { getSolidDataset, getThing, getStringNoLocale } from '@inrupt/solid-client';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Linking } from 'react-native';
 
 interface Patient {
   id: string;
@@ -50,12 +51,32 @@ export default function App() {
     }
   };
 
-  // --- Η ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ SOLID PROTOCOL ---
-  const handleViewFolder = async (webId: string, patientName: string) => {
-    if (!webId) {
-      Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID για αυτόν τον ασθενή.");
-      return;
+// --- Η ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΠΟΥ ΑΝΟΙΓΕΙ ΤΟ PDF ---
+const handleViewFolder = async (webId: string, patientName: string) => {
+  if (!webId) {
+    Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID για αυτόν τον ασθενή.");
+    return;
+  }
+
+  try {
+    // Επειδή ξέρουμε ότι το αρχείο είναι public, φτιάχνουμε το απευθείας link του
+    // Αντικαθιστούμε το "profile/card#me" με το "public/earino202526_v4.pdf"
+    const pdfUrl = webId.replace('profile/card#me', 'public/earino202526_v4.pdf');
+
+    // Ζητάμε από το κινητό να ανοίξει αυτό το link!
+    const supported = await Linking.canOpenURL(pdfUrl);
+    
+    if (supported) {
+      await Linking.openURL(pdfUrl);
+    } else {
+      Alert.alert("Πρόβλημα", "Το κινητό δεν υποστηρίζει το άνοιγμα αυτού του link.");
     }
+
+  } catch (error) {
+    console.error("Σφάλμα Solid:", error);
+    Alert.alert("Πρόβλημα Πρόσβασης", "Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
+  }
+};
 
     try {
       setLoading(true);
