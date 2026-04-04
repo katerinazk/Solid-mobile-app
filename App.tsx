@@ -1,6 +1,7 @@
-import React from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import { supabase } from './supabase'; // Εισάγουμε τη "γέφυρα" που φτιάξαμε!
 
 interface Patient {
   id: string;
@@ -9,15 +10,49 @@ interface Patient {
   accessType: string;
 }
 
-const PATIENTS: Patient[] = [
-  { id: '1', name: 'Γιώργος Αντωνίου', amka: '12345678901', accessType: 'Πλήρης Πρόσβαση' },
-  { id: '2', name: 'Γιώργος Αντωνίου', amka: '12345678901', accessType: 'Μόνο Ανάγνωση' },
-  { id: '3', name: 'Γιώργος Αντωνίου', amka: '12345678901', accessType: 'Πλήρης Πρόσβαση' },
-  { id: '4', name: 'Γιώργος Αντωνίου', amka: '12345678901', accessType: 'Μόνο Ανάγνωση' },
-];
-
 export default function App() {
-  
+  // Φτιάχνουμε τη "μνήμη" για τους ασθενείς και για το αν φορτώνει η εφαρμογή
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Το useEffect τρέχει ΜΙΑ φορά μόλις ανοίξει η εφαρμογή
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  // Η συνάρτηση που πάει στο Supabase και φέρνει τα δεδομένα
+  const fetchPatients = async () => {
+    try {
+      setLoading(true);
+      
+      // Ζητάμε όλα τα πεδία (*) από τον πίνακα 'patients'
+      const { data, error } = await supabase
+        .from('patients')
+        .select('*');
+
+      if (error) {
+        console.error("Σφάλμα κατά τη λήψη:", error.message);
+        return;
+      }
+
+      if (data) {
+        // Τα δεδομένα ήρθαν! Τα "μεταφράζουμε" για να ταιριάζουν στο δικό μας Interface
+        const formattedPatients: Patient[] = data.map((item) => ({
+          id: item.id,
+          name: item.name,
+          amka: item.amka,
+          accessType: item.access_type, // Στη βάση το είπαμε access_type (με κάτω παύλα)
+        }));
+        
+        setPatients(formattedPatients); // Τα αποθηκεύουμε στη μνήμη
+      }
+    } catch (error) {
+      console.error("Απρόσμενο σφάλμα:", error);
+    } finally {
+      setLoading(false); // Κλείνουμε το "ροδάκι" φόρτωσης
+    }
+  };
+
   const renderPatientCard = ({ item }: { item: Patient }) => (
     <View style={styles.card}>
       <View style={styles.cardDetails}>
@@ -57,13 +92,18 @@ export default function App() {
         <Text style={styles.headerActionButtonText}>Αίτημα Πρόσβασης</Text>
       </TouchableOpacity>
 
-      <FlatList
-        data={PATIENTS}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPatientCard}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {/* Αν φορτώνει δείχνουμε ένα "ροδάκι", αλλιώς δείχνουμε τη λίστα! */}
+      {loading ? (
+        <ActivityIndicator size="large" color="#3b5998" style={{ marginTop: 50 }} />
+      ) : (
+        <FlatList
+          data={patients}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPatientCard}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.bottomNavItem}>
@@ -81,127 +121,23 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ecf0f1',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    marginBottom: 20,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 25,
-    marginHorizontal: 20,
-    paddingHorizontal: 15,
-    marginBottom: 20,
-    borderColor: '#7f8c8d',
-    borderWidth: 1,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    fontSize: 16,
-    color: '#2c3e50',
-  },
-  headerActionButton: {
-    flexDirection: 'row',
-    backgroundColor: '#3b5998', 
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 25,
-    marginHorizontal: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
-  },
-  headerActionButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 10,
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 90, 
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  cardDetails: {
-    marginBottom: 15,
-  },
-  patientName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 10,
-  },
-  cardLabel: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  cardValue: {
-    fontSize: 16,
-    color: '#34495e',
-    marginBottom: 10,
-  },
-  cardActionButton: {
-    backgroundColor: '#3b5998',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-  },
-  cardActionButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    height: 70,
-    backgroundColor: '#2c3e50',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: 15,
-  },
-  bottomNavItem: {
-    alignItems: 'center',
-  },
-  bottomNavText: {
-    color: '#bdc3c7',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  bottomNavTextActive: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#ecf0f1' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 20 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 25, marginHorizontal: 20, paddingHorizontal: 15, marginBottom: 20, borderColor: '#7f8c8d', borderWidth: 1 },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, height: 40, fontSize: 16, color: '#2c3e50' },
+  headerActionButton: { flexDirection: 'row', backgroundColor: '#3b5998', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 25, marginHorizontal: 60, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
+  headerActionButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 90 },
+  card: { backgroundColor: 'white', borderRadius: 15, padding: 20, marginBottom: 15, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  cardDetails: { marginBottom: 15 },
+  patientName: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', marginBottom: 10 },
+  cardLabel: { fontSize: 14, color: '#7f8c8d', fontWeight: '600', marginBottom: 2 },
+  cardValue: { fontSize: 16, color: '#34495e', marginBottom: 10 },
+  cardActionButton: { backgroundColor: '#3b5998', paddingVertical: 10, borderRadius: 8, alignSelf: 'center', paddingHorizontal: 20 },
+  cardActionButtonText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+  bottomNav: { flexDirection: 'row', height: 70, backgroundColor: '#2c3e50', borderTopLeftRadius: 20, borderTopRightRadius: 20, justifyContent: 'space-around', alignItems: 'center', position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 15 },
+  bottomNavItem: { alignItems: 'center' },
+  bottomNavText: { color: '#bdc3c7', fontSize: 16, fontWeight: '500' },
+  bottomNavTextActive: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });
