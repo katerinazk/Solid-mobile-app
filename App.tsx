@@ -1,34 +1,32 @@
+import 'react-native-get-random-values'; // <-- Polyfill για το Solid
+import 'text-encoding'; // <-- Polyfill για το Solid
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { supabase } from './supabase'; // Εισάγουμε τη "γέφυρα" που φτιάξαμε!
+import { supabase } from './supabase';
+// Εισαγωγή των εργαλείων του Solid Protocol!
+import { getSolidDataset, getThing, getStringNoLocale } from '@inrupt/solid-client';
 
 interface Patient {
   id: string;
   name: string;
   amka: string;
   accessType: string;
+  webId: string; // <-- Προσθέσαμε το WebID στο συμβόλαιο
 }
 
 export default function App() {
-  // Φτιάχνουμε τη "μνήμη" για τους ασθενείς και για το αν φορτώνει η εφαρμογή
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Το useEffect τρέχει ΜΙΑ φορά μόλις ανοίξει η εφαρμογή
   useEffect(() => {
     fetchPatients();
   }, []);
 
-  // Η συνάρτηση που πάει στο Supabase και φέρνει τα δεδομένα
   const fetchPatients = async () => {
     try {
       setLoading(true);
-      
-      // Ζητάμε όλα τα πεδία (*) από τον πίνακα 'patients'
-      const { data, error } = await supabase
-        .from('patients')
-        .select('*');
+      const { data, error } = await supabase.from('patients').select('*');
 
       if (error) {
         console.error("Σφάλμα κατά τη λήψη:", error.message);
@@ -36,20 +34,52 @@ export default function App() {
       }
 
       if (data) {
-        // Τα δεδομένα ήρθαν! Τα "μεταφράζουμε" για να ταιριάζουν στο δικό μας Interface
         const formattedPatients: Patient[] = data.map((item) => ({
           id: item.id,
           name: item.name,
           amka: item.amka,
-          accessType: item.access_type, // Στη βάση το είπαμε access_type (με κάτω παύλα)
+          accessType: item.access_type,
+          webId: item.web_id, // <-- Τραβάμε το WebID από τη βάση
         }));
-        
-        setPatients(formattedPatients); // Τα αποθηκεύουμε στη μνήμη
+        setPatients(formattedPatients);
       }
     } catch (error) {
       console.error("Απρόσμενο σφάλμα:", error);
     } finally {
-      setLoading(false); // Κλείνουμε το "ροδάκι" φόρτωσης
+      setLoading(false);
+    }
+  };
+
+  // --- Η ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ SOLID PROTOCOL ---
+  const handleViewFolder = async (webId: string, patientName: string) => {
+    if (!webId) {
+      Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID για αυτόν τον ασθενή.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // 1. Κατεβάζουμε το "Dataset" (τον φάκελο) από το WebID του ασθενή
+      const myDataset = await getSolidDataset(webId);
+
+      // 2. Εστιάζουμε στο συγκεκριμένο "Thing" (στο προφίλ του)
+      const profile = getThing(myDataset, webId);
+
+      // 3. Διαβάζουμε το όνομά του κατευθείαν μέσα από το Pod (χρησιμοποιώντας το λεξιλόγιο vCard)
+      const podName = profile ? getStringNoLocale(profile, "http://www.w3.org/2006/vcard/ns#fn") : "Άγνωστο";
+
+      // 4. Εμφανίζουμε τα δεδομένα σε ένα Pop-up (Alert)
+      Alert.alert(
+        "Επιτυχής Σύνδεση Solid! 🚀",
+        `Διαβάσαμε επιτυχώς το απομακρυσμένο Pod!\n\nΌνομα στο Pod: ${podName || patientName}\nWebID: ${webId}`
+      );
+
+    } catch (error) {
+      console.error("Σφάλμα Solid:", error);
+      Alert.alert("Πρόβλημα Πρόσβασης", "Δεν ήταν δυνατή η ανάγνωση του Solid Pod. Μήπως είναι κλειδωμένο;");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,7 +93,11 @@ export default function App() {
         <Text style={styles.cardValue}>{item.accessType}</Text>
       </View>
 
-      <TouchableOpacity style={styles.cardActionButton}>
+      {/* Συνδέσαμε το κουμπί με τη νέα συνάρτηση Solid! */}
+      <TouchableOpacity 
+        style={styles.cardActionButton}
+        onPress={() => handleViewFolder(item.webId, item.name)}
+      >
         <Text style={styles.cardActionButtonText}>Προβολή Φακέλου</Text>
       </TouchableOpacity>
     </View>
@@ -80,11 +114,7 @@ export default function App() {
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#7f8c8d" style={styles.searchIcon} />
-        <TextInput 
-          style={styles.searchInput} 
-          placeholder="Αναζήτηση..." 
-          placeholderTextColor="#7f8c8d"
-        />
+        <TextInput style={styles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor="#7f8c8d" />
       </View>
 
       <TouchableOpacity style={styles.headerActionButton}>
@@ -92,7 +122,6 @@ export default function App() {
         <Text style={styles.headerActionButtonText}>Αίτημα Πρόσβασης</Text>
       </TouchableOpacity>
 
-      {/* Αν φορτώνει δείχνουμε ένα "ροδάκι", αλλιώς δείχνουμε τη λίστα! */}
       {loading ? (
         <ActivityIndicator size="large" color="#3b5998" style={{ marginTop: 50 }} />
       ) : (
@@ -106,15 +135,9 @@ export default function App() {
       )}
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.bottomNavItem}>
-          <Text style={styles.bottomNavTextActive}>Αρχική</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomNavItem}>
-          <Text style={styles.bottomNavText}>Προσβάσεις</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomNavItem}>
-          <Text style={styles.bottomNavText}>Ρυθμίσεις</Text>
-        </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomNavItem}><Text style={styles.bottomNavTextActive}>Αρχική</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.bottomNavItem}><Text style={styles.bottomNavText}>Προσβάσεις</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.bottomNavItem}><Text style={styles.bottomNavText}>Ρυθμίσεις</Text></TouchableOpacity>
       </View>
     </SafeAreaView>
   );
