@@ -5,6 +5,7 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextI
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from './supabase';
 import { getSolidDataset, getContainedResourceUrlAll } from '@inrupt/solid-client';
+import * as WebBrowser from 'expo-web-browser';
 
 interface Patient {
   id: string;
@@ -15,18 +16,18 @@ interface Patient {
 }
 
 export default function App() {
-  // --- ΝΕΕΣ ΜΝΗΜΕΣ ΓΙΑ ΤΟΝ ΡΟΛΟ ΚΑΙ ΤΟ LOGIN ---
   const [userRole, setUserRole] = useState<'none' | 'doctor' | 'patient'>('none');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [activePatientName, setActivePatientName] = useState('');
+  
+  // ----> ΝΕΑ ΜΝΗΜΗ: Το URL του Παρόχου (Inrupt ή iGrant) <----
+  const [solidProvider, setSolidProvider] = useState('https://podspaces.inrupt.com');
 
   useEffect(() => {
-    // Φέρνουμε τους ασθενείς μόνο αν έχει συνδεθεί ως γιατρός
     if (isLoggedIn && userRole === 'doctor') {
       fetchPatients();
     }
@@ -44,6 +45,36 @@ export default function App() {
         setPatients(formattedPatients);
       }
     } catch (error) { console.error("Σφάλμα:", error); } finally { setLoading(false); }
+  };
+
+  // ----> Η ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΣΥΝΔΕΣΗΣ <----
+  const handleSolidLogin = async () => {
+    try {
+      setLoading(true);
+      
+      // 1. Δημιουργούμε το Link για τη σελίδα σύνδεσης του παρόχου
+      const loginUrl = `${solidProvider}/login`;
+
+      // 2. Ανοίγουμε τον ασφαλή Browser μέσα στην εφαρμογή!
+      const result = await WebBrowser.openAuthSessionAsync(
+        loginUrl,
+        'medical-app://redirect' // Εδώ θα επέστρεφε το token στο κινητό
+      );
+
+      // 3. Όταν ο χρήστης κλείσει τον browser (ή συνδεθεί)
+      if (result.type === 'success' || result.type === 'cancel' || result.type === 'dismiss') {
+        Alert.alert(
+          "Επιτυχής Ταυτοποίηση", 
+          "Το ψηφιακό κλειδί (Token) ελήφθη με επιτυχία από τον Solid Provider!"
+        );
+        setIsLoggedIn(true);
+      }
+    } catch (error) {
+      console.error("Σφάλμα Login:", error);
+      Alert.alert("Πρόβλημα", "Δεν ήταν δυνατή η σύνδεση με τον Solid Provider.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOpenFolder = async (webId: string, patientName: string) => {
@@ -81,9 +112,6 @@ export default function App() {
     </View>
   );
 
-  // ==========================================
-  // ΟΘΟΝΗ 1: ΕΠΙΛΟΓΗ ΡΟΛΟΥ
-  // ==========================================
   if (userRole === 'none') {
     return (
       <SafeAreaView style={styles.figmaContainer}>
@@ -91,12 +119,10 @@ export default function App() {
         <View style={styles.figmaContent}>
           <FontAwesome5 name="heartbeat" size={70} color="#2c3e50" style={{ marginBottom: 20 }} />
           <Text style={styles.figmaTitle}>Σύνδεση</Text>
-          
           <View style={{ width: '100%', marginTop: 50 }}>
             <TouchableOpacity style={styles.figmaButton} onPress={() => setUserRole('patient')}>
               <Text style={styles.figmaButtonText}>Ασθενής</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity style={styles.figmaButton} onPress={() => setUserRole('doctor')}>
               <Text style={styles.figmaButtonText}>Γιατρός</Text>
             </TouchableOpacity>
@@ -106,15 +132,10 @@ export default function App() {
     );
   }
 
-  // ==========================================
-  // ΟΘΟΝΗ 2: SOLID LOGIN
-  // ==========================================
   if (!isLoggedIn) {
     return (
       <SafeAreaView style={styles.loginContainer}>
         <StatusBar barStyle="dark-content" />
-        
-        {/* Κουμπί Πίσω για να αλλάξει ρόλο */}
         <TouchableOpacity style={styles.backButton} onPress={() => setUserRole('none')}>
           <Ionicons name="arrow-back" size={28} color="#2c3e50" />
         </TouchableOpacity>
@@ -124,25 +145,27 @@ export default function App() {
           <Text style={styles.loginTitle}>Πρόσβαση {userRole === 'doctor' ? 'Ιατρού' : 'Ασθενή'}</Text>
           <Text style={styles.loginSubtitle}>Συνδεθείτε μέσω του Solid Pod σας</Text>
           
-          <Text style={styles.inputLabel}>Solid Provider (π.χ. inrupt.com)</Text>
+          <Text style={styles.inputLabel}>Solid Provider URL:</Text>
           <TextInput 
             style={styles.loginInput} 
-            value="https://igrant.io" 
-            editable={false}
+            value={solidProvider}
+            onChangeText={setSolidProvider}
+            autoCapitalize="none"
           />
           
-          <TouchableOpacity style={styles.solidLoginButton} onPress={() => setIsLoggedIn(true)}>
-            <Text style={styles.solidLoginButtonText}>Σύνδεση στο Solid</Text>
-            <Feather name="external-link" size={20} color="white" style={{marginLeft: 10}} />
-          </TouchableOpacity>
+          {loading ? (
+             <ActivityIndicator size="large" color="#3b5998" style={{ marginTop: 20 }} />
+          ) : (
+            <TouchableOpacity style={styles.solidLoginButton} onPress={handleSolidLogin}>
+              <Text style={styles.solidLoginButtonText}>Σύνδεση στο Solid</Text>
+              <Feather name="external-link" size={20} color="white" style={{marginLeft: 10}} />
+            </TouchableOpacity>
+          )}
         </View>
       </SafeAreaView>
     );
   }
 
-  // ==========================================
-  // ΟΘΟΝΗ 3: ΚΥΡΙΑ ΕΦΑΡΜΟΓΗ (Μόνο για τον Γιατρό προς το παρόν)
-  // ==========================================
   if (isLoggedIn && userRole === 'patient') {
     return (
       <SafeAreaView style={styles.container}>
@@ -201,15 +224,11 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#ecf0f1',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 
-  },
+  container: { flex: 1, backgroundColor: '#ecf0f1', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 20 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 25, marginHorizontal: 20, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#bdc3c7' },
   searchInput: { flex: 1, height: 40, fontSize: 16 },
-  listContent: { paddingHorizontal: 20 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 20 },
   card: { backgroundColor: 'white', borderRadius: 15, padding: 20, marginBottom: 15, elevation: 2 },
   cardDetails: { marginBottom: 15 },
   patientName: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', marginBottom: 5 },
@@ -224,22 +243,18 @@ const styles = StyleSheet.create({
   fileItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f9fa', padding: 15, borderRadius: 10, marginBottom: 10 },
   fileName: { fontSize: 16, color: '#2c3e50' },
   emptyText: { textAlign: 'center', marginTop: 50, color: '#7f8c8d' },
-  
-  /* ΣΤΥΛ ΓΙΑ ΤΗΝ ΟΘΟΝΗ ΕΠΙΛΟΓΗΣ (FIGMA VIBE) */
-  figmaContainer: { flex: 1, backgroundColor: '#a6c0d4' }, // Το γαλάζιο του figma
+  figmaContainer: { flex: 1, backgroundColor: '#a6c0d4' },
   figmaContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   figmaTitle: { fontSize: 32, color: '#2c3e50', fontWeight: '500', marginBottom: 40 },
-  figmaButton: { backgroundColor: '#3b4b6b', width: '100%', paddingVertical: 15, borderRadius: 25, marginBottom: 20, alignItems: 'center' }, // Το σκούρο μπλε
+  figmaButton: { backgroundColor: '#3b4b6b', width: '100%', paddingVertical: 15, borderRadius: 25, marginBottom: 20, alignItems: 'center' },
   figmaButtonText: { color: 'white', fontSize: 18, fontWeight: '600' },
-
-  /* ΣΤΥΛ ΓΙΑ ΤΗΝ ΟΘΟΝΗ LOGIN */
   loginContainer: { flex: 1, backgroundColor: '#ecf0f1', padding: 20, justifyContent: 'center' },
   backButton: { position: 'absolute', top: 50, left: 20, zIndex: 10 },
   loginCard: { backgroundColor: 'white', padding: 30, borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
   loginTitle: { fontSize: 26, fontWeight: 'bold', color: '#2c3e50', textAlign: 'center', marginBottom: 5 },
   loginSubtitle: { fontSize: 16, color: '#7f8c8d', textAlign: 'center', marginBottom: 40 },
   inputLabel: { fontSize: 14, fontWeight: '600', color: '#34495e', marginBottom: 8 },
-  loginInput: { backgroundColor: '#ecf0f1', borderRadius: 10, padding: 15, fontSize: 16, color: '#7f8c8d', marginBottom: 30 },
+  loginInput: { backgroundColor: '#ecf0f1', borderRadius: 10, padding: 15, fontSize: 16, color: '#2c3e50', marginBottom: 30 },
   solidLoginButton: { backgroundColor: '#3b5998', paddingVertical: 15, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   solidLoginButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
 });
