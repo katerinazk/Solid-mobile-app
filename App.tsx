@@ -25,7 +25,7 @@ export default function App() {
   const [activePatientName, setActivePatientName] = useState('');
   
   // ----> ΝΕΑ ΜΝΗΜΗ: Το URL του Παρόχου (Inrupt ή iGrant) <----
-  const [solidProvider, setSolidProvider] = useState('https://podspaces.inrupt.com');
+  const [solidProvider, setSolidProvider] = useState('https://datapod.igrant.io');
 
   useEffect(() => {
     if (isLoggedIn && userRole === 'doctor') {
@@ -47,31 +47,43 @@ export default function App() {
     } catch (error) { console.error("Σφάλμα:", error); } finally { setLoading(false); }
   };
 
-  // ----> Η ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΣΥΝΔΕΣΗΣ <----
+  // ----> Η ΣΥΝΑΡΤΗΣΗ ΣΥΝΔΕΣΗΣ ΜΕ ΣΥΓΚΑΤΑΘΕΣΗ (CONSENT) <----
   const handleSolidLogin = async () => {
     try {
       setLoading(true);
       
-      // 1. Δημιουργούμε το Link για τη σελίδα σύνδεσης του παρόχου
-      const loginUrl = `${solidProvider}/login`;
+      // Στο κανονικό Solid OIDC, εδώ ζητάμε τα "scopes" (τις άδειες read/write)
+      // Το διαμορφώνουμε έτσι για να ζητήσει συγκατάθεση ο Provider
+      const loginUrl = `${solidProvider}/authorize?client_id=medical-app&redirect_uri=medical-app://redirect&response_type=token&scope=openid%20webid%20read%20write`;
 
-      // 2. Ανοίγουμε τον ασφαλή Browser μέσα στην εφαρμογή!
+      // Ανοίγουμε τον ασφαλή Browser. Ο Provider θα δείξει την οθόνη Συγκατάθεσης!
       const result = await WebBrowser.openAuthSessionAsync(
         loginUrl,
-        'medical-app://redirect' // Εδώ θα επέστρεφε το token στο κινητό
+        'medical-app://redirect' 
       );
 
-      // 3. Όταν ο χρήστης κλείσει τον browser (ή συνδεθεί)
-      if (result.type === 'success' || result.type === 'cancel' || result.type === 'dismiss') {
+      // ΕΛΕΓΧΟΣ ΤΗΣ ΑΠΑΝΤΗΣΗΣ ΤΟΥ ΓΙΑΤΡΟΥ ΣΤΗΝ ΟΘΟΝΗ ΣΥΓΚΑΤΑΘΕΣΗΣ:
+      
+      if (result.type === 'success') {
+        // Περίπτωση 1: Ο Γιατρός πάτησε "ΟΚ / Επιτρέπω"
         Alert.alert(
-          "Επιτυχής Ταυτοποίηση", 
-          "Το ψηφιακό κλειδί (Token) ελήφθη με επιτυχία από τον Solid Provider!"
+          "Επιτυχής Ταυτοποίηση ✅", 
+          "Δώσατε συγκατάθεση. Το ψηφιακό κλειδί ελήφθη με επιτυχία!"
         );
-        setIsLoggedIn(true);
+        setIsLoggedIn(true); // Τον βάζουμε στην εφαρμογή
+        
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        // Περίπτωση 2: Ο Γιατρός πάτησε "ΟΧΙ / Ακύρωση" ή έκλεισε απότομα τον browser
+        Alert.alert(
+          "Άρνηση Πρόσβασης ❌", 
+          "Δεν δώσατε συγκατάθεση στην εφαρμογή. Η είσοδος ακυρώθηκε."
+        );
+        setIsLoggedIn(false); // Παραμένει κλειδωμένος στην οθόνη Σύνδεσης
       }
+
     } catch (error) {
       console.error("Σφάλμα Login:", error);
-      Alert.alert("Πρόβλημα", "Δεν ήταν δυνατή η σύνδεση με τον Solid Provider.");
+      Alert.alert("Πρόβλημα", "Δεν ήταν δυνατή η επικοινωνία με τον Solid Provider.");
     } finally {
       setLoading(false);
     }
