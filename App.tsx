@@ -72,6 +72,12 @@ export default function App() {
       // Βρίσκουμε τα endpoints του Provider (Discovery)
       const discoveryUrl = `${providerUrl.replace(/\/$/, '')}/.well-known/openid-configuration`;
       const discoveryRes = await fetch(discoveryUrl);
+      
+      // ΠΡΟΣΘΗΚΗ: Έλεγχος αν το URL υπάρχει όντως!
+      if (!discoveryRes.ok) {
+        throw new Error(`Ο server απάντησε με κωδικό ${discoveryRes.status}. Βεβαιώσου ότι το URL του Provider είναι σωστό.`);
+      }
+
       const discovery = await discoveryRes.json();
       setDiscoveryDocument(discovery);
 
@@ -91,17 +97,22 @@ export default function App() {
         }),
       });
 
+      // ΠΡΟΣΘΗΚΗ: Έλεγχος αν πέτυχε η εγγραφή (DCR)
+      if (!registrationRes.ok) {
+         throw new Error(`Αποτυχία εγγραφής (DCR). Status: ${registrationRes.status}`);
+      }
+
       const clientData = await registrationRes.json();
       
       if (clientData.client_id) {
         console.log("Πήραμε δυναμικό Client ID:", clientData.client_id);
         setDynamicClientId(clientData.client_id);
       } else {
-        Alert.alert("Σφάλμα", "Ο Provider δεν υποστηρίζει Dynamic Registration ή απέτυχε.");
+        Alert.alert("Σφάλμα", "Ο Provider δεν υποστηρίζει Dynamic Registration.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("DCR Error:", error);
-      Alert.alert("Σφάλμα", "Αποτυχία επικοινωνίας με τον Provider.");
+      Alert.alert("Σφάλμα Σύνδεσης", error.message || "Αποτυχία επικοινωνίας με τον Provider.");
     } finally {
       setLoading(false);
     }
