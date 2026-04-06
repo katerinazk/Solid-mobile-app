@@ -46,6 +46,8 @@ export default function App() {
     discoveryDocument 
   );
 
+  const isBrowserOpen = useRef(false);
+  
   // 3. Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
     if (response?.type === 'success') {
@@ -98,9 +100,6 @@ export default function App() {
       
       // Αποθηκεύουμε το "μεταφρασμένο" document
       setDiscoveryDocument(expoDiscovery);
-
-      // Για να μην ανοίγει 2 φορές (Only one AuthSession can be active at any given time.)
-      const isBrowserOpen = useRef(false);
 
       // Κάνουμε Dynamic Client Registration (DCR) χρησιμοποιώντας το raw discovery
       const registrationRes = await fetch(discovery.registration_endpoint, {
