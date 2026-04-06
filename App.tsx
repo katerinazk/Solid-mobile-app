@@ -1,3 +1,4 @@
+import './polyfill';
 import 'react-native-get-random-values';
 import 'text-encoding';
 import React, { useState, useEffect } from 'react';

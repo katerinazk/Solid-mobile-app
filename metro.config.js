@@ -1,16 +1,10 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const nodeLibs = require('node-libs-react-native');
 
 const config = getDefaultConfig(__dirname);
 
-// Η "Μαύρη Λίστα": Όλα τα βαριά εργαλεία του Node.js που κρασάρουν το κινητό
-const serverModules = [
-  'async_hooks', 'undici', 'stream/web', 'crypto', 'net', 'tls', 'fs', 'dgram',
-  'http', 'https', 'http2', 'zlib', 'os', 'path', 'child_process', 'worker_threads',
-  'cluster', 'dns', 'perf_hooks', 'readline', 'repl', 'tty', 'vm', 'v8', 'module'
-];
-
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  // 1. Λύση για τα κλειδιά της jose (της λέμε ότι είμαστε σε Browser)
+  // 1. Διορθώνουμε τη jose
   if (moduleName.startsWith('jose')) {
     return context.resolveRequest({
       ...context,
@@ -18,16 +12,21 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     }, moduleName, platform);
   }
 
-  // 2. Η Απόλυτη Ασπίδα: Αν η βιβλιοθήκη είναι στη μαύρη λίστα, την κάνουμε MOCK αμέσως!
-  if (serverModules.includes(moduleName) || moduleName.startsWith('node:')) {
+  // 2. Μπλοκάρουμε ΜΟΝΟ τους 3 ταραχοποιούς που κρασάρουν το σύστημα
+  if (['stream/web', 'undici', 'async_hooks'].includes(moduleName)) {
     return context.resolveRequest(context, 'node-libs-react-native/mock/empty', platform);
   }
 
-  // 3. Για όλα τα υπόλοιπα, προχωράμε κανονικά
   return context.resolveRequest(context, moduleName, platform);
 };
 
-// Φορτώνουμε τα βασικά, ασφαλή polyfills για όσα χρειαζόμαστε
-config.resolver.extraNodeModules = require('node-libs-react-native');
+// 3. Δίνουμε ΤΑ ΠΡΑΓΜΑΤΙΚΑ polyfills (αντίγραφα) της node-libs-react-native
+config.resolver.extraNodeModules = {
+  ...nodeLibs,
+  net: require.resolve('node-libs-react-native/mock/empty'),
+  tls: require.resolve('node-libs-react-native/mock/empty'),
+  fs: require.resolve('node-libs-react-native/mock/empty'),
+  dgram: require.resolve('node-libs-react-native/mock/empty'),
+};
 
 module.exports = config;
