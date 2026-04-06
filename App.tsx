@@ -5,7 +5,16 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextI
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from './supabase';
 import { getSolidDataset, getContainedResourceUrlAll } from '@inrupt/solid-client';
-import * as WebBrowser from 'expo-web-browser';
+
+// ----> ΝΕΟ: Εισάγουμε την Επίσημη Βιβλιοθήκη Σύνδεσης του Solid <----
+import { Session } from '@inrupt/solid-client-authn-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Δημιουργούμε τον "Πράκτορα" (Session) που θα κάνει τη σύνδεση
+const session = new Session({
+  storage: AsyncStorage,
+  secureStorage: AsyncStorage
+});
 
 interface Patient {
   id: string;
@@ -24,8 +33,38 @@ export default function App() {
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [activePatientName, setActivePatientName] = useState('');
   
-  // ----> ΝΕΑ ΜΝΗΜΗ: Το URL του Παρόχου (Inrupt ή iGrant) <----
-  const [solidProvider, setSolidProvider] = useState('https://datapod.igrant.io');
+  const [solidProvider, setSolidProvider] = useState('https://podspaces.inrupt.com');
+
+  // ----> ΝΕΟ: Ακούμε την επιστροφή από τον Browser (Όταν πατάει "ΟΚ" ο γιατρός) <----
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      try {
+        setLoading(true);
+        // Δίνουμε το link επιστροφής στο Session για να πάρει το Ψηφιακό Κλειδί!
+        await session.handleIncomingRedirect(event.url);
+        
+        if (session.info.isLoggedIn) {
+          Alert.alert("Επιτυχία ✅", "Συνδεθήκατε επιτυχώς στο Solid!");
+          setIsLoggedIn(true);
+        }
+      } catch (error) {
+        console.error("Σφάλμα Ταυτοποίησης:", error);
+        Alert.alert("Πρόβλημα", "Δεν ήταν δυνατή η ολοκλήρωση της σύνδεσης.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Βάζουμε το κινητό να "ακούει" για το URL επιστροφής
+    const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Αν ήταν ήδη συνδεδεμένος από πριν
+    if (session.info.isLoggedIn) {
+      setIsLoggedIn(true);
+    }
+
+    return () => linkingSubscription.remove();
+  }, []);
 
   useEffect(() => {
     if (isLoggedIn && userRole === 'doctor') {
@@ -47,54 +86,35 @@ export default function App() {
     } catch (error) { console.error("Σφάλμα:", error); } finally { setLoading(false); }
   };
 
-  // ----> Η ΣΥΝΑΡΤΗΣΗ ΣΥΝΔΕΣΗΣ ΜΕ ΣΥΓΚΑΤΑΘΕΣΗ (CONSENT) <----
+  // ----> ΝΕΟ: Η Επίσημη Σύνδεση (Δουλεύει με iGrant, Inrupt, παντού!) <----
   const handleSolidLogin = async () => {
     try {
       setLoading(true);
       
-      // Στο κανονικό Solid OIDC, εδώ ζητάμε τα "scopes" (τις άδειες read/write)
-      // Το διαμορφώνουμε έτσι για να ζητήσει συγκατάθεση ο Provider
-      const loginUrl = `${solidProvider}/authorize?client_id=medical-app&redirect_uri=medical-app://redirect&response_type=token&scope=openid%20webid%20read%20write`;
-
-      // Ανοίγουμε τον ασφαλή Browser. Ο Provider θα δείξει την οθόνη Συγκατάθεσης!
-      const result = await WebBrowser.openAuthSessionAsync(
-        loginUrl,
-        'medical-app://redirect' 
-      );
-
-      // ΕΛΕΓΧΟΣ ΤΗΣ ΑΠΑΝΤΗΣΗΣ ΤΟΥ ΓΙΑΤΡΟΥ ΣΤΗΝ ΟΘΟΝΗ ΣΥΓΚΑΤΑΘΕΣΗΣ:
-      
-      if (result.type === 'success') {
-        // Περίπτωση 1: Ο Γιατρός πάτησε "ΟΚ / Επιτρέπω"
-        Alert.alert(
-          "Επιτυχής Ταυτοποίηση ✅", 
-          "Δώσατε συγκατάθεση. Το ψηφιακό κλειδί ελήφθη με επιτυχία!"
-        );
-        setIsLoggedIn(true); // Τον βάζουμε στην εφαρμογή
-        
-      } else if (result.type === 'cancel' || result.type === 'dismiss') {
-        // Περίπτωση 2: Ο Γιατρός πάτησε "ΟΧΙ / Ακύρωση" ή έκλεισε απότομα τον browser
-        Alert.alert(
-          "Άρνηση Πρόσβασης ❌", 
-          "Δεν δώσατε συγκατάθεση στην εφαρμογή. Η είσοδος ακυρώθηκε."
-        );
-        setIsLoggedIn(false); // Παραμένει κλειδωμένος στην οθόνη Σύνδεσης
-      }
+      // Το Session κάνει όλη τη "διπλωματία" με τον Provider αυτόματα!
+      await session.login({
+        oidcIssuer: solidProvider, 
+        redirectUrl: 'medical-app://redirect', 
+        clientName: 'Medical App Thesis', // Το επίσημο όνομα που θα δει ο Γιατρός
+      });
 
     } catch (error) {
       console.error("Σφάλμα Login:", error);
-      Alert.alert("Πρόβλημα", "Δεν ήταν δυνατή η επικοινωνία με τον Solid Provider.");
-    } finally {
+      Alert.alert("Πρόβλημα", "Ο πάροχος δεν ανταποκρίθηκε σωστά.");
       setLoading(false);
     }
   };
 
+  // --- Η ΠΡΟΒΟΛΗ ΦΑΚΕΛΟΥ ΤΩΡΑ ΜΠΟΡΕΙ ΝΑ ΧΡΗΣΙΜΟΠΟΙΕΙ ΤΟ SESSION FETCH ---
   const handleOpenFolder = async (webId: string, patientName: string) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
       const folderUrl = webId.replace('profile/card#me', 'public/');
-      const myDataset = await getSolidDataset(folderUrl);
+      
+      // Εδώ δίνουμε το "κλειδί" (session.fetch) για να περνάει την ασφάλεια!
+      const myDataset = await getSolidDataset(folderUrl, { fetch: session.fetch });
+      
       const files = getContainedResourceUrlAll(myDataset);
       setFolderFiles(files);
       setActivePatientName(patientName);
@@ -178,26 +198,12 @@ export default function App() {
     );
   }
 
-  if (isLoggedIn && userRole === 'patient') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20}}>
-          <Ionicons name="construct" size={80} color="#7f8c8d" />
-          <Text style={{fontSize: 22, textAlign: 'center', marginTop: 20, color: '#2c3e50'}}>Η οθόνη του Ασθενή είναι υπό κατασκευή!</Text>
-          <TouchableOpacity style={[styles.solidLoginButton, {marginTop: 30}]} onPress={() => { setIsLoggedIn(false); setUserRole('none'); }}>
-            <Text style={styles.solidLoginButtonText}>Επιστροφή</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <Feather name="list" size={32} color="#2c3e50" />
-        <TouchableOpacity onPress={() => { setIsLoggedIn(false); setUserRole('none'); }}>
+        <TouchableOpacity onPress={async () => { await session.logout(); setIsLoggedIn(false); setUserRole('none'); }}>
           <Ionicons name="log-out-outline" size={36} color="#e74c3c" />
         </TouchableOpacity>
       </View>
