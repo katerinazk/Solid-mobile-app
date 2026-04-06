@@ -6,15 +6,11 @@ import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from './supabase';
 import { getSolidDataset, getContainedResourceUrlAll } from '@inrupt/solid-client';
 
-// ----> ΝΕΟ: Εισάγουμε την Επίσημη Βιβλιοθήκη Σύνδεσης του Solid <----
-import { Session } from '@inrupt/solid-client-authn-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// ----> Η ΣΩΣΤΗ ΒΙΒΛΙΟΘΗΚΗ ΤΗΣ ΚΟΙΝΟΤΗΤΑΣ ΓΙΑ REACT NATIVE <----
+import { handleIncomingRedirect, login as solidLogin, getDefaultSession } from 'solid-authn-react-native';
 
-// Δημιουργούμε τον "Πράκτορα" (Session) που θα κάνει τη σύνδεση
-const session = new Session({
-  storage: AsyncStorage,
-  secureStorage: AsyncStorage
-});
+// Παίρνουμε το έτοιμο Session
+const session = getDefaultSession();
 
 interface Patient {
   id: string;
@@ -35,13 +31,12 @@ export default function App() {
   
   const [solidProvider, setSolidProvider] = useState('https://podspaces.inrupt.com');
 
-  // ----> ΝΕΟ: Ακούμε την επιστροφή από τον Browser (Όταν πατάει "ΟΚ" ο γιατρός) <----
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
       try {
         setLoading(true);
-        // Δίνουμε το link επιστροφής στο Session για να πάρει το Ψηφιακό Κλειδί!
-        await session.handleIncomingRedirect(event.url);
+        // Δίνουμε το link επιστροφής στη βιβλιοθήκη της κοινότητας
+        await handleIncomingRedirect(event.url);
         
         if (session.info.isLoggedIn) {
           Alert.alert("Επιτυχία ✅", "Συνδεθήκατε επιτυχώς στο Solid!");
@@ -55,10 +50,8 @@ export default function App() {
       }
     };
 
-    // Βάζουμε το κινητό να "ακούει" για το URL επιστροφής
     const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
 
-    // Αν ήταν ήδη συνδεδεμένος από πριν
     if (session.info.isLoggedIn) {
       setIsLoggedIn(true);
     }
@@ -86,18 +79,15 @@ export default function App() {
     } catch (error) { console.error("Σφάλμα:", error); } finally { setLoading(false); }
   };
 
-  // ----> ΝΕΟ: Η Επίσημη Σύνδεση (Δουλεύει με iGrant, Inrupt, παντού!) <----
   const handleSolidLogin = async () => {
     try {
       setLoading(true);
-      
-      // Το Session κάνει όλη τη "διπλωματία" με τον Provider αυτόματα!
-      await session.login({
+      // Χρησιμοποιούμε τη συνάρτηση solidLogin της κοινότητας
+      await solidLogin({
         oidcIssuer: solidProvider, 
         redirectUrl: 'medical-app://redirect', 
-        clientName: 'Medical App Thesis', // Το επίσημο όνομα που θα δει ο Γιατρός
+        clientName: 'Medical App Thesis', 
       });
-
     } catch (error) {
       console.error("Σφάλμα Login:", error);
       Alert.alert("Πρόβλημα", "Ο πάροχος δεν ανταποκρίθηκε σωστά.");
@@ -105,14 +95,12 @@ export default function App() {
     }
   };
 
-  // --- Η ΠΡΟΒΟΛΗ ΦΑΚΕΛΟΥ ΤΩΡΑ ΜΠΟΡΕΙ ΝΑ ΧΡΗΣΙΜΟΠΟΙΕΙ ΤΟ SESSION FETCH ---
   const handleOpenFolder = async (webId: string, patientName: string) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
       const folderUrl = webId.replace('profile/card#me', 'public/');
       
-      // Εδώ δίνουμε το "κλειδί" (session.fetch) για να περνάει την ασφάλεια!
       const myDataset = await getSolidDataset(folderUrl, { fetch: session.fetch });
       
       const files = getContainedResourceUrlAll(myDataset);
