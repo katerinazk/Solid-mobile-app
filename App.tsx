@@ -80,8 +80,19 @@ export default function App() {
 
       const discovery = await discoveryRes.json();
       setDiscoveryDocument(discovery);
+      
+      // ΠΡΟΣΘΗΚΗ: Μετατρέπουμε τα πεδία από snake_case (Solid) σε camelCase (Expo)
+      const expoDiscovery = {
+        authorizationEndpoint: discovery.authorization_endpoint,
+        tokenEndpoint: discovery.token_endpoint,
+        revocationEndpoint: discovery.revocation_endpoint,
+        userInfoEndpoint: discovery.userinfo_endpoint,
+      };
+      
+      // Αποθηκεύουμε το "μεταφρασμένο" document
+      setDiscoveryDocument(expoDiscovery);
 
-      // Κάνουμε Dynamic Client Registration (DCR)
+      // Κάνουμε Dynamic Client Registration (DCR) χρησιμοποιώντας το raw discovery
       const registrationRes = await fetch(discovery.registration_endpoint, {
         method: 'POST',
         headers: {
