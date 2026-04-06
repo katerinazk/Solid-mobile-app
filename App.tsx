@@ -209,13 +209,13 @@ export default function App() {
           <Text style={styles.inputLabel}>Solid Provider (π.χ. inrupt.com)</Text>
           <TextInput 
             style={styles.loginInput} 
-            value="https://igrant.io" 
+            value="https://datapod.igrant.io" 
             editable={false}
           />
 
           <TouchableOpacity 
             style={styles.solidLoginButton} 
-            onPress={() => handleDynamicLogin('https://igrant.io')}
+            onPress={() => handleDynamicLogin('https://datapod.igrant.io')}
             disabled={loading}
           >
             {loading ? (
