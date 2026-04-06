@@ -5,6 +5,11 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextI
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from './supabase';
 import { getSolidDataset, getContainedResourceUrlAll } from '@inrupt/solid-client';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+
+// Απαραίτητο για να κλείνει σωστά το popup του browser στο κινητό
+WebBrowser.maybeCompleteAuthSession();
 
 interface Patient {
   id: string;
@@ -15,18 +20,95 @@ interface Patient {
 }
 
 export default function App() {
-  // --- ΝΕΕΣ ΜΝΗΜΕΣ ΓΙΑ ΤΟΝ ΡΟΛΟ ΚΑΙ ΤΟ LOGIN ---
+  // --- STATE ΕΦΑΡΜΟΓΗΣ ---
   const [userRole, setUserRole] = useState<'none' | 'doctor' | 'patient'>('none');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [activePatientName, setActivePatientName] = useState('');
+  
+  // --- DYNAMIC SOLID LOGIN STATE ---
+  const [dynamicClientId, setDynamicClientId] = useState<string | null>(null);
+  const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
 
+  // 1. Ρύθμιση του Redirect URI
+  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp' });
+
+  // 2. Στήσιμο του Auth Request (περιμένει το dynamicClientId και το discovery)
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: dynamicClientId || '', 
+      scopes: ['openid', 'profile', 'offline_access', 'webid'],
+      redirectUri,
+    },
+    discoveryDocument 
+  );
+
+  // 3. Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
-    // Φέρνουμε τους ασθενείς μόνο αν έχει συνδεθεί ως γιατρός
+    if (response?.type === 'success') {
+      const { code } = response.params;
+      console.log("Επιτυχία! Authorization Code:", code);
+      setIsLoggedIn(true);
+    } else if (response?.type === 'error') {
+      Alert.alert("Σφάλμα σύνδεσης", response.error?.message || "Κάτι πήγε στραβά.");
+    }
+  }, [response]);
+
+  // 4. Όταν έχουμε το δυναμικό Client ID και το request είναι έτοιμο, ανοίγουμε τον browser
+  useEffect(() => {
+    if (dynamicClientId && request) {
+      promptAsync();
+    }
+  }, [dynamicClientId, request]);
+
+  // --- Η ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ DYNAMIC REGISTRATION ---
+  const handleDynamicLogin = async (providerUrl: string) => {
+    try {
+      setLoading(true);
+
+      // Βρίσκουμε τα endpoints του Provider (Discovery)
+      const discoveryUrl = `${providerUrl.replace(/\/$/, '')}/.well-known/openid-configuration`;
+      const discoveryRes = await fetch(discoveryUrl);
+      const discovery = await discoveryRes.json();
+      setDiscoveryDocument(discovery);
+
+      // Κάνουμε Dynamic Client Registration (DCR)
+      const registrationRes = await fetch(discovery.registration_endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_name: 'Solid Medical App', 
+          redirect_uris: [redirectUri], 
+          application_type: 'native',
+          grant_types: ['authorization_code', 'refresh_token'],
+          response_types: ['code'],
+          token_endpoint_auth_method: 'none', 
+        }),
+      });
+
+      const clientData = await registrationRes.json();
+      
+      if (clientData.client_id) {
+        console.log("Πήραμε δυναμικό Client ID:", clientData.client_id);
+        setDynamicClientId(clientData.client_id);
+      } else {
+        Alert.alert("Σφάλμα", "Ο Provider δεν υποστηρίζει Dynamic Registration ή απέτυχε.");
+      }
+    } catch (error) {
+      console.error("DCR Error:", error);
+      Alert.alert("Σφάλμα", "Αποτυχία επικοινωνίας με τον Provider.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- ΛΟΓΙΚΗ ΓΙΑ ΤΑ ΔΕΔΟΜΕΝΑ (SUPABASE & SOLID) ---
+  useEffect(() => {
     if (isLoggedIn && userRole === 'doctor') {
       fetchPatients();
     }
@@ -130,10 +212,20 @@ export default function App() {
             value="https://igrant.io" 
             editable={false}
           />
-          
-          <TouchableOpacity style={styles.solidLoginButton} onPress={() => setIsLoggedIn(true)}>
-            <Text style={styles.solidLoginButtonText}>Σύνδεση στο Solid</Text>
-            <Feather name="external-link" size={20} color="white" style={{marginLeft: 10}} />
+
+          <TouchableOpacity 
+            style={styles.solidLoginButton} 
+            onPress={() => handleDynamicLogin('https://igrant.io')}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Text style={styles.solidLoginButtonText}>Σύνδεση στο Solid</Text>
+                <Feather name="external-link" size={20} color="white" style={{marginLeft: 10}} />
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </SafeAreaView>

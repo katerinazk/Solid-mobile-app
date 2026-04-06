@@ -3,6 +3,7 @@
     "name": "medical-app",
     "slug": "medical-app",
     "version": "1.0.0",
+    "scheme": "solidmedicalapp",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -25,6 +26,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }
