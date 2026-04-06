@@ -1,6 +1,6 @@
 import 'react-native-get-random-values';
 import 'text-encoding';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Linking, Modal, Platform } from 'react-native';
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from './supabase';
@@ -59,8 +59,15 @@ export default function App() {
 
   // 4. Όταν έχουμε το δυναμικό Client ID και το request είναι έτοιμο, ανοίγουμε τον browser
   useEffect(() => {
-    if (dynamicClientId && request) {
-      promptAsync();
+    if (dynamicClientId && request && !isBrowserOpen.current) {
+      isBrowserOpen.current = true; // Κλειδώνουμε: "Ο browser μόλις άνοιξε!"
+      
+      promptAsync().then(() => {
+        // Όταν ο χρήστης κλείσει τον browser (ή τελειώσει το login), ξεκλειδώνουμε
+        isBrowserOpen.current = false;
+      }).catch(() => {
+        isBrowserOpen.current = false;
+      });
     }
   }, [dynamicClientId, request]);
 
@@ -91,6 +98,9 @@ export default function App() {
       
       // Αποθηκεύουμε το "μεταφρασμένο" document
       setDiscoveryDocument(expoDiscovery);
+
+      // Για να μην ανοίγει 2 φορές (Only one AuthSession can be active at any given time.)
+      const isBrowserOpen = useRef(false);
 
       // Κάνουμε Dynamic Client Registration (DCR) χρησιμοποιώντας το raw discovery
       const registrationRes = await fetch(discovery.registration_endpoint, {
