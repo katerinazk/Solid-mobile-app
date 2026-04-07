@@ -34,7 +34,9 @@ export default function App() {
   const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
 
   // 1. Ρύθμιση του Redirect URI
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp' });
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: 'solidmedicalapp'
+  });
 
   // 2. Στήσιμο του Auth Request (περιμένει το dynamicClientId και το discovery)
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
