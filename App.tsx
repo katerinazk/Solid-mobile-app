@@ -284,6 +284,23 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
+      <TouchableOpacity 
+        style={styles.addButton} 
+        onPress={() => {
+          console.log("Το κουμπί πατήθηκε! Εδώ θα ανοίξουμε τη φόρμα.");
+          // Προς το παρόν απλά δοκιμάζουμε ότι λειτουργεί το κουμπί
+        }}
+      >
+        <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
+      </TouchableOpacity>
+
+      {/* Η γραμμή διαχωρισμού (προαιρετική για να δείχνει πιο ωραίο) */}
+      <View style={styles.divider} />
+
+      {/* Εδώ από κάτω συνεχίζει ο κώδικας που ήδη έχεις και 
+          εμφανίζει/διαβάζει τα δεδομένα από το Pod του ασθενή */}
+      <Text>Δεδομένα Ασθενή...</Text> 
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <Feather name="list" size={32} color="#2c3e50" />
@@ -330,6 +347,23 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#ecf0f1',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 
+  },
+  addButton: {
+    backgroundColor: '#2e64e5',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#cccccc',
+    marginVertical: 15,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 20 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 25, marginHorizontal: 20, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#bdc3c7' },
