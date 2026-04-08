@@ -75,6 +75,10 @@ export default function App() {
     }
   }, [dynamicClientId, request]);
 
+  //για το κουμπί προσθήκης διάγνωσης
+  const [isModalVisible] = useState(false);
+  const [newDiagnosis, setNewDiagnosis] = useState('');
+
   // --- Η ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ DYNAMIC REGISTRATION ---
   const handleDynamicLogin = async (providerUrl: string) => {
     try {
@@ -285,21 +289,61 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
-      <TouchableOpacity 
-        style={styles.addButton} 
-        onPress={() => {
-          console.log("Το κουμπί πατήθηκε! Εδώ θα ανοίξουμε τη φόρμα.");
-          // Προς το παρόν απλά δοκιμάζουμε ότι λειτουργεί το κουμπί
-        }}
-      >
-        <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
-      </TouchableOpacity>
+    <TouchableOpacity 
+      style={styles.addButton} 
+      onPress={() => setModalVisible(true)}
+    >
+      <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
+    </TouchableOpacity>
+
+    {/* Το Αναδυόμενο Παραθυράκι (Modal) */}
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isModalVisible}
+      onRequestClose={() => setModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Νέα Διάγνωση</Text>
+          
+          <TextInput
+            style={styles.textArea}
+            multiline={true}
+            numberOfLines={4}
+            placeholder="Γράψτε τη διάγνωση εδώ..."
+            value={newDiagnosis}
+            onChangeText={setNewDiagnosis}
+          />
+
+          <View style={styles.modalButtonsGroup}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.saveButton]} 
+              onPress={() => {
+                console.log("Η νέα διάγνωση είναι:", newDiagnosis);
+                // ΕΔΩ ΘΑ ΜΠΕΙ Ο ΚΩΔΙΚΑΣ ΤΟΥ SOLID ΑΡΓΟΤΕΡΑ!
+                setModalVisible(false);
+                setNewDiagnosis(''); // Καθαρίζουμε το πεδίο
+              }}
+            >
+              <Text style={styles.saveButtonText}>Αποθήκευση</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
 
       {/* Η γραμμή διαχωρισμού (προαιρετική για να δείχνει πιο ωραίο) */}
       <View style={styles.divider} />
 
-      {/* Εδώ από κάτω συνεχίζει ο κώδικας που ήδη έχεις και 
-          εμφανίζει/διαβάζει τα δεδομένα από το Pod του ασθενή */}
       <Text>Δεδομένα Ασθενή...</Text> 
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
@@ -376,13 +420,70 @@ const styles = StyleSheet.create({
   cardValue: { fontWeight: 'bold', color: '#34495e' },
   cardActionButton: { backgroundColor: '#3b5998', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   cardActionButtonText: { color: 'white', fontWeight: 'bold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '60%', padding: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#ecf0f1', paddingBottom: 10 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold' },
   fileItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f9fa', padding: 15, borderRadius: 10, marginBottom: 10 },
   fileName: { fontSize: 16, color: '#2c3e50' },
   emptyText: { textAlign: 'center', marginTop: 50, color: '#7f8c8d' },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Ημιδιάφανο μαύρο φόντο
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    elevation: 5, // Σκιά για Android
+    shadowColor: '#000', // Σκιά για iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+    textAlign: 'center',
+  },
+  textArea: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    height: 100,
+    textAlignVertical: 'top', // Σημαντικό για Android
+    marginBottom: 20,
+  },
+  modalButtonsGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  saveButton: {
+    backgroundColor: '#2e64e5',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
   
   /* ΣΤΥΛ ΓΙΑ ΤΗΝ ΟΘΟΝΗ ΕΠΙΛΟΓΗΣ (FIGMA VIBE) */
   figmaContainer: { flex: 1, backgroundColor: '#a6c0d4' }, // Το γαλάζιο του figma
