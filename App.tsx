@@ -288,59 +288,6 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
-    <TouchableOpacity 
-      style={styles.addButton} 
-      onPress={() => setModalVisible(true)}
-    >
-      <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
-    </TouchableOpacity>
-
-    {/* Το Αναδυόμενο Παραθυράκι (Modal) */}
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isModalVisible}
-      onRequestClose={() => setModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Νέα Διάγνωση</Text>
-          
-          <TextInput
-            style={styles.textArea}
-            multiline={true}
-            numberOfLines={4}
-            placeholder="Γράψτε τη διάγνωση εδώ..."
-            value={newDiagnosis}
-            onChangeText={setNewDiagnosis}
-          />
-
-          <View style={styles.modalButtonsGroup}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.cancelButton]} 
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.cancelButtonText}>Ακύρωση</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.saveButton]} 
-              onPress={() => {
-                console.log("Η νέα διάγνωση είναι:", newDiagnosis);
-                // ΕΔΩ ΘΑ ΜΠΕΙ Ο ΚΩΔΙΚΑΣ ΤΟΥ SOLID ΑΡΓΟΤΕΡΑ!
-                setModalVisible(false);
-                setNewDiagnosis(''); // Καθαρίζουμε το πεδίο
-              }}
-            >
-              <Text style={styles.saveButtonText}>Αποθήκευση</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-
-
       {/* Η γραμμή διαχωρισμού (προαιρετική για να δείχνει πιο ωραίο) */}
       <View style={styles.divider} />
 
@@ -368,6 +315,57 @@ export default function App() {
               <Text style={styles.modalTitle}>Φάκελος: {activePatientName}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close-circle" size={30} color="#e74c3c" /></TouchableOpacity>
             </View>
+            {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
+            <TouchableOpacity 
+              style={styles.addButton} 
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
+            </TouchableOpacity>
+
+            {/* Το Αναδυόμενο Παραθυράκι (Modal) */}
+            <Modal
+              animationType="slide"
+              transparent={true}
+              visible={isModalVisible}
+              onRequestClose={() => setModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
+            >
+              <View style={styles.addmodalOverlay}>
+                <View style={styles.addmodalContent}>
+                  <Text style={styles.addmodalTitle}>Νέα Διάγνωση</Text>
+                  
+                  <TextInput
+                    style={styles.textArea}
+                    multiline={true}
+                    numberOfLines={4}
+                    placeholder="Γράψτε τη διάγνωση εδώ..."
+                    value={newDiagnosis}
+                    onChangeText={setNewDiagnosis}
+                  />
+
+                  <View style={styles.modalButtonsGroup}>
+                    <TouchableOpacity 
+                      style={[styles.modalButton, styles.cancelButton]} 
+                      onPress={() => setModalVisible(false)}
+                    >
+                      <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.modalButton, styles.saveButton]} 
+                      onPress={() => {
+                        console.log("Η νέα διάγνωση είναι:", newDiagnosis);
+                        // ΕΔΩ ΘΑ ΜΠΕΙ Ο ΚΩΔΙΚΑΣ ΤΟΥ SOLID ΑΡΓΟΤΕΡΑ!
+                        setModalVisible(false);
+                        setNewDiagnosis(''); // Καθαρίζουμε το πεδίο
+                      }}
+                    >
+                      <Text style={styles.saveButtonText}>Αποθήκευση</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
             {folderFiles.length === 0 ? <Text style={styles.emptyText}>Άδειος φάκελος.</Text> : (
               <FlatList data={folderFiles} keyExtractor={(item, idx) => idx.toString()} renderItem={({ item }) => {
                 const fileName = item.split('/').pop() || 'Αρχείο';
@@ -420,17 +418,20 @@ const styles = StyleSheet.create({
   cardValue: { fontWeight: 'bold', color: '#34495e' },
   cardActionButton: { backgroundColor: '#3b5998', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   cardActionButtonText: { color: 'white', fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '60%', padding: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#ecf0f1', paddingBottom: 10 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold' },
   fileItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f9fa', padding: 15, borderRadius: 10, marginBottom: 10 },
   fileName: { fontSize: 16, color: '#2c3e50' },
   emptyText: { textAlign: 'center', marginTop: 50, color: '#7f8c8d' },
-  modalOverlay: {
+  addmodalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)', // Ημιδιάφανο μαύρο φόντο
   },
-  modalContent: {
+  addmodalContent: {
     width: '85%',
     backgroundColor: 'white',
     borderRadius: 15,
@@ -441,7 +442,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
-  modalTitle: {
+  addmodalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
