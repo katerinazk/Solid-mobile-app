@@ -200,6 +200,34 @@ export default function App() {
     </View>
   );
 
+  const handleSaveDiagnosis = async () => {
+    // Αν ο γιατρός δεν έγραψε τίποτα και πάτησε αποθήκευση, δεν κάνουμε τίποτα
+    if (newDiagnosis.trim() === '') {
+      alert("Παρακαλώ γράψτε μια διάγνωση!");
+      return;
+    }
+
+    // 1. Δημιουργούμε ένα μοναδικό όνομα για το αρχείο (π.χ. diagnosis_171260... .txt)
+    const timestamp = Date.now();
+    const newFileName = `diagnosis_${timestamp}.txt`;
+
+    // === ΤΟ ΚΟΜΜΑΤΙ ΤΟΥ SOLID ===
+    // Εδώ θα κάνουμε το HTTP PUT request για να στείλουμε το αρχείο στο Pod του ασθενή.
+    // Προς το παρόν το κάνουμε console.log για να δούμε ότι δουλεύει η λογική:
+    console.log(`[SOLID ΠΡΟΣΟΜΟΙΩΣΗ] Δημιουργία αρχείου: ${newFileName}`);
+    console.log(`[SOLID ΠΡΟΣΟΜΟΙΩΣΗ] Περιεχόμενο: ${newDiagnosis}`);
+
+    // === Η ΕΝΗΜΕΡΩΣΗ ΤΗΣ ΟΘΟΝΗΣ ===
+    // Ενημερώνουμε τη λίστα `folderFiles` για να εμφανιστεί ΑΜΕΣΩΣ στην οθόνη μας!
+    const fakeFileUrl = `https://solid.example.com/patient/folder/${newFileName}`;
+    
+    setFolderFiles((prevFiles) => [...prevFiles, fakeFileUrl]);
+
+    // Κλείνουμε το παραθυράκι και αδειάζουμε το πεδίο για την επόμενη φορά
+    setIsModalVisible(false);
+    setNewDiagnosis('');
+  };
+
   // ==========================================
   // ΟΘΟΝΗ 1: ΕΠΙΛΟΓΗ ΡΟΛΟΥ
   // ==========================================
@@ -322,50 +350,6 @@ export default function App() {
             >
               <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
             </TouchableOpacity>
-
-            {/* Το Αναδυόμενο Παραθυράκι (Modal) */}
-            <Modal
-              animationType="slide"
-              transparent={true}
-              visible={isModalVisible}
-              onRequestClose={() => setIsModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
-            >
-              <View style={styles.addmodalOverlay}>
-                <View style={styles.addmodalContent}>
-                  <Text style={styles.addmodalTitle}>Νέα Διάγνωση</Text>
-                  
-                  <TextInput
-                    style={styles.textArea}
-                    multiline={true}
-                    numberOfLines={4}
-                    placeholder="Γράψτε τη διάγνωση εδώ..."
-                    value={newDiagnosis}
-                    onChangeText={setNewDiagnosis}
-                  />
-
-                  <View style={styles.modalButtonsGroup}>
-                    <TouchableOpacity 
-                      style={[styles.modalButton, styles.cancelButton]} 
-                      onPress={() => setIsModalVisible(false)}
-                    >
-                      <Text style={styles.cancelButtonText}>Ακύρωση</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                      style={[styles.modalButton, styles.saveButton]} 
-                      onPress={() => {
-                        console.log("Η νέα διάγνωση είναι:", newDiagnosis);
-                        // ΕΔΩ ΘΑ ΜΠΕΙ Ο ΚΩΔΙΚΑΣ ΤΟΥ SOLID ΑΡΓΟΤΕΡΑ!
-                        setIsModalVisible(false);
-                        setNewDiagnosis(''); // Καθαρίζουμε το πεδίο
-                      }}
-                    >
-                      <Text style={styles.saveButtonText}>Αποθήκευση</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
             {folderFiles.length === 0 ? <Text style={styles.emptyText}>Άδειος φάκελος.</Text> : (
               <FlatList data={folderFiles} keyExtractor={(item, idx) => idx.toString()} renderItem={({ item }) => {
                 const fileName = item.split('/').pop() || 'Αρχείο';
@@ -377,6 +361,44 @@ export default function App() {
                 );
               }} />
             )}
+          </View>
+        </View>
+      </Modal>
+      {/* Το Αναδυόμενο Παραθυράκι (Modal) */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => setIsModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <Text style={styles.addmodalTitle}>Νέα Διάγνωση</Text>
+            
+            <TextInput
+              style={styles.textArea}
+              multiline={true}
+              numberOfLines={4}
+              placeholder="Γράψτε τη διάγνωση εδώ..."
+              value={newDiagnosis}
+              onChangeText={setNewDiagnosis}
+            />
+
+            <View style={styles.modalButtonsGroup}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => setIsModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.saveButton]} 
+                onPress={handleSaveDiagnosis}
+              >
+                <Text style={styles.saveButtonText}>Αποθήκευση</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
