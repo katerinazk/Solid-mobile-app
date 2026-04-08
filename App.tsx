@@ -17,6 +17,7 @@ interface Patient {
   amka: string;
   accessType: string;
   webId: string;
+  folderUrl: string;
 }
 
 export default function App() {
@@ -32,6 +33,8 @@ export default function App() {
   // --- DYNAMIC SOLID LOGIN STATE ---
   const [dynamicClientId, setDynamicClientId] = useState<string | null>(null);
   const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
+  const [accessToken, setAccessToken] = useState('');
+  const [activePatientFolderUrl, setActivePatientFolderUrl] = useState('');
 
   // 1. Ρύθμιση του Redirect URI
   const redirectUri = AuthSession.makeRedirectUri({
@@ -53,6 +56,10 @@ export default function App() {
   // 3. Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
     if (response?.type === 'success') {
+      // έλεγχος ότι το authentication δεν είναι null
+      if (response.authentication) {
+        setAccessToken(response.authentication.accessToken);
+      } 
       const { code } = response.params;
       console.log("Επιτυχία! Authorization Code:", code);
       setIsLoggedIn(true);
@@ -78,6 +85,37 @@ export default function App() {
   //για το κουμπί προσθήκης διάγνωσης
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [newDiagnosis, setNewDiagnosis] = useState('');
+
+  const fetchPatientsFromSupabase = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('patients') 
+        .select('*'); 
+
+      if (error) {
+        console.error("Σφάλμα Supabase:", error.message);
+        return;
+      }
+
+      if (data) {
+        setPatients(data);
+      }
+    } catch (error) {
+      console.error("Απρόσμενο σφάλμα:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Πότε θα τρέξει η ερώτηση στη βάση;
+  // Μόλις το `isLoggedIn` γίνει true (δηλαδή μόλις συνδεθεί ο γιατρός επιτυχώς!)
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchPatientsFromSupabase();
+    }
+  }, [isLoggedIn]);
 
   // --- Η ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ DYNAMIC REGISTRATION ---
   const handleDynamicLogin = async (providerUrl: string) => {
@@ -158,7 +196,7 @@ export default function App() {
       if (error) { console.error("Σφάλμα:", error.message); return; }
       if (data) {
         const formattedPatients: Patient[] = data.map((item) => ({
-          id: item.id, name: item.name, amka: item.amka, accessType: item.access_type, webId: item.web_id,
+          id: item.id, name: item.name, amka: item.amka, accessType: item.access_type, webId: item.web_id, folderUrl: item.web_id.replace('profile/card#me', 'ιατρικο-ιστορικο/')
         }));
         setPatients(formattedPatients);
       }
@@ -182,50 +220,104 @@ export default function App() {
     }
   };
 
-  const openFile = async (fileUrl: string) => {
-    const supported = await Linking.canOpenURL(fileUrl);
-    if (supported) await Linking.openURL(fileUrl);
+  const openFile = async (url: string) => {
+    try {
+      setLoading(true);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const content = await response.text();
+        // Εδώ μπορείς να δείξεις το περιεχόμενο σε ένα alert 
+        // ή (ακόμα καλύτερα) σε ένα νέο Modal προβολής
+        alert("Περιεχόμενο Διάγνωσης:\n\n" + content);
+      } else {
+        alert("Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
+      }
+    } catch (error) {
+      alert("Σφάλμα κατά το άνοιγμα.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const renderPatientCard = ({ item }: { item: Patient }) => (
-    <View style={styles.card}>
-      <View style={styles.cardDetails}>
-        <Text style={styles.patientName}>{item.name}</Text>
-        <Text style={styles.cardLabel}>AMKA: <Text style={styles.cardValue}>{item.amka}</Text></Text>
-        <Text style={styles.cardLabel}>Πρόσβαση: <Text style={styles.cardValue}>{item.accessType}</Text></Text>
+  const renderPatientCard = ({ item }: { item: Patient }) => {
+  
+    // 1. Φτιάχνουμε το URL του φακέλου για αυτόν τον ασθενή.
+    const patientUrl = `https://datapod.igrant.io/${item.amka}/ιατρικο-ιστορικο/`; 
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardDetails}>
+          <Text style={styles.patientName}>{item.name}</Text>
+          <Text style={styles.cardLabel}>AMKA: <Text style={styles.cardValue}>{item.amka}</Text></Text>
+          <Text style={styles.cardLabel}>Πρόσβαση: <Text style={styles.cardValue}>{item.accessType}</Text></Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.cardActionButton} 
+          onPress={() => {
+            // 2. Αποθηκεύουμε το URL στη μνήμη που φτιάξαμε πριν!
+            setActivePatientFolderUrl(patientUrl); 
+            
+            // 3. Ανοίγουμε τον φάκελο (η δική σου συνάρτηση παραμένει ίδια)
+            handleOpenFolder(item.webId, item.name);
+          }}
+        >
+          <Text style={styles.cardActionButtonText}>Προβολή Φακέλου</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.cardActionButton} onPress={() => handleOpenFolder(item.webId, item.name)}>
-        <Text style={styles.cardActionButtonText}>Προβολή Φακέλου</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const handleSaveDiagnosis = async () => {
-    // Αν ο γιατρός δεν έγραψε τίποτα και πάτησε αποθήκευση, δεν κάνουμε τίποτα
     if (newDiagnosis.trim() === '') {
       alert("Παρακαλώ γράψτε μια διάγνωση!");
       return;
     }
 
-    // 1. Δημιουργούμε ένα μοναδικό όνομα για το αρχείο (π.χ. diagnosis_171260... .txt)
-    const timestamp = Date.now();
-    const newFileName = `diagnosis_${timestamp}.txt`;
+    // 1. Καθορίζουμε το URL του αρχείου στο Pod του ασθενή
+    // Υποθέτουμε ότι η μεταβλητή 'patientPodUrl' περιέχει το path του φακέλου (π.χ. από το iGrant)
+    const fileName = `diagnosis_${Date.now()}.txt`;
+    const fileUrl = `${activePatientFolderUrl}${fileName}`; // Το folder URL που ήδη χρησιμοποιείς για να διαβάζεις
 
-    // === ΤΟ ΚΟΜΜΑΤΙ ΤΟΥ SOLID ===
-    // Εδώ θα κάνουμε το HTTP PUT request για να στείλουμε το αρχείο στο Pod του ασθενή.
-    // Προς το παρόν το κάνουμε console.log για να δούμε ότι δουλεύει η λογική:
-    console.log(`[SOLID ΠΡΟΣΟΜΟΙΩΣΗ] Δημιουργία αρχείου: ${newFileName}`);
-    console.log(`[SOLID ΠΡΟΣΟΜΟΙΩΣΗ] Περιεχόμενο: ${newDiagnosis}`);
+    try {
+      setLoading(true);
 
-    // === Η ΕΝΗΜΕΡΩΣΗ ΤΗΣ ΟΘΟΝΗΣ ===
-    // Ενημερώνουμε τη λίστα `folderFiles` για να εμφανιστεί ΑΜΕΣΩΣ στην οθόνη μας!
-    const fakeFileUrl = `https://solid.example.com/patient/folder/${newFileName}`;
-    
-    setFolderFiles((prevFiles) => [...prevFiles, fakeFileUrl]);
+      // 2. Στέλνουμε το αρχείο στο Solid Pod με PUT
+      const response = await fetch(fileUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'text/plain',
+          // Χρησιμοποιούμε το token που αποθηκεύσαμε κατά το login
+          'Authorization': `Bearer ${accessToken}`, 
+        },
+        body: newDiagnosis, // Το κείμενο που έγραψε ο γιατρός στο Modal
+      });
 
-    // Κλείνουμε το παραθυράκι και αδειάζουμε το πεδίο για την επόμενη φορά
-    setIsModalVisible(false);
-    setNewDiagnosis('');
+      if (response.ok) {
+        alert("Η διάγνωση αποθηκεύτηκε επιτυχώς στο Pod του ασθενή!");
+        
+        // 3. Ενημερώνουμε τη λίστα στην οθόνη για να φανεί αμέσως το νέο αρχείο
+        setFolderFiles((prevFiles) => [...prevFiles, fileUrl]);
+        
+        // Κλείνουμε το modal και καθαρίζουμε το κείμενο
+        setIsModalVisible(false);
+        setNewDiagnosis('');
+      } else {
+        const errorText = await response.text();
+        console.error("Solid Error:", errorText);
+        alert("Σφάλμα Solid: " + response.status);
+      }
+    } catch (error) {
+      console.error("Network Error:", error);
+      alert("Αποτυχία σύνδεσης με το Pod. Ελέγξτε το δίκτυο.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ==========================================
