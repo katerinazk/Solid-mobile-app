@@ -76,7 +76,7 @@ export default function App() {
   }, [dynamicClientId, request]);
 
   //για το κουμπί προσθήκης διάγνωσης
-  const [isModalVisible] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [newDiagnosis, setNewDiagnosis] = useState('');
 
   // --- Η ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ DYNAMIC REGISTRATION ---
@@ -318,7 +318,7 @@ export default function App() {
             {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
             <TouchableOpacity 
               style={styles.addButton} 
-              onPress={() => setModalVisible(true)}
+              onPress={() => setIsModalVisible(true)}
             >
               <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
             </TouchableOpacity>
@@ -328,7 +328,7 @@ export default function App() {
               animationType="slide"
               transparent={true}
               visible={isModalVisible}
-              onRequestClose={() => setModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
+              onRequestClose={() => setIsModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
             >
               <View style={styles.addmodalOverlay}>
                 <View style={styles.addmodalContent}>
@@ -346,7 +346,7 @@ export default function App() {
                   <View style={styles.modalButtonsGroup}>
                     <TouchableOpacity 
                       style={[styles.modalButton, styles.cancelButton]} 
-                      onPress={() => setModalVisible(false)}
+                      onPress={() => setIsModalVisible(false)}
                     >
                       <Text style={styles.cancelButtonText}>Ακύρωση</Text>
                     </TouchableOpacity>
@@ -356,7 +356,7 @@ export default function App() {
                       onPress={() => {
                         console.log("Η νέα διάγνωση είναι:", newDiagnosis);
                         // ΕΔΩ ΘΑ ΜΠΕΙ Ο ΚΩΔΙΚΑΣ ΤΟΥ SOLID ΑΡΓΟΤΕΡΑ!
-                        setModalVisible(false);
+                        setIsModalVisible(false);
                         setNewDiagnosis(''); // Καθαρίζουμε το πεδίο
                       }}
                     >
