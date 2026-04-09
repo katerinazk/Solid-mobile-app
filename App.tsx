@@ -55,17 +55,40 @@ export default function App() {
   
   // 3. Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
-    if (response?.type === 'success') {
-      // έλεγχος ότι το authentication δεν είναι null
-      if (response.authentication) {
-        setAccessToken(response.authentication.accessToken);
-      } 
-      const { code } = response.params;
-      console.log("Επιτυχία! Authorization Code:", code);
-      setIsLoggedIn(true);
-    } else if (response?.type === 'error') {
-      Alert.alert("Σφάλμα σύνδεσης", response.error?.message || "Κάτι πήγε στραβά.");
-    }
+    const getRealAccessToken = async () => {
+      // Αν επιστρέψαμε από τον browser με επιτυχία και έχουμε το "Εισιτήριο" (code)
+      if (response?.type === 'success' && response.params.code) {
+        const authCode = response.params.code;
+        console.log("1. Πήραμε το Εισιτήριο (Auth Code):", authCode);
+
+        try {
+          // Πάμε να το ανταλλάξουμε με το πραγματικό Βραχιολάκι (Access Token)
+          const tokenResult = await AuthSession.exchangeCodeAsync({
+            clientId: dynamicClientId || '', // Η μεταβλητή με το ID της εφαρμογής
+            code: authCode,
+            redirectUri: redirectUri,
+            extraParams: {
+              // Ο έξτρα κωδικός ασφαλείας (PKCE) που απαιτεί το OIDC
+              code_verifier: request?.codeVerifier || '', 
+            },
+          }, discoveryDocument); // Το discoveryDocument που πήραμε στο Dynamic Registration
+
+          console.log("2. ΕΠΙΤΥΧΙΑ! Το πραγματικό Access Token είναι:", tokenResult.accessToken);
+          
+          // Κλειδώνουμε το ΣΩΣΤΟ token στη μνήμη
+          setAccessToken(tokenResult.accessToken); 
+          
+          // Βάζουμε τον γιατρό μέσα στην εφαρμογή
+          setIsLoggedIn(true); 
+
+        } catch (error) {
+          console.error("Σφάλμα κατά την ανταλλαγή του token:", error);
+          alert("Αποτυχία λήψης Access Token!");
+        }
+      }
+    };
+
+    getRealAccessToken();
   }, [response]);
 
   // 4. Όταν έχουμε το δυναμικό Client ID και το request είναι έτοιμο, ανοίγουμε τον browser
@@ -196,7 +219,7 @@ export default function App() {
       if (error) { console.error("Σφάλμα:", error.message); return; }
       if (data) {
         const formattedPatients: Patient[] = data.map((item) => ({
-          id: item.id, name: item.name, amka: item.amka, accessType: item.access_type, webId: item.web_id, folderUrl: item.web_id.replace('profile/card#me', 'ιατρικο-ιστορικο/')
+          id: item.id, name: item.name, amka: item.amka, accessType: item.access_type, webId: item.web_id, folderUrl: item.web_id.replace('profile/card#me', 'public/')
         }));
         setPatients(formattedPatients);
       }
@@ -248,7 +271,7 @@ export default function App() {
   const renderPatientCard = ({ item }: { item: Patient }) => {
   
     // 1. Φτιάχνουμε το URL του φακέλου για αυτόν τον ασθενή.
-    const patientUrl = `https://datapod.igrant.io/${item.amka}/ιατρικο-ιστορικο/`; 
+    const patientUrl = `https://datapod.igrant.io/${item.amka}/public/`; 
 
     return (
       <View style={styles.card}>
