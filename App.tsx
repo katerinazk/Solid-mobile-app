@@ -219,7 +219,13 @@ export default function App() {
       if (error) { console.error("Σφάλμα:", error.message); return; }
       if (data) {
         const formattedPatients: Patient[] = data.map((item) => ({
-          id: item.id, name: item.name, amka: item.amka, accessType: item.access_type, webId: item.web_id, folderUrl: item.web_id.replace('profile/card#me', 'public/')
+          id: item.id, 
+          name: item.name, 
+          amka: item.amka, 
+          accessType: item.access_type, 
+          webId: item.web_id, 
+          // έλεγχος ασφαλείας: αν υπάρχει το web_id, τότε κάνε replace
+          folderUrl: item.web_id ? item.web_id.replace('profile/card#me', 'public/') : '' 
         }));
         setPatients(formattedPatients);
       }
@@ -284,7 +290,7 @@ export default function App() {
           style={styles.cardActionButton} 
           onPress={() => {
             // 2. Αποθηκεύουμε το URL στη μνήμη που φτιάξαμε πριν!
-            setActivePatientFolderUrl(patientUrl); 
+            setActivePatientFolderUrl(item.folderUrl); 
             
             // 3. Ανοίγουμε τον φάκελο (η δική σου συνάρτηση παραμένει ίδια)
             handleOpenFolder(item.webId, item.name);
