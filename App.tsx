@@ -439,8 +439,6 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       {/* Η γραμμή διαχωρισμού (προαιρετική για να δείχνει πιο ωραίο) */}
       <View style={styles.divider} />
-
-      <Text>Δεδομένα Ασθενή...</Text> 
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <Feather name="list" size={32} color="#2c3e50" />
