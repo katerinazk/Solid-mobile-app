@@ -17,6 +17,7 @@ interface Patient {
   amka: string;
   accessType: string;
   webId: string;
+  web_id?: string;
   folderUrl: string;
 }
 
@@ -289,11 +290,15 @@ export default function App() {
         <TouchableOpacity 
           style={styles.cardActionButton} 
           onPress={() => {
+            console.log("👉 ΔΕΔΟΜΕΝΑ ΠΟΥ ΔΙΑΒΑΖΕΙ Η ΕΦΑΡΜΟΓΗ:", item);
             // 2. Αποθηκεύουμε το URL στη μνήμη που φτιάξαμε πριν!
-            setActivePatientFolderUrl(item.folderUrl); 
+            // Παίρνουμε το σωστό WebID
+            const correctWebId = item.webId || item.web_id || "";
+            // Φτιάχνουμε το URL του φακέλου public/ αντικαθιστώντας το τέλος του WebID
+            setActivePatientFolderUrl(correctWebId.replace('profile/card#me', 'public/'));
             
             // 3. Ανοίγουμε τον φάκελο (η δική σου συνάρτηση παραμένει ίδια)
-            handleOpenFolder(item.webId, item.name);
+            handleOpenFolder(item.webId || item.web_id || "", item.name);
           }}
         >
           <Text style={styles.cardActionButtonText}>Προβολή Φακέλου</Text>
