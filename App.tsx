@@ -123,6 +123,10 @@ export default function App() {
   //για το κουμπί προσθήκης διάγνωσης
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [newDiagnosis, setNewDiagnosis] = useState('');
+  //για την επεξεργασία
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [editFileUrl, setEditFileUrl] = useState('');
 
   const fetchPatientsFromSupabase = async () => {
     try {
@@ -329,6 +333,60 @@ export default function App() {
         }
       ]
     );
+  };
+
+  const handleEditFile = async (url: string) => {
+    try {
+      setLoading(true);
+      const dpopToken = await createDpopToken('GET', url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `DPoP ${accessToken}`,
+          'DPoP': dpopToken,
+        },
+      });
+
+      if (response.ok) {
+        const content = await response.text();
+        setEditContent(content);      // Προγεμίζουμε το TextInput
+        setEditFileUrl(url);          // Θυμόμαστε ποιο αρχείο επεξεργαζόμαστε
+        setIsEditModalVisible(true);  // Ανοίγουμε το Modal
+      } else {
+        alert("Αποτυχία φόρτωσης αρχείου.");
+      }
+    } catch (error) {
+      alert("Σφάλμα σύνδεσης.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      setLoading(true);
+      const dpopToken = await createDpopToken('PUT', editFileUrl);
+      const response = await fetch(editFileUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'text/plain',
+          'Authorization': `DPoP ${accessToken}`,
+          'DPoP': dpopToken,
+        },
+        body: editContent,
+      });
+
+      if (response.ok) {
+        alert("Η διάγνωση ενημερώθηκε επιτυχώς!");
+        setIsEditModalVisible(false);
+      } else {
+        alert("Σφάλμα αποθήκευσης: " + response.status);
+      }
+    } catch (error) {
+      alert("Σφάλμα σύνδεσης.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderPatientCard = ({ item }: { item: Patient }) => {
@@ -541,25 +599,32 @@ export default function App() {
               <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
             </TouchableOpacity>
             {folderFiles.length === 0 ? <Text style={styles.emptyText}>Άδειος φάκελος.</Text> : (
-              <FlatList data={folderFiles} keyExtractor={(item, idx) => idx.toString()} renderItem={({ item }) => {
-                const fileName = item.split('/').pop() || 'Αρχείο';
-                return (
-                  <View style={styles.fileItem}>
-                    <TouchableOpacity 
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} 
-                      onPress={() => openFile(item)}
-                    >
-                      <Ionicons name="document-text" size={24} color="#3498db" style={{marginRight: 15}} />
-                      <Text style={styles.fileName}>{decodeURIComponent(fileName)}</Text>
-                    </TouchableOpacity>
+              <FlatList data={folderFiles} keyExtractor={(item, idx) => 
+                idx.toString()}
+                renderItem={({ item }) => {
+                  const fileName = item.split('/').pop() || 'Αρχείο';
+                  return (
+                    <View style={styles.fileItem}>
+                      <TouchableOpacity 
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} 
+                        onPress={() => openFile(item)}
+                      >
+                        <Ionicons name="document-text" size={24} color="#3498db" style={{marginRight: 15}} />
+                        <Text style={styles.fileName}>{decodeURIComponent(fileName)}</Text>
+                      </TouchableOpacity>
 
-                    {/* 👈 Νέο κουμπί διαγραφής */}
-                    <TouchableOpacity onPress={() => handleDeleteFile(item)}>
-                      <Ionicons name="trash-outline" size={24} color="#e74c3c" />
-                    </TouchableOpacity>
-                  </View>
-                );
-              }} />
+                      {/* Κουμπί edit */}
+                      <TouchableOpacity onPress={() => handleEditFile(item)} style={{marginRight: 15}}>
+                        <Ionicons name="pencil-outline" size={24} color="#f39c12" />
+                      </TouchableOpacity>
+
+                      {/* Κουμπί διαγραφής */}
+                      <TouchableOpacity onPress={() => handleDeleteFile(item)}>
+                        <Ionicons name="trash-outline" size={24} color="#e74c3c" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }} />
             )}
           </View>
         </View>
@@ -595,6 +660,42 @@ export default function App() {
               <TouchableOpacity 
                 style={[styles.modalButton, styles.saveButton]} 
                 onPress={handleSaveDiagnosis}
+              >
+                <Text style={styles.saveButtonText}>Αποθήκευση</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isEditModalVisible}
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <Text style={styles.addmodalTitle}>Επεξεργασία Διάγνωσης</Text>
+            
+            <TextInput
+              style={styles.textArea}
+              multiline={true}
+              numberOfLines={4}
+              value={editContent}
+              onChangeText={setEditContent}
+            />
+
+            <View style={styles.modalButtonsGroup}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => setIsEditModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.saveButton]} 
+                onPress={handleSaveEdit}
               >
                 <Text style={styles.saveButtonText}>Αποθήκευση</Text>
               </TouchableOpacity>
