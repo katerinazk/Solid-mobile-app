@@ -7,6 +7,7 @@ import { supabase } from './supabase';
 import { getSolidDataset, getContainedResourceUrlAll } from '@inrupt/solid-client';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import { createDpopToken } from './dpop';
 
 // Απαραίτητο για να κλείνει σωστά το popup του browser στο κινητό
 WebBrowser.maybeCompleteAuthSession();
@@ -253,17 +254,19 @@ export default function App() {
   const openFile = async (url: string) => {
     try {
       setLoading(true);
+
+      const dpopToken = await createDpopToken('GET', url); // 👈 ΠΡΟΣΘΕΣΕ ΑΥΤΟ
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `DPoP ${accessToken}`, // 👈 ΑΛΛΑΞΕ ΤΟ Bearer σε DPoP
+          'DPoP': dpopToken,                       // 👈 ΠΡΟΣΘΕΣΕ ΑΥΤΟ
         },
       });
 
       if (response.ok) {
         const content = await response.text();
-        // Εδώ μπορείς να δείξεις το περιεχόμενο σε ένα alert 
-        // ή (ακόμα καλύτερα) σε ένα νέο Modal προβολής
         alert("Περιεχόμενο Διάγνωσης:\n\n" + content);
       } else {
         alert("Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
@@ -308,47 +311,57 @@ export default function App() {
   };
 
   const handleSaveDiagnosis = async () => {
+    console.log("📍 ΒΗΜΑ 1: Μπήκαμε στην handleSaveDiagnosis!");
     if (newDiagnosis.trim() === '') {
       alert("Παρακαλώ γράψτε μια διάγνωση!");
       return;
     }
+    console.log("📍 ΒΗΜΑ 2: Η διάγνωση δεν είναι κενή.");
 
-    // 1. Καθορίζουμε το URL του αρχείου στο Pod του ασθενή
-    // Υποθέτουμε ότι η μεταβλητή 'patientPodUrl' περιέχει το path του φακέλου (π.χ. από το iGrant)
     const fileName = `diagnosis_${Date.now()}.txt`;
-    const fileUrl = `${activePatientFolderUrl}${fileName}`; // Το folder URL που ήδη χρησιμοποιείς για να διαβάζεις
+    const fileUrl = `${activePatientFolderUrl}${fileName}`;
+    console.log("📍 ΒΗΜΑ 3: Το URL φτιάχτηκε. fileUrl =", fileUrl);
+    console.log("🔑 ΕΛΕΓΧΟΣ TOKEN:", accessToken ? "ΥΠΑΡΧΕΙ! (" + accessToken.substring(0, 15) + "...)" : "ΛΕΙΠΕΙ ΕΝΤΕΛΩΣ! ❌");
+    console.log("📁 ΠΟΥ ΠΑΕΙ ΝΑ ΓΡΑΨΕΙ:", fileUrl);
 
     try {
       setLoading(true);
 
-      // 2. Στέλνουμε το αρχείο στο Solid Pod με PUT
+      if (!accessToken) {
+        alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+        setLoading(false);
+        return;
+      }
+
+      const dpopToken = await createDpopToken('PUT', fileUrl); // 👈 ΠΡΟΣΘΕΣΕ ΑΥΤΟ
+
       const response = await fetch(fileUrl, {
         method: 'PUT',
         headers: {
           'Content-Type': 'text/plain',
-          // Χρησιμοποιούμε το token που αποθηκεύσαμε κατά το login
-          'Authorization': `Bearer ${accessToken}`, 
+          'Accept': '*/*',
+          'Authorization': `DPoP ${accessToken}`, // 👈 ΑΛΛΑΞΕ ΤΟ Bearer σε DPoP
+          'DPoP': dpopToken,                       // 👈 ΠΡΟΣΘΕΣΕ ΑΥΤΟ
         },
-        body: newDiagnosis, // Το κείμενο που έγραψε ο γιατρός στο Modal
+        body: newDiagnosis
       });
 
       if (response.ok) {
-        alert("Η διάγνωση αποθηκεύτηκε επιτυχώς στο Pod του ασθενή!");
-        
-        // 3. Ενημερώνουμε τη λίστα στην οθόνη για να φανεί αμέσως το νέο αρχείο
+        alert("Η διάγνωση αποθηκεύτηκε επιτυχώς!");
         setFolderFiles((prevFiles) => [...prevFiles, fileUrl]);
-        
-        // Κλείνουμε το modal και καθαρίζουμε το κείμενο
         setIsModalVisible(false);
         setNewDiagnosis('');
       } else {
         const errorText = await response.text();
-        console.error("Solid Error:", errorText);
-        alert("Σφάλμα Solid: " + response.status);
+        alert(
+          "ΚΩΔΙΚΟΣ: " + response.status + 
+          "\nΜΗΚΟΣ TOKEN: " + accessToken.length + " χαρακτήρες" +
+          "\n\nΛΟΓΟΣ:\n" + errorText.substring(0, 150)
+        );
       }
     } catch (error) {
       console.error("Network Error:", error);
-      alert("Αποτυχία σύνδεσης με το Pod. Ελέγξτε το δίκτυο.");
+      alert("Αποτυχία σύνδεσης με το Pod.");
     } finally {
       setLoading(false);
     }
