@@ -64,21 +64,34 @@ export default function App() {
         console.log("1. Πήραμε το Εισιτήριο (Auth Code):", authCode);
 
         try {
-          // Πάμε να το ανταλλάξουμε με το πραγματικό Βραχιολάκι (Access Token)
-          const tokenResult = await AuthSession.exchangeCodeAsync({
-            clientId: dynamicClientId || '', // Η μεταβλητή με το ID της εφαρμογής
-            code: authCode,
-            redirectUri: redirectUri,
-            extraParams: {
-              // Ο έξτρα κωδικός ασφαλείας (PKCE) που απαιτεί το OIDC
-              code_verifier: request?.codeVerifier || '', 
-            },
-          }, discoveryDocument); // Το discoveryDocument που πήραμε στο Dynamic Registration
+          /// Φτιάχνουμε DPoP token για το token endpoint
+          const tokenEndpoint = discoveryDocument.tokenEndpoint;
+          const dpopForToken = await createDpopToken('POST', tokenEndpoint);
 
-          console.log("2. ΕΠΙΤΥΧΙΑ! Το πραγματικό Access Token είναι:", tokenResult.accessToken);
-          
-          // Κλειδώνουμε το ΣΩΣΤΟ token στη μνήμη
-          setAccessToken(tokenResult.accessToken); 
+          const tokenResponse = await fetch(tokenEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'DPoP': dpopForToken,  // 👈 Το κλειδί της λύσης
+            },
+            body: new URLSearchParams({
+              grant_type: 'authorization_code',
+              client_id: dynamicClientId || '',
+              code: authCode,
+              redirect_uri: redirectUri,
+              code_verifier: request?.codeVerifier || '',
+            }).toString(),
+          });
+
+          const tokenData = await tokenResponse.json();
+          console.log("Token Response:", JSON.stringify(tokenData));
+
+          if (tokenData.access_token) {
+            setAccessToken(tokenData.access_token);
+            setIsLoggedIn(true);
+          } else {
+            alert("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
+          }
           
           // Βάζουμε τον γιατρό μέσα στην εφαρμογή
           setIsLoggedIn(true); 
