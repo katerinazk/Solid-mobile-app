@@ -291,6 +291,46 @@ export default function App() {
     }
   };
 
+  const handleDeleteFile = async (url: string) => {
+    Alert.alert(
+      "Διαγραφή",
+      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη διάγνωση;",
+      [
+        { text: "Ακύρωση", style: "cancel" },
+        {
+          text: "Διαγραφή",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const dpopToken = await createDpopToken('DELETE', url);
+
+              const response = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `DPoP ${accessToken}`,
+                  'DPoP': dpopToken,
+                },
+              });
+
+              if (response.ok) {
+                // Αφαιρούμε το αρχείο από τη λίστα
+                setFolderFiles((prev) => prev.filter((f) => f !== url));
+                alert("Η διάγνωση διαγράφηκε επιτυχώς!");
+              } else {
+                alert("Σφάλμα διαγραφής: " + response.status);
+              }
+            } catch (error) {
+              alert("Αποτυχία σύνδεσης.");
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderPatientCard = ({ item }: { item: Patient }) => {
   
     // 1. Φτιάχνουμε το URL του φακέλου για αυτόν τον ασθενή.
@@ -504,10 +544,20 @@ export default function App() {
               <FlatList data={folderFiles} keyExtractor={(item, idx) => idx.toString()} renderItem={({ item }) => {
                 const fileName = item.split('/').pop() || 'Αρχείο';
                 return (
-                  <TouchableOpacity style={styles.fileItem} onPress={() => openFile(item)}>
-                    <Ionicons name="document-text" size={24} color="#3498db" style={{marginRight: 15}} />
-                    <Text style={styles.fileName}>{decodeURIComponent(fileName)}</Text>
-                  </TouchableOpacity>
+                  <View style={styles.fileItem}>
+                    <TouchableOpacity 
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} 
+                      onPress={() => openFile(item)}
+                    >
+                      <Ionicons name="document-text" size={24} color="#3498db" style={{marginRight: 15}} />
+                      <Text style={styles.fileName}>{decodeURIComponent(fileName)}</Text>
+                    </TouchableOpacity>
+
+                    {/* 👈 Νέο κουμπί διαγραφής */}
+                    <TouchableOpacity onPress={() => handleDeleteFile(item)}>
+                      <Ionicons name="trash-outline" size={24} color="#e74c3c" />
+                    </TouchableOpacity>
+                  </View>
                 );
               }} />
             )}
