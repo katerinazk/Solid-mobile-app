@@ -14,7 +14,8 @@ WebBrowser.maybeCompleteAuthSession();
 
 interface Patient {
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   amka: string;
   accessType: string;
   webId: string;
@@ -239,11 +240,11 @@ export default function App() {
       if (data) {
         const formattedPatients: Patient[] = data.map((item) => ({
           id: item.id, 
-          name: item.name, 
+          first_name: item.first_name,
+          last_name: item.last_name, 
           amka: item.amka, 
-          accessType: item.access_type, 
+          accessType: '',
           webId: item.web_id, 
-          // έλεγχος ασφαλείας: αν υπάρχει το web_id, τότε κάνε replace
           folderUrl: item.web_id ? item.web_id.replace('profile/card#me', 'public/') : '' 
         }));
         setPatients(formattedPatients);
@@ -397,7 +398,7 @@ export default function App() {
     return (
       <View style={styles.card}>
         <View style={styles.cardDetails}>
-          <Text style={styles.patientName}>{item.name}</Text>
+          <Text style={styles.patientName}>{item.first_name} {item.last_name}</Text>
           <Text style={styles.cardLabel}>AMKA: <Text style={styles.cardValue}>{item.amka}</Text></Text>
           <Text style={styles.cardLabel}>Πρόσβαση: <Text style={styles.cardValue}>{item.accessType}</Text></Text>
         </View>
