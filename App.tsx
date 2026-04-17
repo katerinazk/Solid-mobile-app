@@ -32,9 +32,10 @@ export default function App() {
   const [modalVisible, setModalVisible] = useState(false);
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [activePatientName, setActivePatientName] = useState('');
+  const [patientAmka, setPatientAmka] = useState('');
   
   // Ασθενείς
-  const [showPatientRegister, setShowPatientRegister] = useState(true);
+  const [showPatientRegister, setShowPatientRegister] = useState(false);
   const [patientForm, setPatientForm] = useState({
     first_name: '',
     last_name: '',
@@ -554,6 +555,47 @@ export default function App() {
   // ==========================================
   // ΟΘΟΝΗ ΕΓΓΡΑΦΗΣ ΑΣΘΕΝΗ
   // ==========================================
+  if (userRole === 'patient' && !isLoggedIn && !showPatientRegister) {
+    return (
+      <SafeAreaView style={styles.loginContainer}>
+        <StatusBar barStyle="dark-content" />
+        <TouchableOpacity style={styles.backButton} onPress={() => setUserRole('none')}>
+          <Ionicons name="arrow-back" size={28} color="#2c3e50" />
+        </TouchableOpacity>
+
+        <View style={styles.loginCard}>
+          <Ionicons name="medical" size={60} color="#3b5998" style={{ alignSelf: 'center', marginBottom: 20 }} />
+          <Text style={styles.loginTitle}>Σύνδεση</Text>
+
+          <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
+          <TextInput
+            style={styles.loginInput}
+            placeholder="11 ψηφία"
+            keyboardType="numeric"
+            value={patientAmka}
+            onChangeText={setPatientAmka}
+          />
+
+          <TouchableOpacity
+            style={styles.solidLoginButton}
+            onPress={() => handleDynamicLogin('https://datapod.igrant.io')}
+            disabled={loading}
+          >
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.solidLoginButtonText}>Είσοδος</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{marginTop: 15, alignItems: 'center'}}
+            onPress={() => setShowPatientRegister(true)}
+          >
+            <Text style={{color: '#7f8c8d', fontSize: 14}}>Δεν έχετε λογαριασμό;</Text>
+            <Text style={{color: '#3b5998', fontSize: 16, fontWeight: 'bold'}}>Εγγραφή</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (userRole === 'patient' && !isLoggedIn && showPatientRegister) {
     return (
       <SafeAreaView style={styles.loginContainer}>
