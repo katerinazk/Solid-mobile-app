@@ -33,6 +33,18 @@ export default function App() {
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [activePatientName, setActivePatientName] = useState('');
   
+  // Ασθενείς
+  const [showPatientRegister, setShowPatientRegister] = useState(true);
+  const [patientForm, setPatientForm] = useState({
+    first_name: '',
+    last_name: '',
+    amka: '',
+    birth_date: '',
+    sex: '',
+    blood_type: '',
+    phone: '',
+  });
+  
   // --- DYNAMIC SOLID LOGIN STATE ---
   const [dynamicClientId, setDynamicClientId] = useState<string | null>(null);
   const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
@@ -479,6 +491,37 @@ export default function App() {
     }
   };
 
+  const handlePatientRegister = async () => {
+    if (!patientForm.first_name || !patientForm.last_name || !patientForm.amka) {
+      alert("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα, Επίθετο και ΑΜΚΑ.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const { error } = await supabase.from('patients').insert([{
+        first_name: patientForm.first_name,
+        last_name: patientForm.last_name,
+        amka: patientForm.amka,
+        birth_date: patientForm.birth_date || null,
+        sex: patientForm.sex || null,
+        blood_type: patientForm.blood_type || null,
+        phone: patientForm.phone || null,
+      }]);
+
+      if (error) {
+        alert("Σφάλμα αποθήκευσης: " + error.message);
+        return;
+      }
+
+      // Πάμε στο Solid Login
+      handleDynamicLogin('https://datapod.igrant.io');
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ==========================================
   // ΟΘΟΝΗ 1: ΕΠΙΛΟΓΗ ΡΟΛΟΥ
   // ==========================================
@@ -549,14 +592,66 @@ export default function App() {
   }
 
   // ==========================================
-  // ΟΘΟΝΗ 3: ΚΥΡΙΑ ΕΦΑΡΜΟΓΗ (Μόνο για τον Γιατρό προς το παρόν)
+  // ΟΘΟΝΗ 3: ΚΥΡΙΑ ΕΦΑΡΜΟΓΗ
+  // ==========================================
+
+  // ==========================================
+  // ΟΘΟΝΗ ΕΓΓΡΑΦΗΣ ΑΣΘΕΝΗ
+  // ==========================================
+  if (userRole === 'patient' && !isLoggedIn && !showPatientRegister) {
+    return (
+      <SafeAreaView style={styles.loginContainer}>
+        <StatusBar barStyle="dark-content" />
+        <TouchableOpacity style={styles.backButton} onPress={() => setUserRole('none')}>
+          <Ionicons name="arrow-back" size={28} color="#2c3e50" />
+        </TouchableOpacity>
+
+        <View style={styles.loginCard}>
+          <Ionicons name="person-add" size={60} color="#3b5998" style={{ alignSelf: 'center', marginBottom: 20 }} />
+          <Text style={styles.loginTitle}>Δημιουργία Λογαριασμού</Text>
+
+          <Text style={styles.inputLabel}>Όνομα</Text>
+          <TextInput style={styles.loginInput} placeholder="π.χ. Μαρία" value={patientForm.first_name} onChangeText={(t) => setPatientForm({...patientForm, first_name: t})} />
+
+          <Text style={styles.inputLabel}>Επίθετο</Text>
+          <TextInput style={styles.loginInput} placeholder="π.χ. Παππά" value={patientForm.last_name} onChangeText={(t) => setPatientForm({...patientForm, last_name: t})} />
+
+          <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
+          <TextInput style={styles.loginInput} placeholder="11 ψηφία" keyboardType="numeric" value={patientForm.amka} onChangeText={(t) => setPatientForm({...patientForm, amka: t})} />
+
+          <Text style={styles.inputLabel}>Ημερομηνία Γέννησης</Text>
+          <TextInput style={styles.loginInput} placeholder="π.χ. 1990-07-22" value={patientForm.birth_date} onChangeText={(t) => setPatientForm({...patientForm, birth_date: t})} />
+
+          <Text style={styles.inputLabel}>Φύλο</Text>
+          <TextInput style={styles.loginInput} placeholder="Άνδρας / Γυναίκα" value={patientForm.sex} onChangeText={(t) => setPatientForm({...patientForm, sex: t})} />
+
+          <Text style={styles.inputLabel}>Ομάδα Αίματος</Text>
+          <TextInput style={styles.loginInput} placeholder="π.χ. A+" value={patientForm.blood_type} onChangeText={(t) => setPatientForm({...patientForm, blood_type: t})} />
+
+          <Text style={styles.inputLabel}>Τηλέφωνο</Text>
+          <TextInput style={styles.loginInput} placeholder="π.χ. 6912345678" keyboardType="numeric" value={patientForm.phone} onChangeText={(t) => setPatientForm({...patientForm, phone: t})} />
+
+          <TouchableOpacity style={styles.solidLoginButton} onPress={handlePatientRegister} disabled={loading}>
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.solidLoginButtonText}>Αποθήκευση & Σύνδεση</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{marginTop: 15, alignItems: 'center'}} onPress={() => handleDynamicLogin('https://datapod.igrant.io')}>
+            <Text style={{color: '#3b5998', fontSize: 16}}>Έχω ήδη λογαριασμό</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ==========================================
+  // ΟΘΟΝΗ ΑΣΘΕΝΗ (ΚΥΡΙΑ)
   // ==========================================
   if (isLoggedIn && userRole === 'patient') {
     return (
       <SafeAreaView style={styles.container}>
         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20}}>
           <Ionicons name="construct" size={80} color="#7f8c8d" />
-          <Text style={{fontSize: 22, textAlign: 'center', marginTop: 20, color: '#2c3e50'}}>Η οθόνη του Ασθενή είναι υπό κατασκευή!</Text>
+          <Text style={{fontSize: 22, textAlign: 'center', marginTop: 20, color: '#2c3e50'}}>Η οθόνη του Ασθενή έρχεται σύντομα!</Text>
           <TouchableOpacity style={[styles.solidLoginButton, {marginTop: 30}]} onPress={() => { setIsLoggedIn(false); setUserRole('none'); }}>
             <Text style={styles.solidLoginButtonText}>Επιστροφή</Text>
           </TouchableOpacity>
