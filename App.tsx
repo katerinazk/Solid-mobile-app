@@ -103,7 +103,18 @@ export default function App() {
 
           if (tokenData.access_token) {
             setAccessToken(tokenData.access_token);
-            setIsLoggedIn(true);
+            if (userRole === 'patient') {
+              // Παίρνουμε το WebID από το token (είναι encoded στο JWT)
+              const tokenParts = tokenData.accessToken.split('.');
+              const tokenPayload = JSON.parse(atob(tokenParts[1]));
+              const webId = tokenPayload.webid || tokenPayload.sub || '';
+              console.log("🔑 WebID από token:", webId);
+              
+              setIsLoggedIn(true);
+              await handlePatientLoginVerification(webId);
+            } else {
+              setIsLoggedIn(true);
+            }
           } else {
             alert("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
           }
@@ -163,6 +174,43 @@ export default function App() {
       console.error("Απρόσμενο σφάλμα:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePatientLoginVerification = async (webId: string) => {
+    try {
+      // Ψάχνουμε τον ασθενή με αυτό το ΑΜΚΑ στη Supabase
+      const { data, error } = await supabase
+        .from('patients')
+        .select('web_id')
+        .eq('amka', loggedInPatientAmka)
+        .single();
+
+      if (error || !data) {
+        alert("Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.");
+        setIsLoggedIn(false);
+        return;
+      }
+
+      if (!data.web_id) {
+        // Νέος ασθενής — αποθηκεύουμε το WebID
+        await supabase
+          .from('patients')
+          .update({ web_id: webId })
+          .eq('amka', loggedInPatientAmka);
+        console.log("✅ WebID αποθηκεύτηκε:", webId);
+      } else if (data.web_id !== webId) {
+        // Λάθος Pod!
+        alert("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
+        setIsLoggedIn(false);
+        return;
+      }
+
+      // Όλα εντάξει — ο ασθενής επαληθεύτηκε
+      console.log("✅ Ο ασθενής επαληθεύτηκε επιτυχώς!");
+
+    } catch (error) {
+      console.error("Σφάλμα επαλήθευσης:", error);
     }
   };
 
