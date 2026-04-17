@@ -413,7 +413,7 @@ export default function App() {
             setActivePatientFolderUrl(correctWebId.replace('profile/card#me', 'public/'));
             
             // 3. Ανοίγουμε τον φάκελο (η δική σου συνάρτηση παραμένει ίδια)
-            handleOpenFolder(item.webId || item.web_id || "", item.name);
+            handleOpenFolder(item.webId || item.web_id || "", `${item.first_name} ${item.last_name}`);
           }}
         >
           <Text style={styles.cardActionButtonText}>Προβολή Φακέλου</Text>
