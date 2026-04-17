@@ -33,6 +33,7 @@ export default function App() {
   const [folderFiles, setFolderFiles] = useState<string[]>([]);
   const [activePatientName, setActivePatientName] = useState('');
   const [patientAmka, setPatientAmka] = useState('');
+  const [loggedInPatientAmka, setLoggedInPatientAmka] = useState('');
   
   // Ασθενείς
   const [showPatientRegister, setShowPatientRegister] = useState(false);
@@ -578,7 +579,14 @@ export default function App() {
 
           <TouchableOpacity
             style={styles.solidLoginButton}
-            onPress={() => handleDynamicLogin('https://datapod.igrant.io')}
+            onPress={() => {
+              if (!patientAmka) {
+                alert("Παρακαλώ εισάγετε το ΑΜΚΑ σας.");
+                return;
+              }
+              setLoggedInPatientAmka(patientAmka);
+              handleDynamicLogin('https://datapod.igrant.io');
+            }}
             disabled={loading}
           >
             {loading ? <ActivityIndicator color="white" /> : <Text style={styles.solidLoginButtonText}>Είσοδος</Text>}
