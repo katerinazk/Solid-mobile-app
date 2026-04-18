@@ -215,6 +215,10 @@ export default function App() {
       // Όλα εντάξει — ο ασθενής επαληθεύτηκε
       console.log("✅ Ο ασθενής επαληθεύτηκε επιτυχώς!");
 
+      // Αποθηκεύουμε το folder URL του ασθενή
+      const patientFolder = webId.replace('profile/card#me', 'public/');
+      setActivePatientFolderUrl(patientFolder);
+
     } catch (error) {
       console.error("Σφάλμα επαλήθευσης:", error);
     }
@@ -636,6 +640,7 @@ export default function App() {
         return;
       }
 
+      await updatePodAcl(doctorData.web_id, newAccessType);
       alert(`Η πρόσβαση στον Δρ. ${doctorData.last_name} δόθηκε επιτυχώς!`);
       setNewDoctorAmka('');
       setIsAddAccessModalVisible(false);
@@ -654,6 +659,8 @@ export default function App() {
         text: "Κατάργηση",
         style: "destructive",
         onPress: async () => {
+          const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
+          const doctorWebId = doctorEntry?.doctors?.web_id;
           const { error } = await supabase
             .from('access')
             .delete()
@@ -661,11 +668,108 @@ export default function App() {
             .eq('doctor_amka', doctorAmka);
 
           if (!error) {
+            if (doctorWebId) {
+              await removeDoctorFromAcl(doctorWebId);
+            }
             setAccessList(prev => prev.filter(a => a.doctor_amka !== doctorAmka));
+            alert("Η πρόσβαση καταργήθηκε επιτυχώς!");
           }
         }
       }
     ]);
+  };
+
+  const updatePodAcl = async (doctorWebId: string, accessType: string) => {
+    const aclUrl = `${activePatientFolderUrl}.acl`;
+    const patientWebId = `https://up1072722vol2.datapod.igrant.io/profile/card#me`;
+    
+    const aclContent = `
+  @prefix acl: <http://www.w3.org/ns/auth/acl#>.
+  @prefix foaf: <http://xmlns.com/foaf/0.1/>.
+
+  <#owner>
+    a acl:Authorization;
+    acl:agent <${patientWebId}>;
+    acl:accessTo <${activePatientFolderUrl}>;
+    acl:default <${activePatientFolderUrl}>;
+    acl:mode acl:Read, acl:Write, acl:Control.
+
+  <#doctor>
+    a acl:Authorization;
+    acl:agent <${doctorWebId}>;
+    acl:accessTo <${activePatientFolderUrl}>;
+    acl:default <${activePatientFolderUrl}>;
+    acl:mode acl:Read${accessType === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
+  `;
+
+    const dpopToken = await createDpopToken('PUT', aclUrl);
+    const response = await fetch(aclUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'text/turtle',
+        'Authorization': `DPoP ${accessToken}`,
+        'DPoP': dpopToken,
+      },
+      body: aclContent,
+    });
+
+    if (response.ok) {
+      console.log("✅ ACL ενημερώθηκε στο Pod!");
+    } else {
+      console.error("❌ ACL error:", response.status, await response.text());
+    }
+  };
+
+  const removeDoctorFromAcl = async (doctorWebId: string) => {
+    const aclUrl = `${activePatientFolderUrl}.acl`;
+    const patientWebId = `https://up1072722vol2.datapod.igrant.io/profile/card#me`;
+
+    // Πρώτα παίρνουμε τους υπόλοιπους γιατρούς που έχουν ακόμα πρόσβαση
+    const remainingDoctors = accessList.filter(a => a.doctors?.web_id !== doctorWebId);
+
+    // Φτιάχνουμε το νέο ACL με μόνο τους υπόλοιπους
+    let aclContent = `
+  @prefix acl: <http://www.w3.org/ns/auth/acl#>.
+  @prefix foaf: <http://xmlns.com/foaf/0.1/>.
+
+  <#owner>
+    a acl:Authorization;
+    acl:agent <${patientWebId}>;
+    acl:accessTo <${activePatientFolderUrl}>;
+    acl:default <${activePatientFolderUrl}>;
+    acl:mode acl:Read, acl:Write, acl:Control.
+  `;
+
+    // Προσθέτουμε έναν-έναν τους υπόλοιπους γιατρούς
+    remainingDoctors.forEach((a, index) => {
+      if (a.doctors?.web_id) {
+        aclContent += `
+  <#doctor${index}>
+    a acl:Authorization;
+    acl:agent <${a.doctors.web_id}>;
+    acl:accessTo <${activePatientFolderUrl}>;
+    acl:default <${activePatientFolderUrl}>;
+    acl:mode acl:Read${a.access_type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
+  `;
+      }
+    });
+
+    const dpopToken = await createDpopToken('PUT', aclUrl);
+    const response = await fetch(aclUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'text/turtle',
+        'Authorization': `DPoP ${accessToken}`,
+        'DPoP': dpopToken,
+      },
+      body: aclContent,
+    });
+
+    if (response.ok) {
+      console.log("✅ Η πρόσβαση αφαιρέθηκε από το Pod!");
+    } else {
+      console.error("❌ ACL error:", response.status, await response.text());
+    }
   };
 
   // ==========================================
