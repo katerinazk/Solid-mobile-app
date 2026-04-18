@@ -105,7 +105,7 @@ export default function App() {
             setAccessToken(tokenData.access_token);
             if (userRole === 'patient') {
               // Παίρνουμε το WebID από το token (είναι encoded στο JWT)
-              const tokenParts = tokenData.accessToken.split('.');
+              const tokenParts = tokenData.access_token.split('.');
               const tokenPayload = JSON.parse(atob(tokenParts[1]));
               const webId = tokenPayload.webid || tokenPayload.sub || '';
               console.log("🔑 WebID από token:", webId);
