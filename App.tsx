@@ -34,6 +34,12 @@ export default function App() {
   const [activePatientName, setActivePatientName] = useState('');
   const [patientAmka, setPatientAmka] = useState('');
   const [loggedInPatientAmka, setLoggedInPatientAmka] = useState('');
+
+  // Προσβάσεις Ασθενής
+  const [accessList, setAccessList] = useState<any[]>([]);
+  const [isAddAccessModalVisible, setIsAddAccessModalVisible] = useState(false);
+  const [newDoctorAmka, setNewDoctorAmka] = useState('');
+  const [newAccessType, setNewAccessType] = useState('Πλήρης Πρόσβαση');
   
   // Ασθενείς
   const [showPatientRegister, setShowPatientRegister] = useState(false);
@@ -217,7 +223,10 @@ export default function App() {
   // 3. Πότε θα τρέξει η ερώτηση στη βάση;
   // Μόλις το `isLoggedIn` γίνει true (δηλαδή μόλις συνδεθεί ο γιατρός επιτυχώς!)
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn && userRole === 'patient') {
+      fetchAccessList();
+    }
+    if (isLoggedIn && userRole === 'doctor') {
       fetchPatientsFromSupabase();
     }
   }, [isLoggedIn]);
@@ -572,6 +581,93 @@ export default function App() {
     }
   };
 
+  const fetchAccessList = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('access')
+        .select(`
+          doctor_amka,
+          access_type,
+          doctors (first_name, last_name, specialty)
+        `)
+        .eq('patient_amka', loggedInPatientAmka);
+
+      if (error) { console.error(error); return; }
+      setAccessList(data || []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddAccess = async () => {
+    if (!newDoctorAmka) {
+      alert("Παρακαλώ εισάγετε το ΑΜΚΑ του γιατρού.");
+      return;
+    }
+    try {
+      setLoading(true);
+
+      // Ελέγχουμε αν υπάρχει ο γιατρός
+      const { data: doctorData, error: doctorError } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('amka', newDoctorAmka)
+        .single();
+
+      if (doctorError || !doctorData) {
+        alert("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
+        return;
+      }
+
+      // Προσθέτουμε την πρόσβαση
+      const { error } = await supabase
+        .from('access')
+        .insert([{
+          patient_amka: loggedInPatientAmka,
+          doctor_amka: newDoctorAmka,
+          access_type: newAccessType,
+        }]);
+
+      if (error) {
+        alert("Σφάλμα: " + error.message);
+        return;
+      }
+
+      alert(`Η πρόσβαση στον Δρ. ${doctorData.last_name} δόθηκε επιτυχώς!`);
+      setNewDoctorAmka('');
+      setIsAddAccessModalVisible(false);
+      fetchAccessList(); // Ανανεώνουμε τη λίστα
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAccess = async (doctorAmka: string) => {
+    Alert.alert("Κατάργηση", "Θέλετε να αφαιρέσετε αυτή την πρόσβαση;", [
+      { text: "Ακύρωση", style: "cancel" },
+      {
+        text: "Κατάργηση",
+        style: "destructive",
+        onPress: async () => {
+          const { error } = await supabase
+            .from('access')
+            .delete()
+            .eq('patient_amka', loggedInPatientAmka)
+            .eq('doctor_amka', doctorAmka);
+
+          if (!error) {
+            setAccessList(prev => prev.filter(a => a.doctor_amka !== doctorAmka));
+          }
+        }
+      }
+    ]);
+  };
+
   // ==========================================
   // ΟΘΟΝΗ 1: ΕΠΙΛΟΓΗ ΡΟΛΟΥ
   // ==========================================
@@ -748,13 +844,86 @@ export default function App() {
   if (isLoggedIn && userRole === 'patient') {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20}}>
-          <Ionicons name="construct" size={80} color="#7f8c8d" />
-          <Text style={{fontSize: 22, textAlign: 'center', marginTop: 20, color: '#2c3e50'}}>Η οθόνη του Ασθενή έρχεται σύντομα!</Text>
-          <TouchableOpacity style={[styles.solidLoginButton, {marginTop: 30}]} onPress={() => { setIsLoggedIn(false); setUserRole('none'); }}>
-            <Text style={styles.solidLoginButtonText}>Επιστροφή</Text>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.header}>
+          <Text style={{fontSize: 20, fontWeight: 'bold', color: '#2c3e50'}}>Οι Προσβάσεις μου</Text>
+          <TouchableOpacity onPress={() => { setIsLoggedIn(false); setUserRole('none'); setShowPatientRegister(false); }}>
+            <Ionicons name="log-out-outline" size={36} color="#e74c3c" />
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={[styles.addButton, {marginHorizontal: 20, marginBottom: 10}]} onPress={() => setIsAddAccessModalVisible(true)}>
+          <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
+        </TouchableOpacity>
+
+        {loading ? <ActivityIndicator size="large" color="#3b5998" style={{marginTop: 50}} /> : (
+          accessList.length === 0 ? (
+            <Text style={[styles.emptyText, {marginTop: 50}]}>Δεν έχετε δώσει πρόσβαση σε κανέναν γιατρό.</Text>
+          ) : (
+            <FlatList
+              data={accessList}
+              keyExtractor={(item) => item.doctor_amka}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item }) => (
+                <View style={styles.card}>
+                  <View style={styles.cardDetails}>
+                    <Text style={styles.patientName}>
+                      Δρ. {item.doctors?.last_name} {item.doctors?.first_name}
+                    </Text>
+                    <Text style={styles.cardLabel}>Ειδικότητα: <Text style={styles.cardValue}>{item.doctors?.specialty}</Text></Text>
+                    <Text style={styles.cardLabel}>Τύπος πρόσβασης: <Text style={styles.cardValue}>{item.access_type}</Text></Text>
+                  </View>
+                  <TouchableOpacity style={[styles.cardActionButton, {backgroundColor: '#e74c3c'}]} onPress={() => handleDeleteAccess(item.doctor_amka)}>
+                    <Text style={styles.cardActionButtonText}>Κατάργηση</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          )
+        )}
+
+        {/* Modal Προσθήκης Πρόσβασης */}
+        <Modal animationType="slide" transparent={true} visible={isAddAccessModalVisible} onRequestClose={() => setIsAddAccessModalVisible(false)}>
+          <View style={styles.addmodalOverlay}>
+            <View style={styles.addmodalContent}>
+              <Text style={styles.addmodalTitle}>Νέα Πρόσβαση</Text>
+
+              <Text style={styles.inputLabel}>ΑΜΚΑ Γιατρού</Text>
+              <TextInput
+                style={styles.loginInput}
+                placeholder="11 ψηφία"
+                keyboardType="numeric"
+                value={newDoctorAmka}
+                onChangeText={setNewDoctorAmka}
+              />
+
+              <Text style={styles.inputLabel}>Τύπος Πρόσβασης</Text>
+              <View style={{flexDirection: 'row', marginBottom: 20}}>
+                <TouchableOpacity
+                  style={[styles.modalButton, {flex: 1, marginRight: 5, backgroundColor: newAccessType === 'Πλήρης Πρόσβαση' ? '#3b5998' : '#f5f5f5', borderWidth: 1, borderColor: '#ddd'}]}
+                  onPress={() => setNewAccessType('Πλήρης Πρόσβαση')}
+                >
+                  <Text style={{color: newAccessType === 'Πλήρης Πρόσβαση' ? 'white' : '#666', textAlign: 'center'}}>Πλήρης</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, {flex: 1, marginLeft: 5, backgroundColor: newAccessType === 'Μόνο Ανάγνωση' ? '#3b5998' : '#f5f5f5', borderWidth: 1, borderColor: '#ddd'}]}
+                  onPress={() => setNewAccessType('Μόνο Ανάγνωση')}
+                >
+                  <Text style={{color: newAccessType === 'Μόνο Ανάγνωση' ? 'white' : '#666', textAlign: 'center'}}>Μόνο Ανάγνωση</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalButtonsGroup}>
+                <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setIsAddAccessModalVisible(false)}>
+                  <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleAddAccess} disabled={loading}>
+                  {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Εντάξει</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
   }
