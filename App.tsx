@@ -593,7 +593,7 @@ export default function App() {
         .select(`
           doctor_amka,
           access_type,
-          doctors (first_name, last_name, specialty)
+          doctors (first_name, last_name, specialty, web_id)
         `)
         .eq('patient_amka', loggedInPatientAmka);
 
@@ -661,6 +661,8 @@ export default function App() {
         onPress: async () => {
           const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
           const doctorWebId = doctorEntry?.doctors?.web_id;
+          console.log("🔍 doctorEntry:", JSON.stringify(doctorEntry));
+          console.log("🔑 doctorWebId:", doctorWebId);
           const { error } = await supabase
             .from('access')
             .delete()
@@ -722,10 +724,13 @@ export default function App() {
 
   const removeDoctorFromAcl = async (doctorWebId: string) => {
     const aclUrl = `${activePatientFolderUrl}.acl`;
+    console.log("🗑️ Removing doctor WebID:", doctorWebId);
+    console.log("📁 ACL URL:", aclUrl);
     const patientWebId = `https://up1072722vol2.datapod.igrant.io/profile/card#me`;
 
     // Πρώτα παίρνουμε τους υπόλοιπους γιατρούς που έχουν ακόμα πρόσβαση
     const remainingDoctors = accessList.filter(a => a.doctors?.web_id !== doctorWebId);
+    console.log("👥 Remaining doctors:", remainingDoctors.length);
 
     // Φτιάχνουμε το νέο ACL με μόνο τους υπόλοιπους
     let aclContent = `
