@@ -681,11 +681,23 @@ export default function App() {
     ]);
   };
 
-  const updatePodAcl = async (doctorWebId: string, accessType: string) => {
+  const updatePodAcl = async (newDoctorWebId: string, accessType: string) => {
     const aclUrl = `${activePatientFolderUrl}.acl`;
     const patientWebId = `https://up1072722vol2.datapod.igrant.io/profile/card#me`;
+
+    // Παίρνουμε ΟΛΟΥΣ τους υπάρχοντες γιατρούς + τον νέο
+    let allDoctors = [...accessList];
     
-    const aclContent = `
+    // Αν ο γιατρός δεν υπάρχει ήδη στη λίστα, τον προσθέτουμε προσωρινά
+    const alreadyExists = allDoctors.some(a => a.doctors?.web_id === newDoctorWebId);
+    if (!alreadyExists) {
+      allDoctors = [...allDoctors, {
+        doctors: { web_id: newDoctorWebId },
+        access_type: accessType
+      }];
+    }
+
+    let aclContent = `
   @prefix acl: <http://www.w3.org/ns/auth/acl#>.
   @prefix foaf: <http://xmlns.com/foaf/0.1/>.
 
@@ -695,14 +707,22 @@ export default function App() {
     acl:accessTo <${activePatientFolderUrl}>;
     acl:default <${activePatientFolderUrl}>;
     acl:mode acl:Read, acl:Write, acl:Control.
+  `;
 
-  <#doctor>
+    // Προσθέτουμε ΟΛΟΥΣ τους γιατρούς
+    allDoctors.forEach((a, index) => {
+      const webId = a.doctors?.web_id;
+      if (!webId) return;
+      const type = webId === newDoctorWebId ? accessType : a.access_type;
+      aclContent += `
+  <#doctor${index}>
     a acl:Authorization;
-    acl:agent <${doctorWebId}>;
+    acl:agent <${webId}>;
     acl:accessTo <${activePatientFolderUrl}>;
     acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read${accessType === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
+    acl:mode acl:Read${type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
   `;
+    });
 
     const dpopToken = await createDpopToken('PUT', aclUrl);
     const response = await fetch(aclUrl, {
@@ -775,6 +795,30 @@ export default function App() {
     } else {
       console.error("❌ ACL error:", response.status, await response.text());
     }
+  };
+
+  const handleChangeAccessType = async (doctorAmka: string, currentType: string) => {
+    const newType = currentType === 'Πλήρης Πρόσβαση' ? 'Μόνο Ανάγνωση' : 'Πλήρης Πρόσβαση';
+
+    // Ενημέρωση Supabase
+    const { error } = await supabase
+      .from('access')
+      .update({ access_type: newType })
+      .eq('patient_amka', loggedInPatientAmka)
+      .eq('doctor_amka', doctorAmka);
+
+    if (error) { alert("Σφάλμα: " + error.message); return; }
+
+    // Ενημέρωση ACL στο Pod
+    const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
+    if (doctorEntry?.doctors?.web_id) {
+      await updatePodAcl(doctorEntry.doctors.web_id, newType);
+    }
+
+    // Ενημέρωση UI
+    setAccessList(prev => prev.map(a => 
+      a.doctor_amka === doctorAmka ? {...a, access_type: newType} : a
+    ));
   };
 
   // ==========================================
@@ -980,7 +1024,24 @@ export default function App() {
                       Δρ. {item.doctors?.last_name} {item.doctors?.first_name}
                     </Text>
                     <Text style={styles.cardLabel}>Ειδικότητα: <Text style={styles.cardValue}>{item.doctors?.specialty}</Text></Text>
-                    <Text style={styles.cardLabel}>Τύπος πρόσβασης: <Text style={styles.cardValue}>{item.access_type}</Text></Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 5}}>
+                      <Text style={styles.cardLabel}>Τύπος πρόσβασης: </Text>
+                      <TouchableOpacity
+                        onPress={() => handleChangeAccessType(item.doctor_amka, item.access_type)}
+                        style={{
+                          alignSelf: 'flex-start',
+                          backgroundColor: item.access_type === 'Πλήρης Πρόσβαση' ? '#3b5998' : '#27ae60',
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 20,
+                          marginTop: 5,
+                        }}
+                      >
+                        <Text style={{color: 'white', fontWeight: 'bold', fontSize: 13}}>
+                          {item.access_type} ✎
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                   <TouchableOpacity style={[styles.cardActionButton, {backgroundColor: '#e74c3c'}]} onPress={() => handleDeleteAccess(item.doctor_amka)}>
                     <Text style={styles.cardActionButtonText}>Κατάργηση</Text>
