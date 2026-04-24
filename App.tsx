@@ -55,6 +55,7 @@ export default function App() {
   
   // --- DYNAMIC SOLID LOGIN STATE ---
   const [dynamicClientId, setDynamicClientId] = useState<string | null>(null);
+  const isDcrRunning = useRef(false);
   const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
   const [accessToken, setAccessToken] = useState('');
   const [activePatientFolderUrl, setActivePatientFolderUrl] = useState('');
@@ -237,6 +238,8 @@ export default function App() {
 
   // --- Η ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ DYNAMIC REGISTRATION ---
   const handleDynamicLogin = async (providerUrl: string) => {
+    if (isDcrRunning.current) return; 
+    isDcrRunning.current = true;
     try {
       setLoading(true);
 
@@ -297,6 +300,7 @@ export default function App() {
       Alert.alert("Σφάλμα Σύνδεσης", error.message || "Αποτυχία επικοινωνίας με τον Provider.");
     } finally {
       setLoading(false);
+      isDcrRunning.current = false;
     }
   };
 
