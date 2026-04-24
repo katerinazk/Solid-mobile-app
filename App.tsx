@@ -336,9 +336,29 @@ export default function App() {
     try {
       setLoading(true);
       const folderUrl = webId.replace('profile/card#me', 'public/');
-      const myDataset = await getSolidDataset(folderUrl);
-      const files = getContainedResourceUrlAll(myDataset);
-      setFolderFiles(files);
+      
+      const dpopToken = await createDpopToken('GET', folderUrl);
+      const response = await fetch(folderUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `DPoP ${accessToken}`,
+          'DPoP': dpopToken,
+          'Accept': 'text/turtle',
+        },
+      });
+
+      if (!response.ok) {
+        Alert.alert("Πρόβλημα", "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+        return;
+      }
+
+      const text = await response.text();
+      // Παίρνουμε τα URLs των αρχείων από το Turtle response
+      const fileUrls = [...text.matchAll(/<([^>]+)>/g)]
+        .map(m => m[1])
+        .filter(url => url.startsWith('http') && !url.endsWith('/'));
+
+      setFolderFiles(fileUrls);
       setActivePatientName(patientName);
       setModalVisible(true);
     } catch (error) {
