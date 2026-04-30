@@ -55,6 +55,7 @@ export default function App() {
   
   // --- DYNAMIC SOLID LOGIN STATE ---
   const [dynamicClientId, setDynamicClientId] = useState<string | null>(null);
+  const storedClientId = useRef<string>('');
   const isDcrRunning = useRef(false);
   const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
   const [accessToken, setAccessToken] = useState('');
@@ -98,7 +99,7 @@ export default function App() {
             },
             body: new URLSearchParams({
               grant_type: 'authorization_code',
-              client_id: dynamicClientId || '',
+              client_id: storedClientId.current,
               code: authCode,
               redirect_uri: redirectUri,
               code_verifier: request?.codeVerifier || '',
@@ -125,9 +126,6 @@ export default function App() {
           } else {
             alert("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
           }
-          
-          // Βάζουμε τον γιατρό μέσα στην εφαρμογή
-          setIsLoggedIn(true); 
 
         } catch (error) {
           console.error("Σφάλμα κατά την ανταλλαγή του token:", error);
@@ -143,6 +141,7 @@ export default function App() {
   useEffect(() => {
     if (dynamicClientId && request && !isBrowserOpen.current) {
       isBrowserOpen.current = true; // Κλειδώνουμε: "Ο browser μόλις άνοιξε!"
+      setDynamicClientId(null);
       
       promptAsync().then(() => {
         // Όταν ο χρήστης κλείσει τον browser (ή τελειώσει το login), ξεκλειδώνουμε
@@ -291,6 +290,7 @@ export default function App() {
       
       if (clientData.client_id) {
         console.log("Πήραμε δυναμικό Client ID:", clientData.client_id);
+        storedClientId.current = clientData.client_id;
         setDynamicClientId(clientData.client_id);
       } else {
         Alert.alert("Σφάλμα", "Ο Provider δεν υποστηρίζει Dynamic Registration.");
@@ -353,10 +353,28 @@ export default function App() {
       }
 
       const text = await response.text();
-      // Παίρνουμε τα URLs των αρχείων από το Turtle response
-      const fileUrls = [...text.matchAll(/<([^>]+)>/g)]
-        .map(m => m[1])
-        .filter(url => url.startsWith('http') && !url.endsWith('/'));
+      const folderUrlForFilter = webId.replace('profile/card#me', 'public/');
+      console.log("📄 Turtle response:", text);
+      console.log("📁 folderUrlForFilter:", folderUrlForFilter);
+
+      // Ισοπεδώνουμε τα newlines ώστε να πιάνουμε και πολυγραμμικές λίστες
+      const flatText = text.replace(/\r?\n\s*/g, ' ');
+      const fileUrls: string[] = [];
+      // Βρίσκουμε κάθε ldp:contains block (μπορεί να έχει πολλά URLs με κόμμα)
+      for (const containsMatch of flatText.matchAll(/ldp:contains\s+((?:<[^>]+>(?:\s*,\s*)?)+)/g)) {
+        for (const uriMatch of containsMatch[1].matchAll(/<([^>]+)>/g)) {
+          const uri = uriMatch[1];
+          if (uri.startsWith('http')) {
+            fileUrls.push(uri);
+          } else if (uri.startsWith('/')) {
+            const parsedBase = new URL(folderUrlForFilter);
+            fileUrls.push(`${parsedBase.protocol}//${parsedBase.host}${uri}`);
+          } else {
+            fileUrls.push(`${folderUrlForFilter}${uri}`);
+          }
+        }
+      }
+      console.log("📋 Files found:", fileUrls);
 
       setFolderFiles(fileUrls);
       setActivePatientName(patientName);
