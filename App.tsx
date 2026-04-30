@@ -59,6 +59,7 @@ export default function App() {
   const isDcrRunning = useRef(false);
   const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
   const [accessToken, setAccessToken] = useState('');
+  const [idToken, setIdToken] = useState('');
   const [activePatientFolderUrl, setActivePatientFolderUrl] = useState('');
 
   // 1. Ρύθμιση του Redirect URI
@@ -69,20 +70,23 @@ export default function App() {
   // 2. Στήσιμο του Auth Request (περιμένει το dynamicClientId και το discovery)
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
-      clientId: dynamicClientId || '', 
+      clientId: dynamicClientId || '',
       scopes: ['openid', 'profile', 'offline_access', 'webid'],
       redirectUri,
+      extraParams: { prompt: 'login' },  // Αναγκάζει τον Solid server να ζητά credentials κάθε φορά
     },
-    discoveryDocument 
+    discoveryDocument
   );
 
   const isBrowserOpen = useRef(false);
-  
+  const expectingResponse = useRef(false);
+
   // 3. Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
     const getRealAccessToken = async () => {
-      // Αν επιστρέψαμε από τον browser με επιτυχία και έχουμε το "Εισιτήριο" (code)
-      if (response?.type === 'success' && response.params.code) {
+      // Επεξεργαζόμαστε μόνο το response που περιμένουμε (όχι stale από προηγούμενο login)
+      if (response?.type === 'success' && response.params.code && expectingResponse.current) {
+        expectingResponse.current = false;
         const authCode = response.params.code;
         console.log("1. Πήραμε το Εισιτήριο (Auth Code):", authCode);
 
@@ -111,15 +115,16 @@ export default function App() {
 
           if (tokenData.access_token) {
             setAccessToken(tokenData.access_token);
+            if (tokenData.id_token) setIdToken(tokenData.id_token);
             if (userRole === 'patient') {
               // Παίρνουμε το WebID από το token (είναι encoded στο JWT)
               const tokenParts = tokenData.access_token.split('.');
               const tokenPayload = JSON.parse(atob(tokenParts[1]));
               const webId = tokenPayload.webid || tokenPayload.sub || '';
               console.log("🔑 WebID από token:", webId);
-              
-              setIsLoggedIn(true);
-              await handlePatientLoginVerification(webId);
+
+              const verified = await handlePatientLoginVerification(webId);
+              if (verified) setIsLoggedIn(true);
             } else {
               setIsLoggedIn(true);
             }
@@ -141,8 +146,9 @@ export default function App() {
   useEffect(() => {
     if (dynamicClientId && request && !isBrowserOpen.current) {
       isBrowserOpen.current = true; // Κλειδώνουμε: "Ο browser μόλις άνοιξε!"
+      expectingResponse.current = true; // Περιμένουμε response από αυτό το login
       setDynamicClientId(null);
-      
+
       promptAsync().then(() => {
         // Όταν ο χρήστης κλείσει τον browser (ή τελειώσει το login), ξεκλειδώνουμε
         isBrowserOpen.current = false;
@@ -183,9 +189,20 @@ export default function App() {
     }
   };
 
-  const handlePatientLoginVerification = async (webId: string) => {
+  const handlePatientLoginVerification = async (webId: string): Promise<boolean> => {
     try {
-      // Ψάχνουμε τον ασθενή με αυτό το ΑΜΚΑ στη Supabase
+      // Ελέγχουμε αν το webId ανήκει σε γιατρό (cached browser session από γιατρό)
+      const { data: doctorCheck } = await supabase
+        .from('doctors')
+        .select('amka')
+        .eq('web_id', webId)
+        .maybeSingle();
+
+      if (doctorCheck) {
+        alert("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε γιατρό. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
+        return false;
+      }
+
       const { data, error } = await supabase
         .from('patients')
         .select('web_id')
@@ -194,33 +211,28 @@ export default function App() {
 
       if (error || !data) {
         alert("Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.");
-        setIsLoggedIn(false);
-        return;
+        return false;
       }
 
       if (!data.web_id) {
-        // Νέος ασθενής — αποθηκεύουμε το WebID
         await supabase
           .from('patients')
           .update({ web_id: webId })
           .eq('amka', loggedInPatientAmka);
         console.log("✅ WebID αποθηκεύτηκε:", webId);
       } else if (data.web_id !== webId) {
-        // Λάθος Pod!
         alert("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
-        setIsLoggedIn(false);
-        return;
+        return false;
       }
 
-      // Όλα εντάξει — ο ασθενής επαληθεύτηκε
       console.log("✅ Ο ασθενής επαληθεύτηκε επιτυχώς!");
-
-      // Αποθηκεύουμε το folder URL του ασθενή
       const patientFolder = webId.replace('profile/card#me', 'public/');
       setActivePatientFolderUrl(patientFolder);
+      return true;
 
     } catch (error) {
       console.error("Σφάλμα επαλήθευσης:", error);
+      return false;
     }
   };
 
@@ -237,10 +249,12 @@ export default function App() {
 
   // --- Η ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ DYNAMIC REGISTRATION ---
   const handleDynamicLogin = async (providerUrl: string) => {
-    if (isDcrRunning.current) return; 
+    if (isDcrRunning.current) return;
     isDcrRunning.current = true;
     try {
       setLoading(true);
+      // Καθαρίζουμε το παλιό discovery ώστε το useAuthRequest να μηδενίσει το response
+      setDiscoveryDocument(null);
 
       // Βρίσκουμε τα endpoints του Provider (Discovery)
       const discoveryUrl = `${providerUrl.replace(/\/$/, '')}/.well-known/openid-configuration`;
@@ -252,9 +266,19 @@ export default function App() {
       }
 
       const discovery = await discoveryRes.json();
-      setDiscoveryDocument(discovery);
-      
-      // ΠΡΟΣΘΗΚΗ: Μετατρέπουμε τα πεδία από snake_case (Solid) σε camelCase (Expo)
+
+      // Logout από τυχόν ενεργή session πριν το νέο login (καθαρισμός browser session)
+      // Μόνο αν έχουμε id_token από προηγούμενο login (ο server το απαιτεί)
+      if (discovery.end_session_endpoint && idToken) {
+        try {
+          const logoutUrl = `${discovery.end_session_endpoint}?id_token_hint=${encodeURIComponent(idToken)}&post_logout_redirect_uri=${encodeURIComponent(redirectUri)}`;
+          await WebBrowser.openAuthSessionAsync(logoutUrl, redirectUri);
+        } catch (e) {
+          // Αγνοούμε αποτυχία logout, συνεχίζουμε κανονικά
+        }
+      }
+
+      // Μετατρέπουμε τα πεδία από snake_case (Solid) σε camelCase (Expo)
       const expoDiscovery = {
         authorizationEndpoint: discovery.authorization_endpoint,
         tokenEndpoint: discovery.token_endpoint,
