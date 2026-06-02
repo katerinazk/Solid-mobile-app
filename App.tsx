@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Linking, Modal, Platform } from 'react-native';
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from './supabase';
-import { getSolidDataset, getContainedResourceUrlAll } from '@inrupt/solid-client';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { createDpopToken } from './dpop';
