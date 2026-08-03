@@ -1319,7 +1319,7 @@ export default function App() {
                 </View>
                 <View style={styles.searchContainer}>
                   <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-                  <TextInput style={styles.searchInput} placeholder="11 ψηφία" placeholderTextColor={COLORS.primary} keyboardType="numeric" />
+                  <TextInput style={styles.searchInput} placeholderTextColor={COLORS.primary} keyboardType="numeric" />
                 </View>
 
                 <View style={{ paddingHorizontal: 20 }}>
