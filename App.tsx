@@ -49,6 +49,7 @@ export default function App() {
   const [doctorAmka, setDoctorAmka] = useState('');
   const [loggedInDoctorAmka, setLoggedInDoctorAmka] = useState('');
   const [doctorTab, setDoctorTab] = useState<'home' | 'access'>('home');
+  const [isDoctorMenuVisible, setIsDoctorMenuVisible] = useState(false);
 
   // Προσβάσεις Ασθενής
   const [accessList, setAccessList] = useState<any[]>([]);
@@ -944,6 +945,13 @@ export default function App() {
     ));
   };
 
+  const confirmDoctorLogout = () => {
+    Alert.alert('Αποσύνδεση', 'Θέλετε να αποσυνδεθείτε;', [
+      { text: 'Ακύρωση', style: 'cancel' },
+      { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); setDoctorAmka(''); setLoggedInDoctorAmka(''); setIdToken(''); } },
+    ]);
+  };
+
   // ==========================================
   // ΟΘΟΝΗ 1: ΕΠΙΛΟΓΗ ΡΟΛΟΥ
   // ==========================================
@@ -1241,15 +1249,10 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.docHeader}>
-        <TouchableOpacity onPress={() => Alert.alert('Μενού', 'Η λειτουργία έρχεται σύντομα.')}>
+        <TouchableOpacity onPress={() => setIsDoctorMenuVisible(true)}>
           <Feather name="menu" size={28} color={COLORS.primary} />
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => Alert.alert('Αποσύνδεση', 'Θέλετε να αποσυνδεθείτε;', [
-            { text: 'Ακύρωση', style: 'cancel' },
-            { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); setDoctorAmka(''); setLoggedInDoctorAmka(''); setIdToken(''); } },
-          ])}
-        >
+        <TouchableOpacity onPress={confirmDoctorLogout}>
           <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
@@ -1422,6 +1425,49 @@ export default function App() {
           <Text style={styles.bottomNavText}>Ρυθμίσεις</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isDoctorMenuVisible}
+        onRequestClose={() => setIsDoctorMenuVisible(false)}
+      >
+        <View style={styles.menuOverlay}>
+          <View style={styles.menuPanel}>
+            <TouchableOpacity onPress={() => setIsDoctorMenuVisible(false)}>
+              <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.white} />
+            </TouchableOpacity>
+
+            <View style={styles.menuItems}>
+              <TouchableOpacity onPress={() => { setDoctorTab('home'); setIsDoctorMenuVisible(false); }}>
+                <Text style={styles.menuItemText}>Αρχική</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setDoctorTab('access'); setIsDoctorMenuVisible(false); }}>
+                <Text style={styles.menuItemText}>Προσβάσεις</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setIsDoctorMenuVisible(false); Alert.alert('Ρυθμίσεις', 'Η λειτουργία έρχεται σύντομα.'); }}>
+                <Text style={styles.menuItemText}>Ρυθμίσεις</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.menuLogoutButton}
+              onPress={() => { setIsDoctorMenuVisible(false); confirmDoctorLogout(); }}
+            >
+              <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
+              <Text style={styles.menuLogoutText}>Αποσύνδεση</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.menuAccent} />
+
+          <TouchableOpacity
+            style={styles.menuBackdrop}
+            activeOpacity={1}
+            onPress={() => setIsDoctorMenuVisible(false)}
+          />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1569,6 +1615,23 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: 'bold',
   },
+
+  /* Πλαϊνό μενού γιατρού (drawer) */
+  menuOverlay: { flex: 1, flexDirection: 'row' },
+  menuPanel: {
+    width: '75%',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 60,
+    paddingBottom: 40,
+    justifyContent: 'space-between',
+  },
+  menuAccent: { width: 14, backgroundColor: COLORS.medium },
+  menuBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
+  menuItems: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  menuItemText: { color: COLORS.white, fontSize: 20, fontWeight: 'bold', marginVertical: 18 },
+  menuLogoutButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
+  menuLogoutText: { color: COLORS.white, fontSize: 16, fontWeight: '600', marginLeft: 8 },
 
   /* ΣΤΥΛ ΓΙΑ ΤΗΝ ΟΘΟΝΗ ΕΠΙΛΟΓΗΣ (FIGMA VIBE) */
   figmaContainer: { flex: 1, backgroundColor: COLORS.medium },
