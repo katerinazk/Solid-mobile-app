@@ -50,6 +50,7 @@ export default function App() {
   const [loggedInDoctorAmka, setLoggedInDoctorAmka] = useState('');
   const [doctorTab, setDoctorTab] = useState<'home' | 'access'>('home');
   const [isDoctorMenuVisible, setIsDoctorMenuVisible] = useState(false);
+  const [historyPatient, setHistoryPatient] = useState<Patient | null>(null);
 
   // Προσβάσεις Ασθενής
   const [accessList, setAccessList] = useState<any[]>([]);
@@ -601,18 +602,16 @@ export default function App() {
           <Text style={styles.cardLabel}>AMKA: <Text style={styles.cardValue}>{item.amka}</Text></Text>
           <Text style={styles.cardLabel}>Τύπος πρόσβασης: <Text style={styles.cardValue}>{item.accessType}</Text></Text>
         </View>
-        <TouchableOpacity 
-          style={styles.cardActionButton} 
+        <TouchableOpacity
+          style={styles.cardActionButton}
           onPress={() => {
-            console.log("👉 ΔΕΔΟΜΕΝΑ ΠΟΥ ΔΙΑΒΑΖΕΙ Η ΕΦΑΡΜΟΓΗ:", item);
-            // 2. Αποθηκεύουμε το URL στη μνήμη που φτιάξαμε πριν!
-            // Παίρνουμε το σωστό WebID
+            // Παίρνουμε το σωστό WebID και φτιάχνουμε το URL του φακέλου public/
             const correctWebId = item.webId || item.web_id || "";
-            // Φτιάχνουμε το URL του φακέλου public/ αντικαθιστώντας το τέλος του WebID
             setActivePatientFolderUrl(correctWebId.replace('profile/card#me', 'public/'));
-            
-            // 3. Ανοίγουμε τον φάκελο (η δική σου συνάρτηση παραμένει ίδια)
-            handleOpenFolder(item.webId || item.web_id || "", `${item.first_name} ${item.last_name}`);
+
+            // Δείχνουμε πρώτα την οθόνη Ιστορικού με τις κατηγορίες -
+            // το πραγματικό άνοιγμα του Solid Pod γίνεται μόνο όταν πατηθεί "Διαγνώσεις".
+            setHistoryPatient(item);
           }}
         >
           <Text style={styles.cardActionButtonText}>Προβολή Φακέλου</Text>
@@ -948,7 +947,7 @@ export default function App() {
   const confirmDoctorLogout = () => {
     Alert.alert('Αποσύνδεση', 'Θέλετε να αποσυνδεθείτε;', [
       { text: 'Ακύρωση', style: 'cancel' },
-      { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); setDoctorAmka(''); setLoggedInDoctorAmka(''); setIdToken(''); } },
+      { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); setDoctorAmka(''); setLoggedInDoctorAmka(''); setIdToken(''); setHistoryPatient(null); } },
     ]);
   };
 
@@ -1274,21 +1273,60 @@ export default function App() {
         </>
       ) : (
         <>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-            <TextInput style={styles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
-          </View>
+          {historyPatient ? (
+            <View style={{ flex: 1 }}>
+              <View style={styles.historyHeader}>
+                <TouchableOpacity onPress={() => setHistoryPatient(null)}>
+                  <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
+                </TouchableOpacity>
+                <Text style={styles.historyTitle}>Ιστορικό</Text>
+              </View>
 
-          <TouchableOpacity
-            style={styles.requestAccessButton}
-            onPress={() => Alert.alert('Αίτημα Πρόσβασης', 'Η λειτουργία έρχεται σύντομα.')}
-          >
-            <Ionicons name="add" size={20} color={COLORS.white} />
-            <Text style={styles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
-          </TouchableOpacity>
+              <Text style={styles.historyAmka}>ΑΜΚΑ: {historyPatient.amka}</Text>
 
-          {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
-            <FlatList style={{ flex: 1 }} data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
+              <View style={{ paddingHorizontal: 20 }}>
+                <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Εξετάσεις', 'Η λειτουργία έρχεται σύντομα.')}>
+                  <Text style={styles.historyCategoryButtonText}>Εξετάσεις</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Φάρμακα', 'Η λειτουργία έρχεται σύντομα.')}>
+                  <Text style={styles.historyCategoryButtonText}>Φάρμακα</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Αλλεργίες', 'Η λειτουργία έρχεται σύντομα.')}>
+                  <Text style={styles.historyCategoryButtonText}>Αλλεργίες</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.historyCategoryButton}
+                  onPress={() => handleOpenFolder(historyPatient.webId || historyPatient.web_id || "", `${historyPatient.first_name} ${historyPatient.last_name}`)}
+                >
+                  <Text style={styles.historyCategoryButtonText}>Διαγνώσεις</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Νοσηλίες', 'Η λειτουργία έρχεται σύντομα.')}>
+                  <Text style={styles.historyCategoryButtonText}>Νοσηλίες</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Εμβολιασμοί', 'Η λειτουργία έρχεται σύντομα.')}>
+                  <Text style={styles.historyCategoryButtonText}>Εμβολιασμοί</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                <TextInput style={styles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+              </View>
+
+              <TouchableOpacity
+                style={styles.requestAccessButton}
+                onPress={() => Alert.alert('Αίτημα Πρόσβασης', 'Η λειτουργία έρχεται σύντομα.')}
+              >
+                <Ionicons name="add" size={20} color={COLORS.white} />
+                <Text style={styles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
+              </TouchableOpacity>
+
+              {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
+                <FlatList style={{ flex: 1 }} data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
+              )}
+            </>
           )}
 
           <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
@@ -1415,10 +1453,10 @@ export default function App() {
       </View>
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.bottomNavItem} onPress={() => setDoctorTab('home')}>
+        <TouchableOpacity style={styles.bottomNavItem} onPress={() => { setDoctorTab('home'); setHistoryPatient(null); }}>
           <Text style={[styles.bottomNavText, doctorTab === 'home' && styles.bottomNavTextActive]}>Αρχική</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomNavItem} onPress={() => setDoctorTab('access')}>
+        <TouchableOpacity style={styles.bottomNavItem} onPress={() => { setDoctorTab('access'); setHistoryPatient(null); }}>
           <Text style={[styles.bottomNavText, doctorTab === 'access' && styles.bottomNavTextActive]}>Προσβάσεις</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bottomNavItem} onPress={() => Alert.alert('Ρυθμίσεις', 'Η λειτουργία έρχεται σύντομα.')}>
@@ -1439,10 +1477,10 @@ export default function App() {
             </TouchableOpacity>
 
             <View style={styles.menuItems}>
-              <TouchableOpacity onPress={() => { setDoctorTab('home'); setIsDoctorMenuVisible(false); }}>
+              <TouchableOpacity onPress={() => { setDoctorTab('home'); setHistoryPatient(null); setIsDoctorMenuVisible(false); }}>
                 <Text style={styles.menuItemText}>Αρχική</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setDoctorTab('access'); setIsDoctorMenuVisible(false); }}>
+              <TouchableOpacity onPress={() => { setDoctorTab('access'); setHistoryPatient(null); setIsDoctorMenuVisible(false); }}>
                 <Text style={styles.menuItemText}>Προσβάσεις</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => { setIsDoctorMenuVisible(false); Alert.alert('Ρυθμίσεις', 'Η λειτουργία έρχεται σύντομα.'); }}>
@@ -1518,6 +1556,13 @@ const styles = StyleSheet.create({
 
   dashboardLabel: { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginBottom: 8 },
   dashboardTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
+
+  /* Οθόνη Ιστορικού ασθενή (κατηγορίες φακέλου) */
+  historyHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 10 },
+  historyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.primary, marginLeft: 12 },
+  historyAmka: { fontSize: 14, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: 20, marginBottom: 20 },
+  historyCategoryButton: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 25, alignItems: 'center', marginBottom: 15 },
+  historyCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
 
   listContent: { paddingHorizontal: 20, paddingBottom: 20 },
   card: { backgroundColor: COLORS.light, borderRadius: 15, padding: 20, marginBottom: 15, elevation: 2 },
