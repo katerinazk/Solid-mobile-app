@@ -48,6 +48,7 @@ export default function App() {
   const [loggedInPatientAmka, setLoggedInPatientAmka] = useState('');
   const [doctorAmka, setDoctorAmka] = useState('');
   const [loggedInDoctorAmka, setLoggedInDoctorAmka] = useState('');
+  const [doctorTab, setDoctorTab] = useState<'home' | 'access'>('home');
 
   // Προσβάσεις Ασθενής
   const [accessList, setAccessList] = useState<any[]>([]);
@@ -1252,149 +1253,170 @@ export default function App() {
           <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-        <TextInput style={styles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+      <View style={{ flex: 1 }}>
+      {doctorTab === 'home' ? (
+        <>
+          <View style={{ paddingHorizontal: 20 }}>
+            <Text style={styles.dashboardLabel}>Αναζήτηση ΑΜΚΑ:</Text>
+          </View>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+            <TextInput style={styles.searchInput} placeholder="11 ψηφία" placeholderTextColor={COLORS.primary} keyboardType="numeric" />
+          </View>
+
+          <View style={{ paddingHorizontal: 20 }}>
+            <Text style={styles.dashboardTitle}>Ειδοποιήσεις</Text>
+            <Text style={[styles.emptyText, { marginTop: 10, textAlign: 'left' }]}>Δεν υπάρχουν ειδοποιήσεις αυτή τη στιγμή.</Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+            <TextInput style={styles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.requestAccessButton}
+            onPress={() => Alert.alert('Αίτημα Πρόσβασης', 'Η λειτουργία έρχεται σύντομα.')}
+          >
+            <Ionicons name="add" size={20} color={COLORS.white} />
+            <Text style={styles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
+          </TouchableOpacity>
+
+          {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
+            <FlatList style={{ flex: 1 }} data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
+          )}
+
+          <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Φάκελος: {activePatientName}</Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close-circle" size={30} color={COLORS.primary} /></TouchableOpacity>
+                </View>
+                {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={() => setIsModalVisible(true)}
+                >
+                  <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
+                </TouchableOpacity>
+                {folderFiles.length === 0 ? <Text style={styles.emptyText}>Άδειος φάκελος.</Text> : (
+                  <FlatList data={folderFiles} keyExtractor={(item, idx) =>
+                    idx.toString()}
+                    renderItem={({ item }) => {
+                      const fileName = item.split('/').pop() || 'Αρχείο';
+                      return (
+                        <View style={styles.fileItem}>
+                          <TouchableOpacity
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                            onPress={() => openFile(item)}
+                          >
+                            <Ionicons name="document-text" size={24} color={COLORS.primary} style={{marginRight: 15}} />
+                            <Text style={styles.fileName}>{decodeURIComponent(fileName)}</Text>
+                          </TouchableOpacity>
+
+                          {/* Κουμπί edit */}
+                          <TouchableOpacity onPress={() => handleEditFile(item)} style={{marginRight: 15}}>
+                            <Ionicons name="pencil-outline" size={24} color={COLORS.medium} />
+                          </TouchableOpacity>
+
+                          {/* Κουμπί διαγραφής */}
+                          <TouchableOpacity onPress={() => handleDeleteFile(item)}>
+                            <Ionicons name="trash-outline" size={24} color={COLORS.primary} />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    }} />
+                )}
+              </View>
+            </View>
+          </Modal>
+          {/* Το Αναδυόμενο Παραθυράκι (Modal) */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={isModalVisible}
+            onRequestClose={() => setIsModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
+          >
+            <View style={styles.addmodalOverlay}>
+              <View style={styles.addmodalContent}>
+                <Text style={styles.addmodalTitle}>Νέα Διάγνωση</Text>
+
+                <TextInput
+                  style={styles.textArea}
+                  multiline={true}
+                  numberOfLines={4}
+                  placeholder="Γράψτε τη διάγνωση εδώ..."
+                  value={newDiagnosis}
+                  onChangeText={setNewDiagnosis}
+                />
+
+                <View style={styles.modalButtonsGroup}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setIsModalVisible(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={handleSaveDiagnosis}
+                  >
+                    <Text style={styles.saveButtonText}>Αποθήκευση</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={isEditModalVisible}
+            onRequestClose={() => setIsEditModalVisible(false)}
+          >
+            <View style={styles.addmodalOverlay}>
+              <View style={styles.addmodalContent}>
+                <Text style={styles.addmodalTitle}>Επεξεργασία Διάγνωσης</Text>
+
+                <TextInput
+                  style={styles.textArea}
+                  multiline={true}
+                  numberOfLines={4}
+                  value={editContent}
+                  onChangeText={setEditContent}
+                />
+
+                <View style={styles.modalButtonsGroup}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setIsEditModalVisible(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton]}
+                    onPress={handleSaveEdit}
+                  >
+                    <Text style={styles.saveButtonText}>Αποθήκευση</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </>
+      )}
       </View>
 
-      <TouchableOpacity
-        style={styles.requestAccessButton}
-        onPress={() => Alert.alert('Αίτημα Πρόσβασης', 'Η λειτουργία έρχεται σύντομα.')}
-      >
-        <Ionicons name="add" size={20} color={COLORS.white} />
-        <Text style={styles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
-      </TouchableOpacity>
-
-      {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
-        <FlatList data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
-      )}
-
-      <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Φάκελος: {activePatientName}</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close-circle" size={30} color={COLORS.primary} /></TouchableOpacity>
-            </View>
-            {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
-            <TouchableOpacity 
-              style={styles.addButton} 
-              onPress={() => setIsModalVisible(true)}
-            >
-              <Text style={styles.addButtonText}>+ Προσθήκη Ιστορικού</Text>
-            </TouchableOpacity>
-            {folderFiles.length === 0 ? <Text style={styles.emptyText}>Άδειος φάκελος.</Text> : (
-              <FlatList data={folderFiles} keyExtractor={(item, idx) => 
-                idx.toString()}
-                renderItem={({ item }) => {
-                  const fileName = item.split('/').pop() || 'Αρχείο';
-                  return (
-                    <View style={styles.fileItem}>
-                      <TouchableOpacity 
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} 
-                        onPress={() => openFile(item)}
-                      >
-                        <Ionicons name="document-text" size={24} color={COLORS.primary} style={{marginRight: 15}} />
-                        <Text style={styles.fileName}>{decodeURIComponent(fileName)}</Text>
-                      </TouchableOpacity>
-
-                      {/* Κουμπί edit */}
-                      <TouchableOpacity onPress={() => handleEditFile(item)} style={{marginRight: 15}}>
-                        <Ionicons name="pencil-outline" size={24} color={COLORS.medium} />
-                      </TouchableOpacity>
-
-                      {/* Κουμπί διαγραφής */}
-                      <TouchableOpacity onPress={() => handleDeleteFile(item)}>
-                        <Ionicons name="trash-outline" size={24} color={COLORS.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  );
-                }} />
-            )}
-          </View>
-        </View>
-      </Modal>
-      {/* Το Αναδυόμενο Παραθυράκι (Modal) */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isModalVisible}
-        onRequestClose={() => setIsModalVisible(false)} // Για όταν πατάει το 'πίσω' στο Android
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <Text style={styles.addmodalTitle}>Νέα Διάγνωση</Text>
-            
-            <TextInput
-              style={styles.textArea}
-              multiline={true}
-              numberOfLines={4}
-              placeholder="Γράψτε τη διάγνωση εδώ..."
-              value={newDiagnosis}
-              onChangeText={setNewDiagnosis}
-            />
-
-            <View style={styles.modalButtonsGroup}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelButton]} 
-                onPress={() => setIsModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.saveButton]} 
-                onPress={handleSaveDiagnosis}
-              >
-                <Text style={styles.saveButtonText}>Αποθήκευση</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isEditModalVisible}
-        onRequestClose={() => setIsEditModalVisible(false)}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <Text style={styles.addmodalTitle}>Επεξεργασία Διάγνωσης</Text>
-            
-            <TextInput
-              style={styles.textArea}
-              multiline={true}
-              numberOfLines={4}
-              value={editContent}
-              onChangeText={setEditContent}
-            />
-
-            <View style={styles.modalButtonsGroup}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelButton]} 
-                onPress={() => setIsEditModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.saveButton]} 
-                onPress={handleSaveEdit}
-              >
-                <Text style={styles.saveButtonText}>Αποθήκευση</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       <View style={styles.bottomNav}>
-        <View style={styles.bottomNavItem}>
-          <Text style={[styles.bottomNavText, styles.bottomNavTextActive]}>Αρχική</Text>
-        </View>
-        <TouchableOpacity style={styles.bottomNavItem} onPress={() => Alert.alert('Προσβάσεις', 'Η λειτουργία έρχεται σύντομα.')}>
-          <Text style={styles.bottomNavText}>Προσβάσεις</Text>
+        <TouchableOpacity style={styles.bottomNavItem} onPress={() => setDoctorTab('home')}>
+          <Text style={[styles.bottomNavText, doctorTab === 'home' && styles.bottomNavTextActive]}>Αρχική</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomNavItem} onPress={() => setDoctorTab('access')}>
+          <Text style={[styles.bottomNavText, doctorTab === 'access' && styles.bottomNavTextActive]}>Προσβάσεις</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bottomNavItem} onPress={() => Alert.alert('Ρυθμίσεις', 'Η λειτουργία έρχεται σύντομα.')}>
           <Text style={styles.bottomNavText}>Ρυθμίσεις</Text>
@@ -1447,6 +1469,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 8,
   },
+
+  dashboardLabel: { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginBottom: 8 },
+  dashboardTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
 
   listContent: { paddingHorizontal: 20, paddingBottom: 20 },
   card: { backgroundColor: COLORS.light, borderRadius: 15, padding: 20, marginBottom: 15, elevation: 2 },
