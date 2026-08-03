@@ -171,7 +171,9 @@ export default function App() {
       expectingResponse.current = true; // Περιμένουμε response από αυτό το login
       setDynamicClientId(null);
 
-      promptAsync().then(() => {
+      // preferEphemeralSession: στο iOS αποτρέπει τη διατήρηση cookies/session
+      // ανάμεσα σε διαδοχικά logins, ώστε να μη «θυμάται» τον προηγούμενο χρήστη.
+      promptAsync({ preferEphemeralSession: true }).then(() => {
         // Όταν ο χρήστης κλείσει τον browser (ή τελειώσει το login), ξεκλειδώνουμε
         isBrowserOpen.current = false;
       }).catch(() => {
@@ -308,8 +310,10 @@ export default function App() {
 
       const discovery = await discoveryRes.json();
 
-      // Logout από τυχόν ενεργή session πριν το νέο login (καθαρισμός browser session)
-      // Μόνο αν έχουμε id_token από προηγούμενο login (ο server το απαιτεί)
+      // Logout από τυχόν ενεργή session πριν το νέο login (καθαρισμός browser session).
+      // Ο server απαιτεί id_token_hint - χωρίς αυτό απαντάει με σφάλμα αντί να κάνει
+      // redirect, οπότε το επιχειρούμε μόνο όταν έχουμε πραγματικά id_token σε μνήμη
+      // (δηλ. μέσα στην ίδια εκτέλεση της εφαρμογής, μετά από προηγούμενο login).
       if (discovery.end_session_endpoint && idToken) {
         try {
           const logoutUrl = `${discovery.end_session_endpoint}?id_token_hint=${encodeURIComponent(idToken)}&post_logout_redirect_uri=${encodeURIComponent(redirectUri)}`;
@@ -1134,7 +1138,7 @@ export default function App() {
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <Text style={{fontSize: 20, fontWeight: 'bold', color: COLORS.text}}>Οι Προσβάσεις μου</Text>
-          <TouchableOpacity onPress={() => { setIsLoggedIn(false); setUserRole('none'); setShowPatientRegister(false); }}>
+          <TouchableOpacity onPress={() => { setIsLoggedIn(false); setUserRole('none'); setShowPatientRegister(false); setIdToken(''); }}>
             <Ionicons name="log-out-outline" size={36} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
@@ -1242,7 +1246,7 @@ export default function App() {
         <TouchableOpacity
           onPress={() => Alert.alert('Αποσύνδεση', 'Θέλετε να αποσυνδεθείτε;', [
             { text: 'Ακύρωση', style: 'cancel' },
-            { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); setDoctorAmka(''); setLoggedInDoctorAmka(''); } },
+            { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); setDoctorAmka(''); setLoggedInDoctorAmka(''); setIdToken(''); } },
           ])}
         >
           <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
