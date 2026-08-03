@@ -46,6 +46,8 @@ export default function App() {
   const [activePatientName, setActivePatientName] = useState('');
   const [patientAmka, setPatientAmka] = useState('');
   const [loggedInPatientAmka, setLoggedInPatientAmka] = useState('');
+  const [doctorAmka, setDoctorAmka] = useState('');
+  const [loggedInDoctorAmka, setLoggedInDoctorAmka] = useState('');
 
   // Προσβάσεις Ασθενής
   const [accessList, setAccessList] = useState<any[]>([]);
@@ -137,6 +139,14 @@ export default function App() {
 
               const verified = await handlePatientLoginVerification(webId);
               if (verified) setIsLoggedIn(true);
+            } else if (userRole === 'doctor') {
+              const tokenParts = tokenData.access_token.split('.');
+              const tokenPayload = JSON.parse(atob(tokenParts[1]));
+              const webId = tokenPayload.webid || tokenPayload.sub || '';
+              console.log("🔑 WebID γιατρού από token:", webId);
+
+              const verified = await handleDoctorLoginVerification(webId);
+              if (verified) setIsLoggedIn(true);
             } else {
               setIsLoggedIn(true);
             }
@@ -177,29 +187,6 @@ export default function App() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editContent, setEditContent] = useState('');
   const [editFileUrl, setEditFileUrl] = useState('');
-
-  const fetchPatientsFromSupabase = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase
-        .from('patients') 
-        .select('*'); 
-
-      if (error) {
-        console.error("Σφάλμα Supabase:", error.message);
-        return;
-      }
-
-      if (data) {
-        setPatients(data);
-      }
-    } catch (error) {
-      console.error("Απρόσμενο σφάλμα:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePatientLoginVerification = async (webId: string): Promise<boolean> => {
     try {
@@ -248,14 +235,56 @@ export default function App() {
     }
   };
 
+  const handleDoctorLoginVerification = async (webId: string): Promise<boolean> => {
+    try {
+      // Ελέγχουμε αν το webId ανήκει σε ασθενή (cached browser session από ασθενή)
+      const { data: patientCheck } = await supabase
+        .from('patients')
+        .select('amka')
+        .eq('web_id', webId)
+        .maybeSingle();
+
+      if (patientCheck) {
+        alert("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε ασθενή. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('doctors')
+        .select('web_id')
+        .eq('amka', loggedInDoctorAmka)
+        .single();
+
+      if (error || !data) {
+        alert("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
+        return false;
+      }
+
+      if (!data.web_id) {
+        await supabase
+          .from('doctors')
+          .update({ web_id: webId })
+          .eq('amka', loggedInDoctorAmka);
+        console.log("✅ WebID γιατρού αποθηκεύτηκε:", webId);
+      } else if (data.web_id !== webId) {
+        alert("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
+        return false;
+      }
+
+      console.log("✅ Ο γιατρός επαληθεύτηκε επιτυχώς!");
+      return true;
+
+    } catch (error) {
+      console.error("Σφάλμα επαλήθευσης:", error);
+      return false;
+    }
+  };
+
   // 3. Πότε θα τρέξει η ερώτηση στη βάση;
   // Μόλις το `isLoggedIn` γίνει true (δηλαδή μόλις συνδεθεί ο γιατρός επιτυχώς!)
   useEffect(() => {
     if (isLoggedIn && userRole === 'patient') {
       fetchAccessList();
-    }
-    if (isLoggedIn && userRole === 'doctor') {
-      fetchPatientsFromSupabase();
     }
   }, [isLoggedIn]);
 
@@ -350,18 +379,29 @@ export default function App() {
   const fetchPatients = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from('patients').select('*');
+      // Φέρνουμε μόνο τους ασθενείς που έχουν δώσει πρόσβαση σε αυτόν τον γιατρό,
+      // μαζί με τον τύπο πρόσβασης που έχουν ορίσει.
+      const { data, error } = await supabase
+        .from('access')
+        .select(`
+          access_type,
+          patients (id, first_name, last_name, amka, web_id)
+        `)
+        .eq('doctor_amka', loggedInDoctorAmka);
+
       if (error) { console.error("Σφάλμα:", error.message); return; }
       if (data) {
-        const formattedPatients: Patient[] = data.map((item) => ({
-          id: item.id, 
-          first_name: item.first_name,
-          last_name: item.last_name, 
-          amka: item.amka, 
-          accessType: '',
-          webId: item.web_id, 
-          folderUrl: item.web_id ? item.web_id.replace('profile/card#me', 'public/') : '' 
-        }));
+        const formattedPatients: Patient[] = data
+          .filter((row: any) => row.patients)
+          .map((row: any) => ({
+            id: row.patients.id,
+            first_name: row.patients.first_name,
+            last_name: row.patients.last_name,
+            amka: row.patients.amka,
+            accessType: row.access_type,
+            webId: row.patients.web_id,
+            folderUrl: row.patients.web_id ? row.patients.web_id.replace('profile/card#me', 'public/') : ''
+          }));
         setPatients(formattedPatients);
       }
     } catch (error) { console.error("Σφάλμα:", error); } finally { setLoading(false); }
@@ -1036,19 +1076,35 @@ export default function App() {
 
         <View style={styles.loginCard}>
           <Ionicons name="medical" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
-          <Text style={styles.loginTitle}>Πρόσβαση {userRole === 'doctor' ? 'Ιατρού' : 'Ασθενή'}</Text>
+          <Text style={styles.loginTitle}>Πρόσβαση Ιατρού</Text>
           <Text style={styles.loginSubtitle}>Συνδεθείτε μέσω του Solid Pod σας</Text>
-          
+
+          <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
+          <TextInput
+            style={styles.loginInput}
+            placeholder="11 ψηφία"
+            keyboardType="numeric"
+            value={doctorAmka}
+            onChangeText={setDoctorAmka}
+          />
+
           <Text style={styles.inputLabel}>Solid Provider (π.χ. inrupt.com)</Text>
-          <TextInput 
-            style={styles.loginInput} 
-            value="https://datapod.igrant.io" 
+          <TextInput
+            style={styles.loginInput}
+            value="https://datapod.igrant.io"
             editable={false}
           />
 
-          <TouchableOpacity 
-            style={styles.solidLoginButton} 
-            onPress={() => handleDynamicLogin('https://datapod.igrant.io')}
+          <TouchableOpacity
+            style={styles.solidLoginButton}
+            onPress={() => {
+              if (!doctorAmka) {
+                alert("Παρακαλώ εισάγετε το ΑΜΚΑ σας.");
+                return;
+              }
+              setLoggedInDoctorAmka(doctorAmka);
+              handleDynamicLogin('https://datapod.igrant.io');
+            }}
             disabled={loading}
           >
             {loading ? (
@@ -1186,7 +1242,7 @@ export default function App() {
         <TouchableOpacity
           onPress={() => Alert.alert('Αποσύνδεση', 'Θέλετε να αποσυνδεθείτε;', [
             { text: 'Ακύρωση', style: 'cancel' },
-            { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); } },
+            { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); setDoctorAmka(''); setLoggedInDoctorAmka(''); } },
           ])}
         >
           <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
