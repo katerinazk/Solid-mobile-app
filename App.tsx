@@ -385,7 +385,7 @@ export default function App() {
         .from('access')
         .select(`
           access_type,
-          patients (id, first_name, last_name, amka, web_id)
+          patients (first_name, last_name, amka, web_id)
         `)
         .eq('doctor_amka', loggedInDoctorAmka);
 
@@ -394,7 +394,7 @@ export default function App() {
         const formattedPatients: Patient[] = data
           .filter((row: any) => row.patients)
           .map((row: any) => ({
-            id: row.patients.id,
+            id: row.patients.amka,
             first_name: row.patients.first_name,
             last_name: row.patients.last_name,
             amka: row.patients.amka,
