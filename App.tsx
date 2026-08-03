@@ -1269,7 +1269,7 @@ export default function App() {
       {historyPatient ? (
         <View style={{ flex: 1 }}>
           <View style={styles.historyHeader}>
-            <TouchableOpacity onPress={() => setHistoryPatient(null)}>
+            <TouchableOpacity onPress={() => setHistoryPatient(null)} style={styles.historyBackButton}>
               <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
             </TouchableOpacity>
             <Text style={styles.historyTitle}>Ιστορικό</Text>
@@ -1277,7 +1277,7 @@ export default function App() {
 
           <Text style={styles.historyAmka}>ΑΜΚΑ: <Text style={styles.historyAmkaValue}>{historyPatient.amka}</Text></Text>
 
-          <View style={{ paddingHorizontal: 20 }}>
+          <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
             <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Εξετάσεις', 'Η λειτουργία έρχεται σύντομα.')}>
               <Text style={styles.historyCategoryButtonText}>Εξετάσεις</Text>
             </TouchableOpacity>
@@ -1577,9 +1577,10 @@ const styles = StyleSheet.create({
   dashboardTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
 
   /* Οθόνη Ιστορικού ασθενή (κατηγορίες φακέλου) */
-  historyHeader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, marginTop: 10, marginBottom: 10 },
-  historyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.primary, marginLeft: 12 },
-  historyAmka: { fontSize: 14, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: 20, marginBottom: 20 },
+  historyHeader: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, marginTop: 10, marginBottom: 10, minHeight: 40 },
+  historyBackButton: { position: 'absolute', left: 20, top: 0 },
+  historyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
+  historyAmka: { fontSize: 14, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: 20, marginTop: 10, marginBottom: 20 },
   historyAmkaValue: { fontWeight: 'normal' },
   historyCategoryButton: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 25, alignItems: 'center', marginBottom: 15 },
   historyCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
