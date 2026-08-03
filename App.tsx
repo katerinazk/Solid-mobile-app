@@ -22,6 +22,19 @@ interface Patient {
   folderUrl: string;
 }
 
+// Παλέτα χρωμάτων της εφαρμογής - χρησιμοποιείται παντού
+// εκτός από το κόκκινο κουμπί κατάργησης πρόσβασης και τα μαύρα γράμματα στο κείμενο
+const COLORS = {
+  primary: '#304674',   // σκούρο μπλε - κουμπιά, εικονίδια, bottom nav
+  medium: '#98bad5',    // μεσαίο μπλε - δευτερεύοντα στοιχεία
+  light: '#c6d3e3',     // ανοιχτό μπλε - κάρτες
+  light2: '#b2cbde',    // ανοιχτό μπλε (εναλλακτικό)
+  lightest: '#d8e1e8',  // πολύ ανοιχτό μπλε - φόντο/επιφάνειες
+  text: '#000000',      // μαύρο κείμενο
+  danger: '#e74c3c',    // ΜΟΝΟ για το κουμπί κατάργησης πρόσβασης
+  white: '#ffffff',
+};
+
 export default function App() {
   // --- STATE ΕΦΑΡΜΟΓΗΣ ---
   const [userRole, setUserRole] = useState<'none' | 'doctor' | 'patient'>('none');
@@ -540,7 +553,7 @@ export default function App() {
         <View style={styles.cardDetails}>
           <Text style={styles.patientName}>{item.first_name} {item.last_name}</Text>
           <Text style={styles.cardLabel}>AMKA: <Text style={styles.cardValue}>{item.amka}</Text></Text>
-          <Text style={styles.cardLabel}>Πρόσβαση: <Text style={styles.cardValue}>{item.accessType}</Text></Text>
+          <Text style={styles.cardLabel}>Τύπος πρόσβασης: <Text style={styles.cardValue}>{item.accessType}</Text></Text>
         </View>
         <TouchableOpacity 
           style={styles.cardActionButton} 
@@ -894,7 +907,7 @@ export default function App() {
       <SafeAreaView style={styles.figmaContainer}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.figmaContent}>
-          <FontAwesome5 name="heartbeat" size={70} color="#2c3e50" style={{ marginBottom: 20 }} />
+          <FontAwesome5 name="heartbeat" size={70} color={COLORS.primary} style={{ marginBottom: 20 }} />
           <Text style={styles.figmaTitle}>Σύνδεση</Text>
           
           <View style={{ width: '100%', marginTop: 50 }}>
@@ -923,11 +936,11 @@ export default function App() {
       <SafeAreaView style={styles.loginContainer}>
         <StatusBar barStyle="dark-content" />
         <TouchableOpacity style={styles.backButton} onPress={() => setUserRole('none')}>
-          <Ionicons name="arrow-back" size={28} color="#2c3e50" />
+          <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
         </TouchableOpacity>
 
         <View style={styles.loginCard}>
-          <Ionicons name="medical" size={60} color="#3b5998" style={{ alignSelf: 'center', marginBottom: 20 }} />
+          <Ionicons name="medical" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
           <Text style={styles.loginTitle}>Σύνδεση</Text>
 
           <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
@@ -958,8 +971,8 @@ export default function App() {
             style={{marginTop: 15, alignItems: 'center'}}
             onPress={() => setShowPatientRegister(true)}
           >
-            <Text style={{color: '#7f8c8d', fontSize: 14}}>Δεν έχετε λογαριασμό;</Text>
-            <Text style={{color: '#3b5998', fontSize: 16, fontWeight: 'bold'}}>Εγγραφή</Text>
+            <Text style={{color: COLORS.text, fontSize: 14}}>Δεν έχετε λογαριασμό;</Text>
+            <Text style={{color: COLORS.text, fontSize: 16, fontWeight: 'bold'}}>Εγγραφή</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -971,11 +984,11 @@ export default function App() {
       <SafeAreaView style={styles.loginContainer}>
         <StatusBar barStyle="dark-content" />
         <TouchableOpacity style={styles.backButton} onPress={() => setUserRole('none')}>
-          <Ionicons name="arrow-back" size={28} color="#2c3e50" />
+          <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
         </TouchableOpacity>
 
         <View style={styles.loginCard}>
-          <Ionicons name="person-add" size={60} color="#3b5998" style={{ alignSelf: 'center', marginBottom: 20 }} />
+          <Ionicons name="person-add" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
           <Text style={styles.loginTitle}>Δημιουργία Λογαριασμού</Text>
 
           <Text style={styles.inputLabel}>Όνομα</Text>
@@ -1004,7 +1017,7 @@ export default function App() {
           </TouchableOpacity>
 
           <TouchableOpacity style={{marginTop: 15, alignItems: 'center'}} onPress={() => setShowPatientRegister(false)}>
-            <Text style={{color: '#3b5998', fontSize: 16}}>Έχω ήδη λογαριασμό</Text>
+            <Text style={{color: COLORS.text, fontSize: 16}}>Έχω ήδη λογαριασμό</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -1018,11 +1031,11 @@ export default function App() {
         
         {/* Κουμπί Πίσω για να αλλάξει ρόλο */}
         <TouchableOpacity style={styles.backButton} onPress={() => setUserRole('none')}>
-          <Ionicons name="arrow-back" size={28} color="#2c3e50" />
+          <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
         </TouchableOpacity>
 
         <View style={styles.loginCard}>
-          <Ionicons name="medical" size={60} color="#3b5998" style={{ alignSelf: 'center', marginBottom: 20 }} />
+          <Ionicons name="medical" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
           <Text style={styles.loginTitle}>Πρόσβαση {userRole === 'doctor' ? 'Ιατρού' : 'Ασθενή'}</Text>
           <Text style={styles.loginSubtitle}>Συνδεθείτε μέσω του Solid Pod σας</Text>
           
@@ -1064,9 +1077,9 @@ export default function App() {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
-          <Text style={{fontSize: 20, fontWeight: 'bold', color: '#2c3e50'}}>Οι Προσβάσεις μου</Text>
+          <Text style={{fontSize: 20, fontWeight: 'bold', color: COLORS.text}}>Οι Προσβάσεις μου</Text>
           <TouchableOpacity onPress={() => { setIsLoggedIn(false); setUserRole('none'); setShowPatientRegister(false); }}>
-            <Ionicons name="log-out-outline" size={36} color="#e74c3c" />
+            <Ionicons name="log-out-outline" size={36} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
 
@@ -1074,7 +1087,7 @@ export default function App() {
           <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
         </TouchableOpacity>
 
-        {loading ? <ActivityIndicator size="large" color="#3b5998" style={{marginTop: 50}} /> : (
+        {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{marginTop: 50}} /> : (
           accessList.length === 0 ? (
             <Text style={[styles.emptyText, {marginTop: 50}]}>Δεν έχετε δώσει πρόσβαση σε κανέναν γιατρό.</Text>
           ) : (
@@ -1095,7 +1108,7 @@ export default function App() {
                         onPress={() => handleChangeAccessType(item.doctor_amka, item.access_type)}
                         style={{
                           alignSelf: 'flex-start',
-                          backgroundColor: item.access_type === 'Πλήρης Πρόσβαση' ? '#3b5998' : '#27ae60',
+                          backgroundColor: item.access_type === 'Πλήρης Πρόσβαση' ? COLORS.primary : COLORS.medium,
                           paddingHorizontal: 12,
                           paddingVertical: 6,
                           borderRadius: 20,
@@ -1135,16 +1148,16 @@ export default function App() {
               <Text style={styles.inputLabel}>Τύπος Πρόσβασης</Text>
               <View style={{flexDirection: 'row', marginBottom: 20}}>
                 <TouchableOpacity
-                  style={[styles.modalButton, {flex: 1, marginRight: 5, backgroundColor: newAccessType === 'Πλήρης Πρόσβαση' ? '#3b5998' : '#f5f5f5', borderWidth: 1, borderColor: '#ddd'}]}
+                  style={[styles.modalButton, {flex: 1, marginRight: 5, backgroundColor: newAccessType === 'Πλήρης Πρόσβαση' ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium}]}
                   onPress={() => setNewAccessType('Πλήρης Πρόσβαση')}
                 >
-                  <Text style={{color: newAccessType === 'Πλήρης Πρόσβαση' ? 'white' : '#666', textAlign: 'center'}}>Πλήρης</Text>
+                  <Text style={{color: newAccessType === 'Πλήρης Πρόσβαση' ? COLORS.white : COLORS.text, textAlign: 'center'}}>Πλήρης</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.modalButton, {flex: 1, marginLeft: 5, backgroundColor: newAccessType === 'Μόνο Ανάγνωση' ? '#3b5998' : '#f5f5f5', borderWidth: 1, borderColor: '#ddd'}]}
+                  style={[styles.modalButton, {flex: 1, marginLeft: 5, backgroundColor: newAccessType === 'Μόνο Ανάγνωση' ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium}]}
                   onPress={() => setNewAccessType('Μόνο Ανάγνωση')}
                 >
-                  <Text style={{color: newAccessType === 'Μόνο Ανάγνωση' ? 'white' : '#666', textAlign: 'center'}}>Μόνο Ανάγνωση</Text>
+                  <Text style={{color: newAccessType === 'Μόνο Ανάγνωση' ? COLORS.white : COLORS.text, textAlign: 'center'}}>Μόνο Ανάγνωση</Text>
                 </TouchableOpacity>
               </View>
 
@@ -1165,21 +1178,34 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Η γραμμή διαχωρισμού (προαιρετική για να δείχνει πιο ωραίο) */}
-      <View style={styles.divider} />
       <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-        <Feather name="list" size={32} color="#2c3e50" />
-        <TouchableOpacity onPress={() => { setIsLoggedIn(false); setUserRole('none'); }}>
-          <Ionicons name="log-out-outline" size={36} color="#e74c3c" />
+      <View style={styles.docHeader}>
+        <TouchableOpacity onPress={() => Alert.alert('Μενού', 'Η λειτουργία έρχεται σύντομα.')}>
+          <Feather name="menu" size={28} color={COLORS.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => Alert.alert('Αποσύνδεση', 'Θέλετε να αποσυνδεθείτε;', [
+            { text: 'Ακύρωση', style: 'cancel' },
+            { text: 'Αποσύνδεση', style: 'destructive', onPress: () => { setIsLoggedIn(false); setUserRole('none'); } },
+          ])}
+        >
+          <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#7f8c8d" style={{ marginRight: 10 }} />
-        <TextInput style={styles.searchInput} placeholder="Αναζήτηση..." />
+        <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+        <TextInput style={styles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
       </View>
 
-      {loading ? <ActivityIndicator size="large" color="#3b5998" style={{ marginTop: 50 }} /> : (
+      <TouchableOpacity
+        style={styles.requestAccessButton}
+        onPress={() => Alert.alert('Αίτημα Πρόσβασης', 'Η λειτουργία έρχεται σύντομα.')}
+      >
+        <Ionicons name="add" size={20} color={COLORS.white} />
+        <Text style={styles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
+      </TouchableOpacity>
+
+      {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
         <FlatList data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
       )}
 
@@ -1188,7 +1214,7 @@ export default function App() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Φάκελος: {activePatientName}</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close-circle" size={30} color="#e74c3c" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close-circle" size={30} color={COLORS.primary} /></TouchableOpacity>
             </View>
             {/* Το νέο κουμπί προσθήκης στην κορυφή  */}
             <TouchableOpacity 
@@ -1208,18 +1234,18 @@ export default function App() {
                         style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} 
                         onPress={() => openFile(item)}
                       >
-                        <Ionicons name="document-text" size={24} color="#3498db" style={{marginRight: 15}} />
+                        <Ionicons name="document-text" size={24} color={COLORS.primary} style={{marginRight: 15}} />
                         <Text style={styles.fileName}>{decodeURIComponent(fileName)}</Text>
                       </TouchableOpacity>
 
                       {/* Κουμπί edit */}
                       <TouchableOpacity onPress={() => handleEditFile(item)} style={{marginRight: 15}}>
-                        <Ionicons name="pencil-outline" size={24} color="#f39c12" />
+                        <Ionicons name="pencil-outline" size={24} color={COLORS.medium} />
                       </TouchableOpacity>
 
                       {/* Κουμπί διαγραφής */}
                       <TouchableOpacity onPress={() => handleDeleteFile(item)}>
-                        <Ionicons name="trash-outline" size={24} color="#e74c3c" />
+                        <Ionicons name="trash-outline" size={24} color={COLORS.primary} />
                       </TouchableOpacity>
                     </View>
                   );
@@ -1302,51 +1328,81 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      <View style={styles.bottomNav}>
+        <View style={styles.bottomNavItem}>
+          <Text style={[styles.bottomNavText, styles.bottomNavTextActive]}>Αρχική</Text>
+        </View>
+        <TouchableOpacity style={styles.bottomNavItem} onPress={() => Alert.alert('Προσβάσεις', 'Η λειτουργία έρχεται σύντομα.')}>
+          <Text style={styles.bottomNavText}>Προσβάσεις</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomNavItem} onPress={() => Alert.alert('Ρυθμίσεις', 'Η λειτουργία έρχεται σύντομα.')}>
+          <Text style={styles.bottomNavText}>Ρυθμίσεις</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#ecf0f1',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.lightest,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
   },
   addButton: {
-    backgroundColor: '#2e64e5',
+    backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 10,
   },
   addButtonText: {
-    color: '#ffffff',
+    color: COLORS.white,
     fontWeight: 'bold',
     fontSize: 16,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#cccccc',
-    marginVertical: 15,
-  },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 20 },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 25, marginHorizontal: 20, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#bdc3c7' },
-  searchInput: { flex: 1, height: 40, fontSize: 16 },
-  listContent: { paddingHorizontal: 20 },
-  card: { backgroundColor: 'white', borderRadius: 15, padding: 20, marginBottom: 15, elevation: 2 },
+
+  /* Header της οθόνης γιατρού (menu + avatar) */
+  docHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 15 },
+
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightest, borderRadius: 25, marginHorizontal: 20, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: COLORS.medium },
+  searchInput: { flex: 1, height: 40, fontSize: 16, color: COLORS.text },
+
+  /* Κουμπί "+ Αίτημα Πρόσβασης" (οθόνη γιατρού) */
+  requestAccessButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    paddingVertical: 14,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestAccessButtonText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+
+  listContent: { paddingHorizontal: 20, paddingBottom: 20 },
+  card: { backgroundColor: COLORS.light, borderRadius: 15, padding: 20, marginBottom: 15, elevation: 2 },
   cardDetails: { marginBottom: 15 },
-  patientName: { fontSize: 20, fontWeight: 'bold', color: '#2c3e50', marginBottom: 5 },
-  cardLabel: { fontSize: 14, color: '#7f8c8d' },
-  cardValue: { fontWeight: 'bold', color: '#34495e' },
-  cardActionButton: { backgroundColor: '#3b5998', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  cardActionButtonText: { color: 'white', fontWeight: 'bold' },
+  patientName: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 5 },
+  cardLabel: { fontSize: 14, color: COLORS.text },
+  cardValue: { fontWeight: 'bold', color: COLORS.text },
+  cardActionButton: { backgroundColor: COLORS.primary, paddingVertical: 10, borderRadius: 25, alignItems: 'center' },
+  cardActionButtonText: { color: COLORS.white, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '60%', padding: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#ecf0f1', paddingBottom: 10 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold' },
-  fileItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f9fa', padding: 15, borderRadius: 10, marginBottom: 10 },
-  fileName: { fontSize: 16, color: '#2c3e50' },
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#7f8c8d' },
+  modalContent: { backgroundColor: COLORS.lightest, borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '60%', padding: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: COLORS.medium, paddingBottom: 10 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text },
+  fileItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.light, padding: 15, borderRadius: 10, marginBottom: 10 },
+  fileName: { fontSize: 16, color: COLORS.text },
+  emptyText: { textAlign: 'center', marginTop: 50, color: COLORS.text },
   addmodalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -1355,7 +1411,7 @@ const styles = StyleSheet.create({
   },
   addmodalContent: {
     width: '85%',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.lightest,
     borderRadius: 15,
     padding: 20,
     elevation: 5, // Σκιά για Android
@@ -1368,17 +1424,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#333',
+    color: COLORS.text,
     textAlign: 'center',
   },
   textArea: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: COLORS.medium,
     borderRadius: 8,
     padding: 10,
     height: 100,
     textAlignVertical: 'top', // Σημαντικό για Android
     marginBottom: 20,
+    color: COLORS.text,
   },
   modalButtonsGroup: {
     flexDirection: 'row',
@@ -1392,37 +1449,57 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.lightest,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: COLORS.medium,
   },
   saveButton: {
-    backgroundColor: '#2e64e5',
+    backgroundColor: COLORS.primary,
   },
   cancelButtonText: {
-    color: '#666',
+    color: COLORS.text,
     fontWeight: 'bold',
   },
   saveButtonText: {
-    color: 'white',
+    color: COLORS.white,
     fontWeight: 'bold',
   },
-  
+
+  /* Κάτω μπάρα πλοήγησης (οθόνη γιατρού) */
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+  },
+  bottomNavItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  bottomNavText: {
+    color: COLORS.medium,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bottomNavTextActive: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+  },
+
   /* ΣΤΥΛ ΓΙΑ ΤΗΝ ΟΘΟΝΗ ΕΠΙΛΟΓΗΣ (FIGMA VIBE) */
-  figmaContainer: { flex: 1, backgroundColor: '#a6c0d4' }, // Το γαλάζιο του figma
+  figmaContainer: { flex: 1, backgroundColor: COLORS.medium },
   figmaContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
-  figmaTitle: { fontSize: 32, color: '#2c3e50', fontWeight: '500', marginBottom: 40 },
-  figmaButton: { backgroundColor: '#3b4b6b', width: '100%', paddingVertical: 15, borderRadius: 25, marginBottom: 20, alignItems: 'center' }, // Το σκούρο μπλε
-  figmaButtonText: { color: 'white', fontSize: 18, fontWeight: '600' },
+  figmaTitle: { fontSize: 32, color: COLORS.text, fontWeight: '500', marginBottom: 40 },
+  figmaButton: { backgroundColor: COLORS.primary, width: '100%', paddingVertical: 15, borderRadius: 25, marginBottom: 20, alignItems: 'center' },
+  figmaButtonText: { color: COLORS.white, fontSize: 18, fontWeight: '600' },
 
   /* ΣΤΥΛ ΓΙΑ ΤΗΝ ΟΘΟΝΗ LOGIN */
-  loginContainer: { flex: 1, backgroundColor: '#ecf0f1', padding: 20, justifyContent: 'center' },
+  loginContainer: { flex: 1, backgroundColor: COLORS.lightest, padding: 20, justifyContent: 'center' },
   backButton: { position: 'absolute', top: 50, left: 20, zIndex: 10 },
-  loginCard: { backgroundColor: 'white', padding: 30, borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
-  loginTitle: { fontSize: 26, fontWeight: 'bold', color: '#2c3e50', textAlign: 'center', marginBottom: 5 },
-  loginSubtitle: { fontSize: 16, color: '#7f8c8d', textAlign: 'center', marginBottom: 40 },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: '#34495e', marginBottom: 8 },
-  loginInput: { backgroundColor: '#ecf0f1', borderRadius: 10, padding: 15, fontSize: 16, color: '#7f8c8d', marginBottom: 30 },
-  solidLoginButton: { backgroundColor: '#3b5998', paddingVertical: 15, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  solidLoginButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+  loginCard: { backgroundColor: COLORS.light, padding: 30, borderRadius: 20, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84 },
+  loginTitle: { fontSize: 26, fontWeight: 'bold', color: COLORS.text, textAlign: 'center', marginBottom: 5 },
+  loginSubtitle: { fontSize: 16, color: COLORS.text, textAlign: 'center', marginBottom: 40 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
+  loginInput: { backgroundColor: COLORS.lightest, borderRadius: 10, padding: 15, fontSize: 16, color: COLORS.text, marginBottom: 30 },
+  solidLoginButton: { backgroundColor: COLORS.primary, paddingVertical: 15, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  solidLoginButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 18 },
 });
