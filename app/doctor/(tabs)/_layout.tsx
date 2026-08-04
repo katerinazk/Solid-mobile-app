@@ -10,6 +10,8 @@ export default function DoctorTabsLayout() {
         tabBarInactiveTintColor: COLORS.medium,
         tabBarStyle: { backgroundColor: COLORS.primary, borderTopWidth: 0 },
         tabBarLabelStyle: { fontSize: 14, fontWeight: '600' },
+        tabBarIcon: () => null,
+        tabBarIconStyle: { width: 0, height: 0, margin: 0 },
       }}
     >
       <Tabs.Screen name="home" options={{ title: 'Αρχική' }} />
