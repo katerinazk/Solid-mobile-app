@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../constants/colors';
-import { sharedStyles as styles } from '../../constants/sharedStyles';
-import { loginStyles } from '../../constants/loginStyles';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../supabase';
-import { createDpopToken } from '../../dpop';
+import { COLORS } from '../../../constants/colors';
+import { sharedStyles as styles } from '../../../constants/sharedStyles';
+import { loginStyles } from '../../../constants/loginStyles';
+import { useAuth } from '../../../contexts/AuthContext';
+import { supabase } from '../../../supabase';
+import { createDpopToken } from '../../../dpop';
 
 const PATIENT_WEB_ID = 'https://up1072722vol2.datapod.igrant.io/profile/card#me';
 

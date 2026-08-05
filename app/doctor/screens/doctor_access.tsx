@@ -69,7 +69,7 @@ export default function DoctorAccessScreen() {
       <TouchableOpacity
         style={styles.cardActionButton}
         onPress={() => router.push({
-          pathname: '/doctor/history/[amka]',
+          pathname: '/doctor/patient_screens/med_history',
           params: {
             amka: item.amka,
             firstName: item.first_name,

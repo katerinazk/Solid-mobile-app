@@ -33,7 +33,7 @@ export default function DoctorHistoryScreen() {
         <TouchableOpacity
           style={styles.historyCategoryButton}
           onPress={() => router.push({
-            pathname: '/doctor/folder/[amka]',
+            pathname: '/doctor/patient_screens/doctor_diagnoseis',
             params: { amka, firstName, lastName, webId },
           })}
         >

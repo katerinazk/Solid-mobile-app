@@ -193,13 +193,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const verified = await handlePatientLoginVerification(webId);
               if (verified) {
                 setIsLoggedIn(true);
-                router.replace('/patient/home');
+                router.replace('/patient/screens/patient_access');
               }
             } else if (role === 'doctor') {
               const verified = await handleDoctorLoginVerification(webId);
               if (verified) {
                 setIsLoggedIn(true);
-                router.replace('/doctor/(tabs)/home');
+                router.replace('/doctor/screens/doctor_home');
               }
             }
           } else {

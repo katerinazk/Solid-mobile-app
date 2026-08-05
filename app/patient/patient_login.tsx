@@ -46,7 +46,7 @@ export default function PatientLoginScreen() {
 
         <TouchableOpacity
           style={{ marginTop: 15, alignItems: 'center' }}
-          onPress={() => router.push('/patient/register')}
+          onPress={() => router.push('/patient/patient_register')}
         >
           <Text style={{ color: COLORS.text, fontSize: 14 }}>Δεν έχετε λογαριασμό;</Text>
           <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: 'bold' }}>Εγγραφή</Text>

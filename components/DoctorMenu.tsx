@@ -51,13 +51,13 @@ export function DoctorMenuProvider({ children }: { children: ReactNode }) {
             </TouchableOpacity>
 
             <View style={styles.menuItems}>
-              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/(tabs)/home'); }}>
+              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/screens/doctor_home'); }}>
                 <Text style={styles.menuItemText}>Αρχική</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/(tabs)/access'); }}>
+              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/screens/doctor_access'); }}>
                 <Text style={styles.menuItemText}>Προσβάσεις</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/(tabs)/settings'); }}>
+              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/screens/doctor_settings'); }}>
                 <Text style={styles.menuItemText}>Ρυθμίσεις</Text>
               </TouchableOpacity>
             </View>

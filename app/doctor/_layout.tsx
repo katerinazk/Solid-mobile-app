@@ -5,7 +5,7 @@ export default function DoctorLayout() {
   return (
     <DoctorMenuProvider>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="folder/[amka]" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="patient_screens/doctor_diagnoseis" options={{ presentation: 'modal' }} />
       </Stack>
     </DoctorMenuProvider>
   );

@@ -14,9 +14,9 @@ export default function DoctorTabsLayout() {
         tabBarIconStyle: { width: 0, height: 0, margin: 0 },
       }}
     >
-      <Tabs.Screen name="home" options={{ title: 'Αρχική' }} />
-      <Tabs.Screen name="access" options={{ title: 'Προσβάσεις' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Ρυθμίσεις' }} />
+      <Tabs.Screen name="doctor_home" options={{ title: 'Αρχική' }} />
+      <Tabs.Screen name="doctor_access" options={{ title: 'Προσβάσεις' }} />
+      <Tabs.Screen name="doctor_settings" options={{ title: 'Ρυθμίσεις' }} />
     </Tabs>
   );
 }
