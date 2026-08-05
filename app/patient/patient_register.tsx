@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../supabase';
+import { useAuth } from '../../hooks/useAuth';
+import { registerPatient } from '../../services/patients';
 
 export default function PatientRegisterScreen() {
   const { login } = useAuth();
@@ -27,15 +27,7 @@ export default function PatientRegisterScreen() {
     }
     try {
       setLoading(true);
-      const { error } = await supabase.from('patients').insert([{
-        first_name: patientForm.first_name,
-        last_name: patientForm.last_name,
-        amka: patientForm.amka,
-        birth_date: patientForm.birth_date || null,
-        sex: patientForm.sex || null,
-        blood_type: patientForm.blood_type || null,
-        phone: patientForm.phone || null,
-      }]);
+      const { error } = await registerPatient(patientForm);
 
       if (error) {
         alert("Σφάλμα αποθήκευσης: " + error.message);

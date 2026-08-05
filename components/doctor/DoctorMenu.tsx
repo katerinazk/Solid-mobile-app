@@ -1,22 +1,17 @@
-import React, { createContext, useContext, useRef, useState, ReactNode } from 'react';
+import React, { createContext, useRef, useState, ReactNode } from 'react';
 import { Animated, Dimensions, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { COLORS } from '../constants/colors';
-import { doctorStyles as styles } from '../constants/doctorStyles';
-import { useAuth } from '../contexts/AuthContext';
+import { COLORS } from '../../constants/colors';
+import { doctorStyles as styles } from '../../constants/doctorStyles';
+import { ROUTES } from '../../constants/routes';
+import { useAuth } from '../../hooks/useAuth';
 
-interface DoctorMenuContextValue {
+export interface DoctorMenuContextValue {
   openMenu: () => void;
 }
 
-const DoctorMenuContext = createContext<DoctorMenuContextValue | null>(null);
-
-export function useDoctorMenu() {
-  const ctx = useContext(DoctorMenuContext);
-  if (!ctx) throw new Error('useDoctorMenu must be used within a DoctorMenuProvider');
-  return ctx;
-}
+export const DoctorMenuContext = createContext<DoctorMenuContextValue | null>(null);
 
 // Το πλαϊνό μενού γιατρού μπαίνει/βγαίνει με οριζόντιο slide (αριστερά -> δεξιά),
 // γι' αυτό το κάνουμε εμείς οι ίδιοι με Animated αντί για το ενσωματωμένο animationType="slide"
@@ -51,13 +46,13 @@ export function DoctorMenuProvider({ children }: { children: ReactNode }) {
             </TouchableOpacity>
 
             <View style={styles.menuItems}>
-              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/screens/doctor_home'); }}>
+              <TouchableOpacity onPress={() => { closeMenu(); router.replace(ROUTES.DOCTOR_HOME); }}>
                 <Text style={styles.menuItemText}>Αρχική</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/screens/doctor_access'); }}>
+              <TouchableOpacity onPress={() => { closeMenu(); router.replace(ROUTES.DOCTOR_ACCESS); }}>
                 <Text style={styles.menuItemText}>Προσβάσεις</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { closeMenu(); router.replace('/doctor/screens/doctor_settings'); }}>
+              <TouchableOpacity onPress={() => { closeMenu(); router.replace(ROUTES.DOCTOR_SETTINGS); }}>
                 <Text style={styles.menuItemText}>Ρυθμίσεις</Text>
               </TouchableOpacity>
             </View>

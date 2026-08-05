@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
-import { useAuth } from '../../contexts/AuthContext';
+import { ROUTES } from '../../constants/routes';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function PatientLoginScreen() {
   const { login, loading } = useAuth();
@@ -46,7 +47,7 @@ export default function PatientLoginScreen() {
 
         <TouchableOpacity
           style={{ marginTop: 15, alignItems: 'center' }}
-          onPress={() => router.push('/patient/patient_register')}
+          onPress={() => router.push(ROUTES.PATIENT_REGISTER)}
         >
           <Text style={{ color: COLORS.text, fontSize: 14 }}>Δεν έχετε λογαριασμό;</Text>
           <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: 'bold' }}>Εγγραφή</Text>

@@ -1,16 +1,17 @@
-import React, { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useRef, useEffect, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
-import { supabase } from '../supabase';
-import { createDpopToken } from '../dpop';
+import { supabase } from '../services/supabase';
+import { createDpopToken } from '../utils/dpop';
+import { ROUTES } from '../constants/routes';
 
 type Role = 'doctor' | 'patient';
 
 const SOLID_PROVIDER_URL = 'https://datapod.igrant.io';
 
-interface AuthContextValue {
+export interface AuthContextValue {
   role: Role | null;
   isLoggedIn: boolean;
   loading: boolean;
@@ -24,7 +25,7 @@ interface AuthContextValue {
   confirmLogout: () => void;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
@@ -193,13 +194,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const verified = await handlePatientLoginVerification(webId);
               if (verified) {
                 setIsLoggedIn(true);
-                router.replace('/patient/screens/patient_access');
+                router.replace(ROUTES.PATIENT_ACCESS);
               }
             } else if (role === 'doctor') {
               const verified = await handleDoctorLoginVerification(webId);
               if (verified) {
                 setIsLoggedIn(true);
-                router.replace('/doctor/screens/doctor_home');
+                router.replace(ROUTES.DOCTOR_HOME);
               }
             }
           } else {
@@ -328,7 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIdToken('');
     setLoggedInPatientAmka('');
     setLoggedInDoctorAmka('');
-    router.replace('/');
+    router.replace(ROUTES.LOGIN);
   };
 
   const confirmLogout = () => {
@@ -357,10 +358,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
-  return ctx;
 }

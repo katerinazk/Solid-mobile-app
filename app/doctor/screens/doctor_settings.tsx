@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, SafeAreaView, StatusBar } from 'react-native';
 import { sharedStyles } from '../../../constants/sharedStyles';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
-import { DoctorHeader } from '../../../components/DoctorHeader';
+import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
 
 export default function DoctorSettingsScreen() {
   return (

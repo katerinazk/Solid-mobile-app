@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, StatusBar } fro
 import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../constants/colors';
+import { ROUTES } from '../constants/routes';
 
 export default function RoleSelectionScreen() {
   return (
@@ -13,11 +14,11 @@ export default function RoleSelectionScreen() {
         <Text style={styles.title}>Σύνδεση</Text>
 
         <View style={{ width: '100%', marginTop: 50 }}>
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/patient/patient_login')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push(ROUTES.PATIENT_LOGIN)}>
             <Text style={styles.buttonText}>Ασθενής</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.button} onPress={() => router.push('/doctor/doctor_login')}>
+          <TouchableOpacity style={styles.button} onPress={() => router.push(ROUTES.DOCTOR_LOGIN)}>
             <Text style={styles.buttonText}>Γιατρός</Text>
           </TouchableOpacity>
         </View>

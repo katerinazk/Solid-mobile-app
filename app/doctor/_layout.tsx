@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { DoctorMenuProvider } from '../../components/DoctorMenu';
+import { DoctorMenuProvider } from '../../components/doctor/DoctorMenu';
 
 export default function DoctorLayout() {
   return (

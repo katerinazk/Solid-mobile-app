@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles } from '../../../constants/sharedStyles';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
-import { DoctorHeader } from '../../../components/DoctorHeader';
+import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
 
 export default function DoctorHomeScreen() {
   return (

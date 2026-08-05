@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
-import { useAuth } from '../../../contexts/AuthContext';
-import { createDpopToken } from '../../../dpop';
+import { useAuth } from '../../../hooks/useAuth';
+import { listFolderFiles, fetchFileContent, deleteFile, saveFileContent } from '../../../services/solidPod';
 
 export default function DoctorFolderScreen() {
   const { amka, firstName, lastName, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
@@ -23,76 +23,28 @@ export default function DoctorFolderScreen() {
   const [editContent, setEditContent] = useState('');
   const [editFileUrl, setEditFileUrl] = useState('');
 
-  const handleOpenFolder = async () => {
+  const loadFolder = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
-
-      const dpopToken = await createDpopToken('GET', folderUrl);
-      const response = await fetch(folderUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `DPoP ${accessToken}`,
-          'DPoP': dpopToken,
-          'Accept': 'text/turtle',
-        },
-      });
-
-      if (!response.ok) {
-        Alert.alert("Πρόβλημα", "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
-        return;
-      }
-
-      const text = await response.text();
-
-      // Ισοπεδώνουμε τα newlines ώστε να πιάνουμε και πολυγραμμικές λίστες
-      const flatText = text.replace(/\r?\n\s*/g, ' ');
-      const fileUrls: string[] = [];
-      // Βρίσκουμε κάθε ldp:contains block (μπορεί να έχει πολλά URLs με κόμμα)
-      for (const containsMatch of flatText.matchAll(/ldp:contains\s+((?:<[^>]+>(?:\s*,\s*)?)+)/g)) {
-        for (const uriMatch of containsMatch[1].matchAll(/<([^>]+)>/g)) {
-          const uri = uriMatch[1];
-          if (uri.startsWith('http')) {
-            fileUrls.push(uri);
-          } else if (uri.startsWith('/')) {
-            const parsedBase = new URL(folderUrl);
-            fileUrls.push(`${parsedBase.protocol}//${parsedBase.host}${uri}`);
-          } else {
-            fileUrls.push(`${folderUrl}${uri}`);
-          }
-        }
-      }
-
-      setFolderFiles(fileUrls);
-    } catch (error) {
-      Alert.alert("Πρόβλημα", "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      const files = await listFolderFiles(webId, accessToken);
+      setFolderFiles(files);
+    } catch (error: any) {
+      Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    handleOpenFolder();
+    loadFolder();
   }, []);
 
   const openFile = async (url: string) => {
     try {
       setLoading(true);
-      const dpopToken = await createDpopToken('GET', url);
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `DPoP ${accessToken}`,
-          'DPoP': dpopToken,
-        },
-      });
-
-      if (response.ok) {
-        const content = await response.text();
-        alert("Περιεχόμενο Διάγνωσης:\n\n" + content);
-      } else {
-        alert("Δεν ήταν δυνατή η ανάγνωση του αρχείου.");
-      }
+      const content = await fetchFileContent(url, accessToken);
+      alert("Περιεχόμενο Διάγνωσης:\n\n" + content);
     } catch (error) {
       alert("Σφάλμα κατά το άνοιγμα.");
     } finally {
@@ -112,24 +64,11 @@ export default function DoctorFolderScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              const dpopToken = await createDpopToken('DELETE', url);
-
-              const response = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                  'Authorization': `DPoP ${accessToken}`,
-                  'DPoP': dpopToken,
-                },
-              });
-
-              if (response.ok) {
-                setFolderFiles((prev) => prev.filter((f) => f !== url));
-                alert("Η διάγνωση διαγράφηκε επιτυχώς!");
-              } else {
-                alert("Σφάλμα διαγραφής: " + response.status);
-              }
-            } catch (error) {
-              alert("Αποτυχία σύνδεσης.");
+              await deleteFile(url, accessToken);
+              setFolderFiles((prev) => prev.filter((f) => f !== url));
+              alert("Η διάγνωση διαγράφηκε επιτυχώς!");
+            } catch (error: any) {
+              alert(error.message || "Αποτυχία σύνδεσης.");
             } finally {
               setLoading(false);
             }
@@ -142,25 +81,12 @@ export default function DoctorFolderScreen() {
   const handleEditFile = async (url: string) => {
     try {
       setLoading(true);
-      const dpopToken = await createDpopToken('GET', url);
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `DPoP ${accessToken}`,
-          'DPoP': dpopToken,
-        },
-      });
-
-      if (response.ok) {
-        const content = await response.text();
-        setEditContent(content);
-        setEditFileUrl(url);
-        setIsEditModalVisible(true);
-      } else {
-        alert("Αποτυχία φόρτωσης αρχείου.");
-      }
+      const content = await fetchFileContent(url, accessToken);
+      setEditContent(content);
+      setEditFileUrl(url);
+      setIsEditModalVisible(true);
     } catch (error) {
-      alert("Σφάλμα σύνδεσης.");
+      alert("Αποτυχία φόρτωσης αρχείου.");
     } finally {
       setLoading(false);
     }
@@ -169,25 +95,11 @@ export default function DoctorFolderScreen() {
   const handleSaveEdit = async () => {
     try {
       setLoading(true);
-      const dpopToken = await createDpopToken('PUT', editFileUrl);
-      const response = await fetch(editFileUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'text/plain',
-          'Authorization': `DPoP ${accessToken}`,
-          'DPoP': dpopToken,
-        },
-        body: editContent,
-      });
-
-      if (response.ok) {
-        alert("Η διάγνωση ενημερώθηκε επιτυχώς!");
-        setIsEditModalVisible(false);
-      } else {
-        alert("Σφάλμα αποθήκευσης: " + response.status);
-      }
-    } catch (error) {
-      alert("Σφάλμα σύνδεσης.");
+      await saveFileContent(editFileUrl, accessToken, editContent);
+      alert("Η διάγνωση ενημερώθηκε επιτυχώς!");
+      setIsEditModalVisible(false);
+    } catch (error: any) {
+      alert(error.message || "Σφάλμα σύνδεσης.");
     } finally {
       setLoading(false);
     }
@@ -199,47 +111,24 @@ export default function DoctorFolderScreen() {
       return;
     }
 
+    if (!accessToken) {
+      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      return;
+    }
+
     const fileName = `diagnosis_${Date.now()}.txt`;
     const fileUrl = `${folderUrl}${fileName}`;
 
     try {
       setLoading(true);
-
-      if (!accessToken) {
-        alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
-        setLoading(false);
-        return;
-      }
-
-      const dpopToken = await createDpopToken('PUT', fileUrl);
-
-      const response = await fetch(fileUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'text/plain',
-          'Accept': '*/*',
-          'Authorization': `DPoP ${accessToken}`,
-          'DPoP': dpopToken,
-        },
-        body: newDiagnosis
-      });
-
-      if (response.ok) {
-        alert("Η διάγνωση αποθηκεύτηκε επιτυχώς!");
-        setFolderFiles((prevFiles) => [...prevFiles, fileUrl]);
-        setIsAddModalVisible(false);
-        setNewDiagnosis('');
-      } else {
-        const errorText = await response.text();
-        alert(
-          "ΚΩΔΙΚΟΣ: " + response.status +
-          "\nΜΗΚΟΣ TOKEN: " + accessToken.length + " χαρακτήρες" +
-          "\n\nΛΟΓΟΣ:\n" + errorText.substring(0, 150)
-        );
-      }
-    } catch (error) {
+      await saveFileContent(fileUrl, accessToken, newDiagnosis);
+      alert("Η διάγνωση αποθηκεύτηκε επιτυχώς!");
+      setFolderFiles((prevFiles) => [...prevFiles, fileUrl]);
+      setIsAddModalVisible(false);
+      setNewDiagnosis('');
+    } catch (error: any) {
       console.error("Network Error:", error);
-      alert("Αποτυχία σύνδεσης με το Pod.");
+      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
       setLoading(false);
     }

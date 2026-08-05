@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/colors';
-import { doctorStyles as styles } from '../constants/doctorStyles';
-import { useAuth } from '../contexts/AuthContext';
-import { useDoctorMenu } from './DoctorMenu';
+import { COLORS } from '../../constants/colors';
+import { doctorStyles as styles } from '../../constants/doctorStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useDoctorMenu } from '../../hooks/useDoctorMenu';
 
 export function DoctorHeader() {
   const { confirmLogout } = useAuth();

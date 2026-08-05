@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
+import { ROUTES } from '../../../constants/routes';
 
 export default function DoctorHistoryScreen() {
   const { amka, firstName, lastName, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
@@ -33,7 +34,7 @@ export default function DoctorHistoryScreen() {
         <TouchableOpacity
           style={styles.historyCategoryButton}
           onPress={() => router.push({
-            pathname: '/doctor/patient_screens/doctor_diagnoseis',
+            pathname: ROUTES.DOCTOR_DIAGNOSEIS,
             params: { amka, firstName, lastName, webId },
           })}
         >

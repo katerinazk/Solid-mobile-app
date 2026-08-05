@@ -1,63 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
-import { DoctorHeader } from '../../../components/DoctorHeader';
-import { useAuth } from '../../../contexts/AuthContext';
-import { supabase } from '../../../supabase';
-
-interface Patient {
-  id: string;
-  first_name: string;
-  last_name: string;
-  amka: string;
-  accessType: string;
-  webId: string;
-  folderUrl: string;
-}
+import { ROUTES } from '../../../constants/routes';
+import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
+import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
+import { Patient } from '../../../types/Patient';
 
 export default function DoctorAccessScreen() {
-  const { loggedInDoctorAmka } = useAuth();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const fetchPatients = async () => {
-    try {
-      setLoading(true);
-      // Φέρνουμε μόνο τους ασθενείς που έχουν δώσει πρόσβαση σε αυτόν τον γιατρό,
-      // μαζί με τον τύπο πρόσβασης που έχουν ορίσει.
-      const { data, error } = await supabase
-        .from('access')
-        .select(`
-          access_type,
-          patients (first_name, last_name, amka, web_id)
-        `)
-        .eq('doctor_amka', loggedInDoctorAmka);
-
-      if (error) { console.error("Σφάλμα:", error.message); return; }
-      if (data) {
-        const formattedPatients: Patient[] = data
-          .filter((row: any) => row.patients)
-          .map((row: any) => ({
-            id: row.patients.amka,
-            first_name: row.patients.first_name,
-            last_name: row.patients.last_name,
-            amka: row.patients.amka,
-            accessType: row.access_type,
-            webId: row.patients.web_id,
-            folderUrl: row.patients.web_id ? row.patients.web_id.replace('profile/card#me', 'public/') : ''
-          }));
-        setPatients(formattedPatients);
-      }
-    } catch (error) { console.error("Σφάλμα:", error); } finally { setLoading(false); }
-  };
-
-  useEffect(() => {
-    fetchPatients();
-  }, []);
+  const { patients, loading } = useDoctorPatients();
 
   const renderPatientCard = ({ item }: { item: Patient }) => (
     <View style={styles.card}>
@@ -69,7 +23,7 @@ export default function DoctorAccessScreen() {
       <TouchableOpacity
         style={styles.cardActionButton}
         onPress={() => router.push({
-          pathname: '/doctor/patient_screens/med_history',
+          pathname: ROUTES.DOCTOR_MED_HISTORY,
           params: {
             amka: item.amka,
             firstName: item.first_name,

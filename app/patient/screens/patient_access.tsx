@@ -1,157 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { loginStyles } from '../../../constants/loginStyles';
-import { useAuth } from '../../../contexts/AuthContext';
-import { supabase } from '../../../supabase';
-import { createDpopToken } from '../../../dpop';
-
-const PATIENT_WEB_ID = 'https://up1072722vol2.datapod.igrant.io/profile/card#me';
+import { useAuth } from '../../../hooks/useAuth';
+import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
+import { fetchDoctorByAmka } from '../../../services/doctors';
+import { addAccess, deleteAccess, updateAccessType } from '../../../services/access';
+import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 
 export default function PatientHomeScreen() {
   const { loggedInPatientAmka, accessToken, activePatientFolderUrl, logout } = useAuth();
+  const { accessList, setAccessList, loading, setLoading, refresh } = usePatientAccessList();
 
-  const [accessList, setAccessList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [isAddAccessModalVisible, setIsAddAccessModalVisible] = useState(false);
   const [newDoctorAmka, setNewDoctorAmka] = useState('');
   const [newAccessType, setNewAccessType] = useState('Πλήρης Πρόσβαση');
-
-  const fetchAccessList = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('access')
-        .select(`
-          doctor_amka,
-          access_type,
-          doctors (first_name, last_name, specialty, web_id)
-        `)
-        .eq('patient_amka', loggedInPatientAmka);
-
-      if (error) { console.error(error); return; }
-      setAccessList(data || []);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAccessList();
-  }, []);
-
-  const updatePodAcl = async (newDoctorWebId: string, accessType: string) => {
-    const aclUrl = `${activePatientFolderUrl}.acl`;
-
-    // Παίρνουμε ΟΛΟΥΣ τους υπάρχοντες γιατρούς + τον νέο
-    let allDoctors = [...accessList];
-
-    // Αν ο γιατρός δεν υπάρχει ήδη στη λίστα, τον προσθέτουμε προσωρινά
-    const alreadyExists = allDoctors.some(a => a.doctors?.web_id === newDoctorWebId);
-    if (!alreadyExists) {
-      allDoctors = [...allDoctors, {
-        doctors: { web_id: newDoctorWebId },
-        access_type: accessType
-      }];
-    }
-
-    let aclContent = `
-  @prefix acl: <http://www.w3.org/ns/auth/acl#>.
-  @prefix foaf: <http://xmlns.com/foaf/0.1/>.
-
-  <#owner>
-    a acl:Authorization;
-    acl:agent <${PATIENT_WEB_ID}>;
-    acl:accessTo <${activePatientFolderUrl}>;
-    acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read, acl:Write, acl:Control.
-  `;
-
-    // Προσθέτουμε ΟΛΟΥΣ τους γιατρούς
-    allDoctors.forEach((a, index) => {
-      const webId = a.doctors?.web_id;
-      if (!webId) return;
-      const type = webId === newDoctorWebId ? accessType : a.access_type;
-      aclContent += `
-  <#doctor${index}>
-    a acl:Authorization;
-    acl:agent <${webId}>;
-    acl:accessTo <${activePatientFolderUrl}>;
-    acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read${type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
-  `;
-    });
-
-    const dpopToken = await createDpopToken('PUT', aclUrl);
-    const response = await fetch(aclUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'text/turtle',
-        'Authorization': `DPoP ${accessToken}`,
-        'DPoP': dpopToken,
-      },
-      body: aclContent,
-    });
-
-    if (response.ok) {
-      console.log("✅ ACL ενημερώθηκε στο Pod!");
-    } else {
-      console.error("❌ ACL error:", response.status, await response.text());
-    }
-  };
-
-  const removeDoctorFromAcl = async (doctorWebId: string) => {
-    const aclUrl = `${activePatientFolderUrl}.acl`;
-
-    // Πρώτα παίρνουμε τους υπόλοιπους γιατρούς που έχουν ακόμα πρόσβαση
-    const remainingDoctors = accessList.filter(a => a.doctors?.web_id !== doctorWebId);
-
-    let aclContent = `
-  @prefix acl: <http://www.w3.org/ns/auth/acl#>.
-  @prefix foaf: <http://xmlns.com/foaf/0.1/>.
-
-  <#owner>
-    a acl:Authorization;
-    acl:agent <${PATIENT_WEB_ID}>;
-    acl:accessTo <${activePatientFolderUrl}>;
-    acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read, acl:Write, acl:Control.
-  `;
-
-    remainingDoctors.forEach((a, index) => {
-      if (a.doctors?.web_id) {
-        aclContent += `
-  <#doctor${index}>
-    a acl:Authorization;
-    acl:agent <${a.doctors.web_id}>;
-    acl:accessTo <${activePatientFolderUrl}>;
-    acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read${a.access_type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
-  `;
-      }
-    });
-
-    const dpopToken = await createDpopToken('PUT', aclUrl);
-    const response = await fetch(aclUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'text/turtle',
-        'Authorization': `DPoP ${accessToken}`,
-        'DPoP': dpopToken,
-      },
-      body: aclContent,
-    });
-
-    if (response.ok) {
-      console.log("✅ Η πρόσβαση αφαιρέθηκε από το Pod!");
-    } else {
-      console.error("❌ ACL error:", response.status, await response.text());
-    }
-  };
 
   const handleAddAccess = async () => {
     if (!newDoctorAmka) {
@@ -161,35 +26,31 @@ export default function PatientHomeScreen() {
     try {
       setLoading(true);
 
-      const { data: doctorData, error: doctorError } = await supabase
-        .from('doctors')
-        .select('*')
-        .eq('amka', newDoctorAmka)
-        .single();
+      const { data: doctorData, error: doctorError } = await fetchDoctorByAmka(newDoctorAmka);
 
       if (doctorError || !doctorData) {
         alert("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
         return;
       }
 
-      const { error } = await supabase
-        .from('access')
-        .insert([{
-          patient_amka: loggedInPatientAmka,
-          doctor_amka: newDoctorAmka,
-          access_type: newAccessType,
-        }]);
+      const { error } = await addAccess(loggedInPatientAmka, newDoctorAmka, newAccessType);
 
       if (error) {
         alert("Σφάλμα: " + error.message);
         return;
       }
 
-      await updatePodAcl(doctorData.web_id, newAccessType);
+      await updatePodAcl({
+        activePatientFolderUrl,
+        accessToken,
+        accessList,
+        newDoctorWebId: doctorData.web_id,
+        accessType: newAccessType,
+      });
       alert(`Η πρόσβαση στον Δρ. ${doctorData.last_name} δόθηκε επιτυχώς!`);
       setNewDoctorAmka('');
       setIsAddAccessModalVisible(false);
-      fetchAccessList();
+      refresh();
     } catch (error) {
       alert("Απρόσμενο σφάλμα.");
     } finally {
@@ -206,15 +67,16 @@ export default function PatientHomeScreen() {
         onPress: async () => {
           const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
           const doctorWebId = doctorEntry?.doctors?.web_id;
-          const { error } = await supabase
-            .from('access')
-            .delete()
-            .eq('patient_amka', loggedInPatientAmka)
-            .eq('doctor_amka', doctorAmka);
+          const { error } = await deleteAccess(loggedInPatientAmka, doctorAmka);
 
           if (!error) {
             if (doctorWebId) {
-              await removeDoctorFromAcl(doctorWebId);
+              await removeDoctorFromAcl({
+                activePatientFolderUrl,
+                accessToken,
+                accessList,
+                doctorWebId,
+              });
             }
             setAccessList(prev => prev.filter(a => a.doctor_amka !== doctorAmka));
             alert("Η πρόσβαση καταργήθηκε επιτυχώς!");
@@ -227,17 +89,19 @@ export default function PatientHomeScreen() {
   const handleChangeAccessType = async (doctorAmka: string, currentType: string) => {
     const newType = currentType === 'Πλήρης Πρόσβαση' ? 'Μόνο Ανάγνωση' : 'Πλήρης Πρόσβαση';
 
-    const { error } = await supabase
-      .from('access')
-      .update({ access_type: newType })
-      .eq('patient_amka', loggedInPatientAmka)
-      .eq('doctor_amka', doctorAmka);
+    const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType);
 
     if (error) { alert("Σφάλμα: " + error.message); return; }
 
     const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
     if (doctorEntry?.doctors?.web_id) {
-      await updatePodAcl(doctorEntry.doctors.web_id, newType);
+      await updatePodAcl({
+        activePatientFolderUrl,
+        accessToken,
+        accessList,
+        newDoctorWebId: doctorEntry.doctors.web_id,
+        accessType: newType,
+      });
     }
 
     setAccessList(prev => prev.map(a =>
