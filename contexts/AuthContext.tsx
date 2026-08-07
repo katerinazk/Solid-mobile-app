@@ -283,6 +283,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           client_name: 'Solid Medical App',
           redirect_uris: [redirectUri],
+          // Χωρίς αυτό, ο server απορρίπτει το post_logout_redirect_uri στο RP-Initiated
+          post_logout_redirect_uris: [redirectUri],
           application_type: 'native',
           grant_types: ['authorization_code', 'refresh_token'],
           response_types: ['code'],
@@ -326,7 +328,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoggedIn(false);
     setRole(null);
     setAccessToken('');
-    setIdToken('');
     setLoggedInPatientAmka('');
     setLoggedInDoctorAmka('');
     router.replace(ROUTES.LOGIN);
