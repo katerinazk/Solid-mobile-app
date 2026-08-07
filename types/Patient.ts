@@ -6,4 +6,5 @@ export interface Patient {
   accessType: string;
   webId: string;
   folderUrl: string;
+  birthDate: string;
 }

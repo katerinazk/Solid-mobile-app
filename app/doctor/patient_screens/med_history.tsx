@@ -7,7 +7,7 @@ import { doctorStyles as styles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 
 export default function DoctorHistoryScreen() {
-  const { amka, firstName, lastName, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { amka, firstName, lastName, webId, birthDate } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string }>();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -35,7 +35,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_DIAGNOSEIS,
-            params: { amka, firstName, lastName, webId },
+            params: { amka, firstName, lastName, webId, birthDate },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Διαγνώσεις</Text>

@@ -39,6 +39,20 @@ export const doctorStyles = StyleSheet.create({
   historyCategoryButton: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 25, alignItems: 'center', marginBottom: 15 },
   historyCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
 
+  /* Οθόνη Διαγνώσεων */
+  diagnosisCategoryRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 20, marginBottom: 20 },
+  diagnosisCategoryButton: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 20, marginHorizontal: 8 },
+  diagnosisCategoryButtonActive: { backgroundColor: COLORS.primary },
+  diagnosisCategoryButtonInactive: { backgroundColor: COLORS.medium },
+  diagnosisCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 14 },
+  diagnosisSortButton: { backgroundColor: COLORS.lightest, borderWidth: 1, borderColor: COLORS.primary, paddingVertical: 12, borderRadius: 25, alignItems: 'center', marginHorizontal: 20, marginBottom: 15 },
+  diagnosisSortButtonText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 15 },
+  diagnosisCard: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginHorizontal: 20, marginBottom: 12 },
+  diagnosisCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  diagnosisCardTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, flex: 1, marginRight: 10 },
+  diagnosisCardDetail: { fontSize: 13, color: COLORS.text, marginTop: 6 },
+  diagnosisCardLabel: { fontWeight: 'bold' },
+
   container: {
     flex: 1,
     backgroundColor: COLORS.lightest,

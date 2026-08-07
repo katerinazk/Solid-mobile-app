@@ -8,7 +8,7 @@ export async function fetchPatientsForDoctor(doctorAmka: string): Promise<Patien
     .from('access')
     .select(`
       access_type,
-      patients (first_name, last_name, amka, web_id)
+      patients (first_name, last_name, amka, web_id, birth_date)
     `)
     .eq('doctor_amka', doctorAmka);
 
@@ -23,7 +23,8 @@ export async function fetchPatientsForDoctor(doctorAmka: string): Promise<Patien
       amka: row.patients.amka,
       accessType: row.access_type,
       webId: row.patients.web_id,
-      folderUrl: row.patients.web_id ? row.patients.web_id.replace('profile/card#me', 'public/') : ''
+      folderUrl: row.patients.web_id ? row.patients.web_id.replace('profile/card#me', 'public/') : '',
+      birthDate: row.patients.birth_date || '',
     }));
 }
 
