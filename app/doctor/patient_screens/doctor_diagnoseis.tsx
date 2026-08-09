@@ -17,6 +17,7 @@ interface Diagnosis {
   title: string;
   date: string;
   doctorName: string;
+  doctorAmka: string;
   category: Category;
 }
 
@@ -51,7 +52,7 @@ export default function DoctorDiagnoseisScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
-          return { url, title: record.title, date: record.date, doctorName: record.doctorName, category: record.category } as Diagnosis;
+          return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category } as Diagnosis;
         } catch {
           return null;
         }
@@ -97,6 +98,7 @@ export default function DoctorDiagnoseisScreen() {
         title: newDiagnosisTitle.trim(),
         date: new Date().toISOString(),
         doctorName,
+        doctorAmka: loggedInDoctorAmka,
         category: patientCategory,
       };
 
@@ -128,7 +130,7 @@ export default function DoctorDiagnoseisScreen() {
 
     try {
       setSaving(true);
-      const record = { title: editTitle.trim(), date: editDiagnosis.date, doctorName: editDiagnosis.doctorName, category: editDiagnosis.category };
+      const record = { title: editTitle.trim(), date: editDiagnosis.date, doctorName: editDiagnosis.doctorName, doctorAmka: editDiagnosis.doctorAmka, category: editDiagnosis.category };
       await saveFileContent(editDiagnosis.url, accessToken, JSON.stringify(record));
 
       setDiagnoses((prev) => prev.map((d) => d.url === editDiagnosis.url ? { ...d, title: record.title } : d));
@@ -214,14 +216,16 @@ export default function DoctorDiagnoseisScreen() {
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
-                <View style={{ flexDirection: 'row' }}>
-                  <TouchableOpacity onPress={() => handleEditDiagnosis(item)} style={{ marginRight: 15 }}>
-                    <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDeleteDiagnosis(item)}>
-                    <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
-                  </TouchableOpacity>
-                </View>
+                {item.doctorAmka === loggedInDoctorAmka && (
+                  <View style={{ flexDirection: 'row' }}>
+                    <TouchableOpacity onPress={() => handleEditDiagnosis(item)} style={{ marginRight: 15 }}>
+                      <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteDiagnosis(item)}>
+                      <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
