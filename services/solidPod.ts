@@ -80,7 +80,7 @@ export async function saveFileContent(url: string, accessToken: string, content:
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
-      'Content-Type': 'text/plain',
+      'Content-Type': 'text/plain; charset=utf-8',
       'Accept': '*/*',
       'Authorization': `DPoP ${accessToken}`,
       'DPoP': dpopToken,

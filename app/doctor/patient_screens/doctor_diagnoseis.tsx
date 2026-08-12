@@ -216,7 +216,8 @@ export default function DoctorDiagnoseisScreen() {
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
-                {item.doctorAmka === loggedInDoctorAmka && (
+                {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
+                {(item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity onPress={() => handleEditDiagnosis(item)} style={{ marginRight: 15 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
