@@ -1,7 +1,10 @@
 import { createDpopToken } from '../utils/dpop';
 
-// Ο πραγματικός WebID του ασθενή-ιδιοκτήτη, όπως χρησιμοποιείται στο acl:agent του owner authorization.
-const PATIENT_WEB_ID = 'https://up1072722vol2.datapod.igrant.io/profile/card#me';
+// Ανακατασκευάζει το WebID του ασθενή-ιδιοκτήτη από το URL του δημόσιου φακέλου του
+// (αντίστροφος μετασχηματισμός του webId.replace('profile/card#me', 'public/') στο AuthContext).
+function getOwnerWebId(folderUrl: string): string {
+  return folderUrl.replace('public/', 'profile/card#me');
+}
 
 export async function listFolderFiles(webId: string, accessToken: string): Promise<string[]> {
   const folderUrl = webId.replace('profile/card#me', 'public/');
@@ -129,7 +132,7 @@ export async function updatePodAcl({
 
   <#owner>
     a acl:Authorization;
-    acl:agent <${PATIENT_WEB_ID}>;
+    acl:agent <${getOwnerWebId(activePatientFolderUrl)}>;
     acl:accessTo <${activePatientFolderUrl}>;
     acl:default <${activePatientFolderUrl}>;
     acl:mode acl:Read, acl:Write, acl:Control.
@@ -192,7 +195,7 @@ export async function removeDoctorFromAcl({
 
   <#owner>
     a acl:Authorization;
-    acl:agent <${PATIENT_WEB_ID}>;
+    acl:agent <${getOwnerWebId(activePatientFolderUrl)}>;
     acl:accessTo <${activePatientFolderUrl}>;
     acl:default <${activePatientFolderUrl}>;
     acl:mode acl:Read, acl:Write, acl:Control.
