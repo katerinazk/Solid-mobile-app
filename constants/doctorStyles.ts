@@ -8,7 +8,7 @@ export const doctorStyles = StyleSheet.create({
   docHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 15 },
 
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightest, borderRadius: 25, marginHorizontal: 20, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: COLORS.medium },
-  searchInput: { flex: 1, height: 40, fontSize: 16, color: COLORS.text },
+  searchInput: { flex: 1, height: 40, fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
 
   /* Κουμπί "+ Αίτημα Πρόσβασης" */
   requestAccessButton: {
@@ -24,12 +24,12 @@ export const doctorStyles = StyleSheet.create({
   requestAccessButtonText: {
     color: COLORS.white,
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.bodyText,
     marginLeft: 8,
   },
 
-  dashboardLabel: { fontSize: 14, fontWeight: '600', color: COLORS.primary, marginBottom: 8 },
-  dashboardTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
+  dashboardLabel: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary, marginBottom: 8 },
+  dashboardTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
 
   /* Οθόνη Ιστορικού ασθενή (κατηγορίες φακέλου) */
   historyHeader: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: 10, minHeight: 40 },
@@ -71,7 +71,7 @@ export const doctorStyles = StyleSheet.create({
   },
   menuBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
   menuItems: { alignItems: 'center', marginTop: 40 },
-  menuItemText: { color: COLORS.white, fontSize: 20, fontWeight: 'bold', marginVertical: 18 },
+  menuItemText: { color: COLORS.white, fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', marginVertical: 18 },
   menuLogoutButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center' },
-  menuLogoutText: { color: COLORS.white, fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  menuLogoutText: { color: COLORS.white, fontSize: TYPOGRAPHY.bodyText, fontWeight: '600', marginLeft: 8 },
 });

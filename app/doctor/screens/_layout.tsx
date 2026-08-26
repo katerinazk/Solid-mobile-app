@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
+import { TYPOGRAPHY } from '../../../constants/designSystem';
 
 export default function DoctorTabsLayout() {
   return (
@@ -9,7 +10,7 @@ export default function DoctorTabsLayout() {
         tabBarActiveTintColor: COLORS.white,
         tabBarInactiveTintColor: COLORS.medium,
         tabBarStyle: { backgroundColor: COLORS.primary, borderTopWidth: 0 },
-        tabBarLabelStyle: { fontSize: 14, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600' },
         tabBarIcon: () => null,
         tabBarIconStyle: { width: 0, height: 0, margin: 0 },
       }}

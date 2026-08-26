@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
+import { TYPOGRAPHY } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { registerPatient } from '../../services/patients';
 
@@ -80,7 +81,7 @@ export default function PatientRegisterScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={{ marginTop: 15, alignItems: 'center' }} onPress={() => router.back()}>
-          <Text style={{ color: COLORS.text, fontSize: 16 }}>Έχω ήδη λογαριασμό</Text>
+          <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>Έχω ήδη λογαριασμό</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

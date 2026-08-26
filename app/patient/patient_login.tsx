@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
 import { ROUTES } from '../../constants/routes';
+import { TYPOGRAPHY } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function PatientLoginScreen() {
@@ -49,8 +50,8 @@ export default function PatientLoginScreen() {
           style={{ marginTop: 15, alignItems: 'center' }}
           onPress={() => router.push(ROUTES.PATIENT_REGISTER)}
         >
-          <Text style={{ color: COLORS.text, fontSize: 14 }}>Δεν έχετε λογαριασμό;</Text>
-          <Text style={{ color: COLORS.text, fontSize: 16, fontWeight: 'bold' }}>Εγγραφή</Text>
+          <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.secondaryText }}>Δεν έχετε λογαριασμό;</Text>
+          <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText, fontWeight: 'bold' }}>Εγγραφή</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

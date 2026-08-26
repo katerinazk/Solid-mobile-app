@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { loginStyles } from '../../../constants/loginStyles';
+import { TYPOGRAPHY } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { fetchDoctorByAmka } from '../../../services/doctors';
@@ -113,7 +114,7 @@ export default function PatientHomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <Text style={{ fontSize: 20, fontWeight: 'bold', color: COLORS.text }}>Οι Προσβάσεις μου</Text>
+        <Text style={{ fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.text }}>Οι Προσβάσεις μου</Text>
         <TouchableOpacity onPress={logout}>
           <Ionicons name="log-out-outline" size={36} color={COLORS.primary} />
         </TouchableOpacity>
@@ -151,7 +152,7 @@ export default function PatientHomeScreen() {
                         marginTop: 5,
                       }}
                     >
-                      <Text style={{ color: COLORS.white, fontWeight: 'bold', fontSize: 13 }}>
+                      <Text style={{ color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>
                         {item.access_type} ✎
                       </Text>
                     </TouchableOpacity>

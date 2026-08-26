@@ -36,5 +36,5 @@ const styles = StyleSheet.create({
   title: { fontSize: TYPOGRAPHY.mainTitle, color: COLORS.text, fontWeight: 'bold', marginBottom: 8 },
   subtitle: { fontSize: TYPOGRAPHY.subtitle, color: COLORS.text, marginBottom: TOUCH.buttonGap },
   button: { backgroundColor: COLORS.primary, width: '100%', minHeight: TOUCH.buttonHeight, justifyContent: 'center', borderRadius: 25, marginBottom: TOUCH.buttonGap, alignItems: 'center' },
-  buttonText: { color: COLORS.white, fontSize: 18, fontWeight: '600' },
+  buttonText: { color: COLORS.white, fontSize: TYPOGRAPHY.bodyText, fontWeight: '600' },
 });

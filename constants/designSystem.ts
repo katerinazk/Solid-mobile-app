@@ -19,5 +19,5 @@ export const SPACING = {
 export const TOUCH = {
   minTargetSize: 48,   // Ελάχιστος στόχος αφής: 44x44 έως 48x48px
   buttonHeight: 52,     // Ύψος κύριων κουμπιών: 48-56px
-  buttonGap: 16,        // Απόσταση κουμπιών: >=16px
+  buttonGap: 20,        // Απόσταση κουμπιών: >=16px
 };
