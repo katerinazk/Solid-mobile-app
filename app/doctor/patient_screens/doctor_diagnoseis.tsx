@@ -33,6 +33,7 @@ export default function DoctorDiagnoseisScreen() {
 
   const [loading, setLoading] = useState(false);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+  const [newestFirst, setNewestFirst] = useState(true);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [newDiagnosisTitle, setNewDiagnosisTitle] = useState('');
@@ -73,10 +74,13 @@ export default function DoctorDiagnoseisScreen() {
     loadDiagnoses();
   }, []);
 
-  const visibleDiagnoses = useMemo(
-    () => diagnoses.filter((d) => d.category === activeCategory),
-    [diagnoses, activeCategory]
-  );
+  const visibleDiagnoses = useMemo(() => {
+    const filtered = diagnoses.filter((d) => d.category === activeCategory);
+    return filtered.sort((a, b) => {
+      const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      return newestFirst ? diff : -diff;
+    });
+  }, [diagnoses, activeCategory, newestFirst]);
 
   const canAddDiagnosis = activeCategory === patientCategory;
 
@@ -203,8 +207,10 @@ export default function DoctorDiagnoseisScreen() {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={doctorStyles.diagnosisSortButton}>
-          <Text style={doctorStyles.diagnosisSortButtonText}>↕ Νεότερες προς Παλαιότερες</Text>
+        <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
+          <Text style={doctorStyles.diagnosisSortButtonText}>
+            ↕ {newestFirst ? 'Νεότερες προς Παλαιότερες' : 'Παλαιότερες προς Νεότερες'}
+          </Text>
         </TouchableOpacity>
       </View>
 
