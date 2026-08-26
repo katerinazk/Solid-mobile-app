@@ -6,7 +6,7 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
@@ -26,7 +26,7 @@ export default function DoctorDiagnoseisScreen() {
   const { amka, firstName, lastName, webId, birthDate } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const patientName = `${firstName} ${lastName}`;
-  const folderUrl = (webId || '').replace('profile/card#me', 'public/');
+  const folderUrl = webId ? getCategoryFolderUrl(webId, 'Διαγνώσεις') : '';
 
   const patientCategory: Category = calculateAge(birthDate) >= 18 ? 'adult' : 'child';
   const [activeCategory, setActiveCategory] = useState<Category>(patientCategory);
@@ -47,8 +47,8 @@ export default function DoctorDiagnoseisScreen() {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
-      const files = await listFolderFiles(webId, accessToken);
-      const diagnosisFiles = files.filter((url) => decodeURIComponent(url.split('/').pop() || '').startsWith('diagnosis_'));
+      const files = await listFolderFiles(folderUrl, accessToken);
+      const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
 
       const loaded = await Promise.all(diagnosisFiles.map(async (url) => {
         try {
@@ -109,7 +109,7 @@ export default function DoctorDiagnoseisScreen() {
         category: patientCategory,
       };
 
-      const fileUrl = `${folderUrl}diagnosis_${patientCategory}_${Date.now()}.json`;
+      const fileUrl = `${folderUrl}${patientCategory}_${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
       setDiagnoses((prev) => [{ url: fileUrl, ...record }, ...prev]);

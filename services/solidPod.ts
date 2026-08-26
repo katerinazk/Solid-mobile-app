@@ -32,11 +32,11 @@ async function folderExists(folderUrl: string, accessToken: string): Promise<boo
   return response.ok;
 }
 
-// Δημιουργεί το φάκελο κατηγορίας βάζοντας ένα κενό αρχείο-δείκτη μέσα του· οι Solid
-// servers δημιουργούν αυτόματα τους ενδιάμεσους φακέλους (π.χ. και το ίδιο το MedPod/
-// αν λείπει) όταν κάνουμε PUT σε μια εμφωλευμένη διαδρομή.
-async function createCategoryFolder(categoryUrl: string, accessToken: string): Promise<void> {
-  const markerUrl = `${categoryUrl}.keep`;
+// Δημιουργεί το φάκελο βάζοντας ένα κενό αρχείο-δείκτη μέσα του· οι Solid servers
+// δημιουργούν αυτόματα τον ίδιο τον φάκελο (τον άμεσο γονέα του marker) όταν κάνουμε
+// PUT σε μια διαδρομή που δεν υπάρχει ακόμα.
+async function createFolder(folderUrl: string, accessToken: string): Promise<void> {
+  const markerUrl = `${folderUrl}.keep`;
   const dpopToken = await createDpopToken('PUT', markerUrl);
   await fetch(markerUrl, {
     method: 'PUT',
@@ -51,13 +51,20 @@ async function createCategoryFolder(categoryUrl: string, accessToken: string): P
 
 // Καλείται κατά τη σύνδεση του ασθενή· φτιάχνει (αν λείπουν) τον φάκελο MedPod/ και τους
 // 6 υποφακέλους κατηγοριών ιστορικού, ώστε να είναι οργανωμένα από την αρχή τόσο για τον
-// ασθενή όσο και για τους γιατρούς που προσθέτουν νέο ιστορικό.
+// ασθενή όσο και για τους γιατρούς που προσθέτουν νέο ιστορικό. Φτιάχνουμε πρώτα το ίδιο
+// το MedPod/ (ξεχωριστό βήμα) ώστε κάθε PUT να χρειάζεται να δημιουργήσει το πολύ έναν
+// ενδιάμεσο φάκελο τη φορά, αντί να βασιζόμαστε στο αν ο server δημιουργεί αυτόματα
+// πολλαπλά επίπεδα φακέλων ταυτόχρονα.
 export async function ensureMedPodStructure(webId: string, accessToken: string): Promise<void> {
+  const medPodUrl = `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/`;
+  if (!(await folderExists(medPodUrl, accessToken))) {
+    await createFolder(medPodUrl, accessToken);
+  }
+
   for (const category of HISTORY_CATEGORIES) {
     const categoryUrl = getCategoryFolderUrl(webId, category);
-    const exists = await folderExists(categoryUrl, accessToken);
-    if (!exists) {
-      await createCategoryFolder(categoryUrl, accessToken);
+    if (!(await folderExists(categoryUrl, accessToken))) {
+      await createFolder(categoryUrl, accessToken);
     }
   }
 }
