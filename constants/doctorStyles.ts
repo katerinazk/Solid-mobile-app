@@ -5,18 +5,18 @@ import { TYPOGRAPHY, SPACING, TOUCH } from './designSystem';
 // Στυλ ειδικά για τις οθόνες του γιατρού (header, search, ιστορικό, πλαϊνό μενού)
 export const doctorStyles = StyleSheet.create({
   /* Header της οθόνης γιατρού (menu + avatar) */
-  docHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 15 },
+  docHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, paddingTop: 10, marginBottom: 15 },
 
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightest, borderRadius: 25, marginHorizontal: 20, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: COLORS.medium },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightest, borderRadius: 25, marginHorizontal: SPACING.sideMargin, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: COLORS.medium },
   searchInput: { flex: 1, height: 40, fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
 
   /* Κουμπί "+ Αίτημα Πρόσβασης" */
   requestAccessButton: {
     flexDirection: 'row',
     backgroundColor: COLORS.primary,
-    marginHorizontal: 20,
-    marginBottom: 15,
-    paddingVertical: 14,
+    marginHorizontal: SPACING.sideMargin,
+    marginBottom: TOUCH.buttonGap,
+    minHeight: TOUCH.buttonHeight,
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
@@ -37,7 +37,7 @@ export const doctorStyles = StyleSheet.create({
   historyTitle: { fontSize: TYPOGRAPHY.mainTitle, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
   historyAmka: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.sectionGap },
   historyAmkaValue: { fontWeight: 'normal' },
-  historyCategoryButton: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 25, alignItems: 'center', marginBottom: TOUCH.buttonGap },
+  historyCategoryButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', borderRadius: 25, alignItems: 'center', marginBottom: TOUCH.buttonGap },
   historyCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
 
   /* Οθόνη Διαγνώσεων */
@@ -65,12 +65,12 @@ export const doctorStyles = StyleSheet.create({
   menuPanel: {
     width: '75%',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
+    paddingHorizontal: SPACING.sideMargin,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 60,
-    paddingBottom: 40,
+    paddingBottom: SPACING.sectionGap,
   },
   menuBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
-  menuItems: { alignItems: 'center', marginTop: 40 },
+  menuItems: { alignItems: 'center', marginTop: SPACING.sectionGap },
   menuItemText: { color: COLORS.white, fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', marginVertical: 18 },
   menuLogoutButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center' },
   menuLogoutText: { color: COLORS.white, fontSize: TYPOGRAPHY.bodyText, fontWeight: '600', marginLeft: 8 },

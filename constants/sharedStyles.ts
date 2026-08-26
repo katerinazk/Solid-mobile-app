@@ -10,7 +10,7 @@ export const sharedStyles = StyleSheet.create({
     backgroundColor: COLORS.lightest,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 20 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, paddingTop: 10, marginBottom: 20 },
   addButton: {
     backgroundColor: COLORS.primary,
     minHeight: TOUCH.buttonHeight,
@@ -30,7 +30,7 @@ export const sharedStyles = StyleSheet.create({
   patientName: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.text, marginBottom: 5 },
   cardLabel: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text },
   cardValue: { fontWeight: 'bold', color: COLORS.text },
-  cardActionButton: { backgroundColor: COLORS.primary, paddingVertical: 10, borderRadius: 25, alignItems: 'center' },
+  cardActionButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', borderRadius: 25, alignItems: 'center' },
   cardActionButtonText: { color: COLORS.white, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: COLORS.lightest, borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '60%', padding: 20 },
@@ -79,7 +79,9 @@ export const sharedStyles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    padding: 12,
+    paddingHorizontal: 12,
+    minHeight: TOUCH.buttonHeight,
+    justifyContent: 'center',
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 5,

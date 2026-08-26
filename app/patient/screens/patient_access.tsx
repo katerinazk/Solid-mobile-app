@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { loginStyles } from '../../../constants/loginStyles';
-import { TYPOGRAPHY } from '../../../constants/designSystem';
+import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { fetchDoctorByAmka } from '../../../services/doctors';
@@ -120,7 +120,7 @@ export default function PatientHomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[styles.addButton, { marginHorizontal: 20, marginBottom: 10 }]} onPress={() => setIsAddAccessModalVisible(true)}>
+      <TouchableOpacity style={[styles.addButton, { marginHorizontal: SPACING.sideMargin, marginBottom: TOUCH.buttonGap }]} onPress={() => setIsAddAccessModalVisible(true)}>
         <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
       </TouchableOpacity>
 

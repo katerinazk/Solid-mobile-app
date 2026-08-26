@@ -12,10 +12,10 @@ export function DoctorHeader() {
 
   return (
     <View style={styles.docHeader}>
-      <TouchableOpacity onPress={openMenu}>
+      <TouchableOpacity onPress={openMenu} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
         <Feather name="menu" size={28} color={COLORS.primary} />
       </TouchableOpacity>
-      <TouchableOpacity onPress={confirmLogout}>
+      <TouchableOpacity onPress={confirmLogout} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
       </TouchableOpacity>
     </View>

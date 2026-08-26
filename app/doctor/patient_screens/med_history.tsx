@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
+import { SPACING } from '../../../constants/designSystem';
 
 export default function DoctorHistoryScreen() {
   const { amka, firstName, lastName, webId, birthDate } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string }>();
@@ -13,7 +14,7 @@ export default function DoctorHistoryScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.historyHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.historyBackButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.historyBackButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.historyTitle}>Ιστορικό</Text>
@@ -21,7 +22,7 @@ export default function DoctorHistoryScreen() {
 
       <Text style={styles.historyAmka}>ΑΜΚΑ: <Text style={styles.historyAmkaValue}>{amka}</Text></Text>
 
-      <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+      <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: 20 }}>
         <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Εξετάσεις', 'Η λειτουργία έρχεται σύντομα.')}>
           <Text style={styles.historyCategoryButtonText}>Εξετάσεις</Text>
         </TouchableOpacity>

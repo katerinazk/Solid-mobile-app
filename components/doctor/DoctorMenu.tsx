@@ -41,7 +41,7 @@ export function DoctorMenuProvider({ children }: { children: ReactNode }) {
       <Modal animationType="none" transparent visible={isVisible} onRequestClose={closeMenu}>
         <View style={styles.menuOverlay}>
           <Animated.View style={[styles.menuPanel, { transform: [{ translateX: menuTranslateX }] }]}>
-            <TouchableOpacity onPress={closeMenu}>
+            <TouchableOpacity onPress={closeMenu} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.white} />
             </TouchableOpacity>
 

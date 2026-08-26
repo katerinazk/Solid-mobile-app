@@ -47,7 +47,7 @@ export default function PatientRegisterScreen() {
   return (
     <SafeAreaView style={styles.loginContainer}>
       <StatusBar barStyle="dark-content" />
-      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
         <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
       </TouchableOpacity>
 
