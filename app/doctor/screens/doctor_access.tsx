@@ -7,6 +7,7 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
+import { SPACING } from '../../../constants/designSystem';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { Patient } from '../../../types/Patient';
 
@@ -14,9 +15,9 @@ export default function DoctorAccessScreen() {
   const { patients, loading } = useDoctorPatients();
 
   const renderPatientCard = ({ item }: { item: Patient }) => (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: COLORS.lightest }]}>
       <View style={styles.cardDetails}>
-        <Text style={styles.patientName}>{item.first_name} {item.last_name}</Text>
+        <Text style={[styles.patientName, { color: COLORS.primary }]}>{item.first_name} {item.last_name}</Text>
         <Text style={styles.cardLabel}>AMKA: <Text style={styles.cardValue}>{item.amka}</Text></Text>
         <Text style={styles.cardLabel}>Τύπος πρόσβασης: <Text style={styles.cardValue}>{item.accessType}</Text></Text>
       </View>
@@ -39,14 +40,9 @@ export default function DoctorAccessScreen() {
   );
 
   return (
-    <SafeAreaView style={doctorStyles.container}>
+    <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
       <DoctorHeader />
-
-      <View style={doctorStyles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-        <TextInput style={doctorStyles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
-      </View>
 
       <TouchableOpacity
         style={doctorStyles.requestAccessButton}
@@ -55,6 +51,18 @@ export default function DoctorAccessScreen() {
         <Ionicons name="add" size={20} color={COLORS.white} />
         <Text style={doctorStyles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
       </TouchableOpacity>
+
+      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+        <Text style={[doctorStyles.dashboardTitle, { marginBottom: SPACING.sectionGap }]}>Προσβάσεις</Text>
+        <View style={{ width: '70%', alignSelf: 'center' }}>
+          <Text style={doctorStyles.dashboardLabel}>Αναζήτηση ασθενή:</Text>
+
+          <View style={[doctorStyles.searchContainer, { marginHorizontal: 0 }]}>
+            <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+            <TextInput style={doctorStyles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+          </View>
+        </View>
+      </View>
 
       {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
         <FlatList style={{ flex: 1 }} data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
