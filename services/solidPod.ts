@@ -6,9 +6,63 @@ function getOwnerWebId(folderUrl: string): string {
   return folderUrl.replace('public/', 'profile/card#me');
 }
 
-export async function listFolderFiles(webId: string, accessToken: string): Promise<string[]> {
-  const folderUrl = webId.replace('profile/card#me', 'public/');
+export function getPublicFolderUrl(webId: string): string {
+  return webId.replace('profile/card#me', 'public/');
+}
 
+const MEDPOD_FOLDER_NAME = 'MedPod';
+
+// Οι 6 κατηγορίες ιατρικού ιστορικού - κάθε μία έχει δικό της φάκελο μέσα στο MedPod/.
+export const HISTORY_CATEGORIES = ['Διαγνώσεις', 'Εξετάσεις', 'Φάρμακα', 'Αλλεργίες', 'Νοσηλίες', 'Εμβολιασμοί'];
+
+export function getCategoryFolderUrl(webId: string, category: string): string {
+  return `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/${encodeURIComponent(category)}/`;
+}
+
+async function folderExists(folderUrl: string, accessToken: string): Promise<boolean> {
+  const dpopToken = await createDpopToken('GET', folderUrl);
+  const response = await fetch(folderUrl, {
+    method: 'GET',
+    headers: {
+      'Authorization': `DPoP ${accessToken}`,
+      'DPoP': dpopToken,
+      'Accept': 'text/turtle',
+    },
+  });
+  return response.ok;
+}
+
+// Δημιουργεί το φάκελο κατηγορίας βάζοντας ένα κενό αρχείο-δείκτη μέσα του· οι Solid
+// servers δημιουργούν αυτόματα τους ενδιάμεσους φακέλους (π.χ. και το ίδιο το MedPod/
+// αν λείπει) όταν κάνουμε PUT σε μια εμφωλευμένη διαδρομή.
+async function createCategoryFolder(categoryUrl: string, accessToken: string): Promise<void> {
+  const markerUrl = `${categoryUrl}.keep`;
+  const dpopToken = await createDpopToken('PUT', markerUrl);
+  await fetch(markerUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Authorization': `DPoP ${accessToken}`,
+      'DPoP': dpopToken,
+    },
+    body: '',
+  });
+}
+
+// Καλείται κατά τη σύνδεση του ασθενή· φτιάχνει (αν λείπουν) τον φάκελο MedPod/ και τους
+// 6 υποφακέλους κατηγοριών ιστορικού, ώστε να είναι οργανωμένα από την αρχή τόσο για τον
+// ασθενή όσο και για τους γιατρούς που προσθέτουν νέο ιστορικό.
+export async function ensureMedPodStructure(webId: string, accessToken: string): Promise<void> {
+  for (const category of HISTORY_CATEGORIES) {
+    const categoryUrl = getCategoryFolderUrl(webId, category);
+    const exists = await folderExists(categoryUrl, accessToken);
+    if (!exists) {
+      await createCategoryFolder(categoryUrl, accessToken);
+    }
+  }
+}
+
+export async function listFolderFiles(folderUrl: string, accessToken: string): Promise<string[]> {
   const dpopToken = await createDpopToken('GET', folderUrl);
   const response = await fetch(folderUrl, {
     method: 'GET',
