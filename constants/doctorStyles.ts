@@ -48,9 +48,9 @@ export const doctorStyles = StyleSheet.create({
   diagnosisCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText, textAlign: 'center' },
   diagnosisSortButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', borderRadius: 25, alignItems: 'center', marginHorizontal: SPACING.sideMargin, marginBottom: TOUCH.buttonGap },
   diagnosisSortButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
-  diagnosisCard: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginHorizontal: SPACING.sideMargin, marginBottom: 12 },
+  diagnosisCard: { backgroundColor: COLORS.lightest, borderRadius: 15, padding: 16, marginHorizontal: SPACING.sideMargin, marginBottom: 12 },
   diagnosisCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  diagnosisCardTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.text, flex: 1, marginRight: 10 },
+  diagnosisCardTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, flex: 1, marginRight: 10 },
   diagnosisCardDetail: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text, marginTop: 6 },
   diagnosisCardLabel: { fontWeight: 'bold' },
 

@@ -167,7 +167,7 @@ export default function DoctorDiagnoseisScreen() {
   };
 
   return (
-    <SafeAreaView style={doctorStyles.container}>
+    <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
 
       <View style={doctorStyles.historyHeader}>
@@ -195,7 +195,7 @@ export default function DoctorDiagnoseisScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={styles.addButton} onPress={() => setIsAddModalVisible(true)}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
           <Text style={styles.addButtonText}>+ Προσθήκη Διάγνωσης</Text>
         </TouchableOpacity>
 
