@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.medium },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   title: { fontSize: TYPOGRAPHY.mainTitle, color: COLORS.text, fontWeight: 'bold', marginBottom: 8 },
-  subtitle: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, marginBottom: TOUCH.buttonGap },
+  subtitle: { fontSize: TYPOGRAPHY.subtitle, color: COLORS.text, marginBottom: TOUCH.buttonGap },
   button: { backgroundColor: COLORS.primary, width: '100%', minHeight: TOUCH.buttonHeight, justifyContent: 'center', borderRadius: 25, marginBottom: TOUCH.buttonGap, alignItems: 'center' },
   buttonText: { color: COLORS.white, fontSize: 18, fontWeight: '600' },
 });
