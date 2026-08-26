@@ -79,7 +79,9 @@ export default function DoctorDiagnoseisScreen() {
   );
 
   const hasAdultDiagnoses = useMemo(() => diagnoses.some((d) => d.category === 'adult'), [diagnoses]);
-  const canAddDiagnosis = !(activeCategory === 'child' && hasAdultDiagnoses);
+  const canAddDiagnosis =
+    !(activeCategory === 'child' && hasAdultDiagnoses) &&
+    !(activeCategory === 'adult' && patientCategory === 'child');
 
   const handleSaveDiagnosis = async () => {
     if (newDiagnosisTitle.trim() === '') {
