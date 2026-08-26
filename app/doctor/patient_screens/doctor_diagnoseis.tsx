@@ -78,6 +78,9 @@ export default function DoctorDiagnoseisScreen() {
     [diagnoses, activeCategory]
   );
 
+  const hasAdultDiagnoses = useMemo(() => diagnoses.some((d) => d.category === 'adult'), [diagnoses]);
+  const canAddDiagnosis = !(activeCategory === 'child' && hasAdultDiagnoses);
+
   const handleSaveDiagnosis = async () => {
     if (newDiagnosisTitle.trim() === '') {
       alert("Παρακαλώ γράψτε τη διάγνωση!");
@@ -195,9 +198,11 @@ export default function DoctorDiagnoseisScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Διάγνωσης</Text>
-        </TouchableOpacity>
+        {canAddDiagnosis && (
+          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
+            <Text style={styles.addButtonText}>+ Προσθήκη Διάγνωσης</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={doctorStyles.diagnosisSortButton}>
           <Text style={doctorStyles.diagnosisSortButtonText}>↕ Νεότερες προς Παλαιότερες</Text>
