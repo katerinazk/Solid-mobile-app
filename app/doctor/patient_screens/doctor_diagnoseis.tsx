@@ -9,6 +9,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { calculateAge, formatDate } from '../../../utils/age';
+import { SPACING } from '../../../constants/designSystem';
 
 type Category = 'adult' | 'child';
 
@@ -170,7 +171,7 @@ export default function DoctorDiagnoseisScreen() {
       <StatusBar barStyle="dark-content" />
 
       <View style={doctorStyles.historyHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={doctorStyles.historyBackButton}>
+        <TouchableOpacity onPress={() => router.back()} style={doctorStyles.historyBackButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>Διαγνώσεις</Text>
@@ -193,7 +194,7 @@ export default function DoctorDiagnoseisScreen() {
 
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
-      <View style={{ paddingHorizontal: 20 }}>
+      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         <TouchableOpacity style={styles.addButton} onPress={() => setIsAddModalVisible(true)}>
           <Text style={styles.addButtonText}>+ Προσθήκη Διάγνωσης</Text>
         </TouchableOpacity>
@@ -211,7 +212,7 @@ export default function DoctorDiagnoseisScreen() {
         <FlatList
           data={visibleDiagnoses}
           keyExtractor={(item) => item.url}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
@@ -219,10 +220,10 @@ export default function DoctorDiagnoseisScreen() {
                 {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
                 {(item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => handleEditDiagnosis(item)} style={{ marginRight: 15 }}>
+                    <TouchableOpacity onPress={() => handleEditDiagnosis(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteDiagnosis(item)}>
+                    <TouchableOpacity onPress={() => handleDeleteDiagnosis(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                   </View>

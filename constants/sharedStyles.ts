@@ -1,5 +1,6 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
 import { COLORS } from './colors';
+import { TYPOGRAPHY, SPACING, TOUCH } from './designSystem';
 
 // Κοινά στυλ (λίστες, κάρτες, modals) - χρησιμοποιούνται τόσο από την οθόνη
 // του ασθενή όσο και από του γιατρού.
@@ -12,17 +13,18 @@ export const sharedStyles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 20 },
   addButton: {
     backgroundColor: COLORS.primary,
-    padding: 15,
+    minHeight: TOUCH.buttonHeight,
+    justifyContent: 'center',
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: TOUCH.buttonGap,
   },
   addButtonText: {
     color: COLORS.white,
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.bodyText,
   },
-  listContent: { paddingHorizontal: 20, paddingBottom: 20 },
+  listContent: { paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin },
   card: { backgroundColor: COLORS.light, borderRadius: 15, padding: 20, marginBottom: 15, elevation: 2 },
   cardDetails: { marginBottom: 15 },
   patientName: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginBottom: 5 },

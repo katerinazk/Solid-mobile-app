@@ -1,5 +1,6 @@
 import { StyleSheet, Platform, StatusBar } from 'react-native';
 import { COLORS } from './colors';
+import { TYPOGRAPHY, SPACING, TOUCH } from './designSystem';
 
 // Στυλ ειδικά για τις οθόνες του γιατρού (header, search, ιστορικό, πλαϊνό μενού)
 export const doctorStyles = StyleSheet.create({
@@ -31,26 +32,26 @@ export const doctorStyles = StyleSheet.create({
   dashboardTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
 
   /* Οθόνη Ιστορικού ασθενή (κατηγορίες φακέλου) */
-  historyHeader: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, marginTop: 10, marginBottom: 10, minHeight: 40 },
-  historyBackButton: { position: 'absolute', left: 20, top: 0 },
-  historyTitle: { fontSize: 22, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
-  historyAmka: { fontSize: 14, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: 20, marginTop: 10, marginBottom: 20 },
+  historyHeader: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: 10, minHeight: 40 },
+  historyBackButton: { position: 'absolute', left: SPACING.sideMargin, top: 0 },
+  historyTitle: { fontSize: TYPOGRAPHY.mainTitle, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
+  historyAmka: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.sectionGap },
   historyAmkaValue: { fontWeight: 'normal' },
-  historyCategoryButton: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 25, alignItems: 'center', marginBottom: 15 },
-  historyCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 16 },
+  historyCategoryButton: { backgroundColor: COLORS.primary, paddingVertical: 14, borderRadius: 25, alignItems: 'center', marginBottom: TOUCH.buttonGap },
+  historyCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
 
   /* Οθόνη Διαγνώσεων */
-  diagnosisCategoryRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 20, marginBottom: 20 },
-  diagnosisCategoryButton: { paddingVertical: 10, paddingHorizontal: 24, borderRadius: 20, marginHorizontal: 8 },
+  diagnosisCategoryRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: SPACING.sideMargin, marginBottom: SPACING.sectionGap },
+  diagnosisCategoryButton: { minHeight: TOUCH.minTargetSize, justifyContent: 'center', paddingHorizontal: 24, borderRadius: 20, marginHorizontal: SPACING.groupGap },
   diagnosisCategoryButtonActive: { backgroundColor: COLORS.primary },
   diagnosisCategoryButtonInactive: { backgroundColor: COLORS.medium },
-  diagnosisCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 14 },
-  diagnosisSortButton: { backgroundColor: COLORS.primary, paddingVertical: 12, borderRadius: 25, alignItems: 'center', marginHorizontal: 20, marginBottom: 15 },
-  diagnosisSortButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: 15 },
-  diagnosisCard: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginHorizontal: 20, marginBottom: 12 },
+  diagnosisCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText, textAlign: 'center' },
+  diagnosisSortButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', borderRadius: 25, alignItems: 'center', marginHorizontal: SPACING.sideMargin, marginBottom: TOUCH.buttonGap },
+  diagnosisSortButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+  diagnosisCard: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginHorizontal: SPACING.sideMargin, marginBottom: 12 },
   diagnosisCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  diagnosisCardTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text, flex: 1, marginRight: 10 },
-  diagnosisCardDetail: { fontSize: 13, color: COLORS.text, marginTop: 6 },
+  diagnosisCardTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.text, flex: 1, marginRight: 10 },
+  diagnosisCardDetail: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text, marginTop: 6 },
   diagnosisCardLabel: { fontWeight: 'bold' },
 
   container: {
