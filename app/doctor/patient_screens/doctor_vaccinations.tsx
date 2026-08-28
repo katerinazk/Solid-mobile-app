@@ -35,6 +35,7 @@ export default function DoctorVaccinationsScreen() {
   const [newestFirst, setNewestFirst] = useState(true);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [editingVaccination, setEditingVaccination] = useState<Vaccination | null>(null);
   const [saving, setSaving] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formCommercialName, setFormCommercialName] = useState('');
@@ -132,6 +133,27 @@ export default function DoctorVaccinationsScreen() {
     }
   };
 
+  const resetForm = () => {
+    setFormTitle('');
+    setFormCommercialName('');
+    setFormBatchNumber('');
+    setFormDoseNumber('');
+    setDateDay('');
+    setDateMonth('');
+    setDateYear('');
+  };
+
+  const openAddModal = () => {
+    setEditingVaccination(null);
+    resetForm();
+    setIsAddModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsAddModalVisible(false);
+    setEditingVaccination(null);
+  };
+
   const handleSaveVaccination = async () => {
     if (!formTitle.trim() || !formCommercialName.trim() || !formBatchNumber.trim() || !formDoseNumber.trim() || !formAdministeredDate.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
@@ -151,33 +173,35 @@ export default function DoctorVaccinationsScreen() {
     try {
       setSaving(true);
 
-      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-      const doctorName = doctorData
-        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-        : 'Δρ.';
+      let doctorName = editingVaccination?.doctorName || '';
+      let doctorAmka = editingVaccination?.doctorAmka || '';
+      if (!editingVaccination) {
+        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        doctorName = doctorData ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})` : 'Δρ.';
+        doctorAmka = loggedInDoctorAmka;
+      }
 
       const record = {
         title: formTitle.trim(),
         commercialName: formCommercialName.trim(),
         doctorName,
-        doctorAmka: loggedInDoctorAmka,
+        doctorAmka,
         batchNumber: formBatchNumber.trim(),
         doseNumber: formDoseNumber.trim(),
         administeredDate: `${dateYear}-${dateMonth}-${dateDay}`,
       };
 
-      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      const fileUrl = editingVaccination ? editingVaccination.url : `${folderUrl}${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
-      setVaccinations((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      setIsAddModalVisible(false);
-      setFormTitle('');
-      setFormCommercialName('');
-      setFormBatchNumber('');
-      setFormDoseNumber('');
-      setDateDay('');
-      setDateMonth('');
-      setDateYear('');
+      if (editingVaccination) {
+        setVaccinations((prev) => prev.map((v) => v.url === fileUrl ? { url: fileUrl, ...record } : v));
+      } else {
+        setVaccinations((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      }
+
+      closeModal();
+      resetForm();
     } catch (error: any) {
       alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
@@ -186,7 +210,16 @@ export default function DoctorVaccinationsScreen() {
   };
 
   const handleEditVaccination = (item: Vaccination) => {
-    // TODO: λειτουργία επεξεργασίας - έρχεται σύντομα
+    setEditingVaccination(item);
+    setFormTitle(item.title);
+    setFormCommercialName(item.commercialName);
+    setFormBatchNumber(item.batchNumber);
+    setFormDoseNumber(item.doseNumber);
+    const [year, month, day] = item.administeredDate.split('-');
+    setDateYear(year || '');
+    setDateMonth(month || '');
+    setDateDay(day || '');
+    setIsAddModalVisible(true);
   };
 
   const handleDeleteVaccination = (item: Vaccination) => {
@@ -225,7 +258,7 @@ export default function DoctorVaccinationsScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
         </TouchableOpacity>
 
@@ -285,19 +318,21 @@ export default function DoctorVaccinationsScreen() {
         animationType="slide"
         transparent={true}
         visible={isAddModalVisible}
-        onRequestClose={() => setIsAddModalVisible(false)}
+        onRequestClose={closeModal}
       >
         <View style={styles.addmodalOverlay}>
           <View style={styles.addmodalContent}>
             <TouchableOpacity
-              onPress={() => setIsAddModalVisible(false)}
+              onPress={closeModal}
               style={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }}
               hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
             >
               <Ionicons name="close" size={22} color={COLORS.text} />
             </TouchableOpacity>
 
-            <Text style={styles.addmodalTitle}>Νέος{'\n'}Εμβολιασμός</Text>
+            <Text style={styles.addmodalTitle}>
+              {editingVaccination ? 'Επεξεργασία\nΕμβολιασμού' : 'Νέος\nΕμβολιασμός'}
+            </Text>
 
             <Text style={loginStyles.inputLabel}>Όνομα</Text>
             <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
