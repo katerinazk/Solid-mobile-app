@@ -87,9 +87,32 @@ export default function DoctorVaccinationsScreen() {
     loadVaccinations();
   }, []);
 
+  // Μορφοποιεί την ημερομηνία καθώς πληκτρολογεί ο χρήστης: ΗΗ/ΜΜ/ΕΕΕΕ, βάζοντας
+  // αυτόματα κάθετες μετά τα 2 πρώτα (ημέρα) και τα επόμενα 2 (μήνας) ψηφία. Χειρίζεται
+  // και το backspace πάνω σε μια αυτόματη κάθετο, ώστε να σβήνει και το προηγούμενο ψηφίο.
+  const handleDateChange = (text: string) => {
+    const previousDigitCount = formAdministeredDate.replace(/[^0-9]/g, '').length;
+    const isDeleting = text.length < formAdministeredDate.length;
+
+    let digits = text.replace(/[^0-9]/g, '').slice(0, 8);
+    if (isDeleting && digits.length === previousDigitCount) {
+      digits = digits.slice(0, -1);
+    }
+
+    let masked = digits.slice(0, 2);
+    if (digits.length > 2) masked += `/${digits.slice(2, 4)}`;
+    if (digits.length > 4) masked += `/${digits.slice(4, 8)}`;
+    setFormAdministeredDate(masked);
+  };
+
   const handleSaveVaccination = async () => {
     if (!formTitle.trim() || !formCommercialName.trim() || !formBatchNumber.trim() || !formDoseNumber.trim() || !formAdministeredDate.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      return;
+    }
+
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formAdministeredDate)) {
+      alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία (ΗΗ/ΜΜ/ΕΕΕΕ).");
       return;
     }
 
@@ -106,13 +129,15 @@ export default function DoctorVaccinationsScreen() {
         ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
         : 'Δρ.';
 
+      const [day, month, year] = formAdministeredDate.split('/');
+
       const record = {
         title: formTitle.trim(),
         commercialName: formCommercialName.trim(),
         doctorName,
         batchNumber: formBatchNumber.trim(),
         doseNumber: formDoseNumber.trim(),
-        administeredDate: formAdministeredDate.trim(),
+        administeredDate: `${year}-${month}-${day}`,
       };
 
       const fileUrl = `${folderUrl}${Date.now()}.json`;
@@ -226,9 +251,11 @@ export default function DoctorVaccinationsScreen() {
             <Text style={loginStyles.inputLabel}>Ημερομηνία Χορήγησης</Text>
             <TextInput
               style={[loginStyles.loginInput, localStyles.input]}
-              placeholder="π.χ. 2025-10-15"
+              placeholder="ΗΗ/ΜΜ/ΕΕΕΕ"
+              keyboardType="numeric"
+              maxLength={10}
               value={formAdministeredDate}
-              onChangeText={setFormAdministeredDate}
+              onChangeText={handleDateChange}
             />
 
             <TouchableOpacity
