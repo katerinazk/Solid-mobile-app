@@ -220,7 +220,7 @@ export default function DoctorVaccinationsScreen() {
               style={[loginStyles.loginInput, localStyles.input, { width: 70, paddingVertical: 10, marginBottom: 30 }]}
               keyboardType="numeric"
               value={formDoseNumber}
-              onChangeText={setFormDoseNumber}
+              onChangeText={(text) => setFormDoseNumber(text.replace(/[^0-9]/g, ''))}
             />
 
             <Text style={loginStyles.inputLabel}>Ημερομηνία Χορήγησης</Text>
