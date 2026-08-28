@@ -119,8 +119,14 @@ export default function DoctorVaccinationsScreen() {
     if (!/[0-9]/.test(newDigit)) return;
 
     if (dateDay.length < 2) {
-      const next = dateDay + newDigit;
-      setDateDay(next.length === 1 && Number(next) >= 4 ? `0${next}` : next);
+      if (dateDay.length === 1) {
+        // Δεύτερο ψηφίο μέρας: αν το πρώτο ήταν "3", οι μόνες έγκυρες μέρες είναι 30 και 31
+        if (dateDay === '3' && newDigit !== '0' && newDigit !== '1') return;
+        setDateDay(dateDay + newDigit);
+        return;
+      }
+      // Πρώτο ψηφίο μέρας: 4-9 -> καμία μέρα δεν αρχίζει από 40-99, οπότε είναι μονοψήφια (04-09)
+      setDateDay(Number(newDigit) >= 4 ? `0${newDigit}` : newDigit);
       return;
     }
     if (dateMonth.length < 2) {
@@ -162,6 +168,13 @@ export default function DoctorVaccinationsScreen() {
 
     if (dateDay.length !== 2 || dateMonth.length !== 2 || dateYear.length !== 4) {
       alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία (ΗΗ/ΜΜ/ΕΕΕΕ).");
+      return;
+    }
+
+    const enteredYear = Number(dateYear);
+    const currentYear = new Date().getFullYear();
+    if (enteredYear < currentYear - 10 || enteredYear > currentYear) {
+      alert(`Το έτος πρέπει να είναι μεταξύ ${currentYear - 10} και ${currentYear}.`);
       return;
     }
 
