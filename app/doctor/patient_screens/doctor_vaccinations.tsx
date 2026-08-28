@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -31,6 +31,7 @@ export default function DoctorVaccinationsScreen() {
 
   const [loading, setLoading] = useState(false);
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
+  const [newestFirst, setNewestFirst] = useState(true);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -74,7 +75,6 @@ export default function DoctorVaccinationsScreen() {
       }));
 
       const valid = loaded.filter((v): v is Vaccination => v !== null);
-      valid.sort((a, b) => new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime());
       setVaccinations(valid);
     } catch (error: any) {
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
@@ -86,6 +86,13 @@ export default function DoctorVaccinationsScreen() {
   useEffect(() => {
     loadVaccinations();
   }, []);
+
+  const sortedVaccinations = useMemo(() => {
+    return [...vaccinations].sort((a, b) => {
+      const diff = new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime();
+      return newestFirst ? diff : -diff;
+    });
+  }, [vaccinations, newestFirst]);
 
   // Μορφοποιεί την ημερομηνία καθώς πληκτρολογεί ο χρήστης: ΗΗ/ΜΜ/ΕΕΕΕ, βάζοντας
   // αυτόματα κάθετες μετά τα 2 πρώτα (ημέρα) και τα επόμενα 2 (μήνας) ψηφία. Χειρίζεται
@@ -175,18 +182,20 @@ export default function DoctorVaccinationsScreen() {
           <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={doctorStyles.diagnosisSortButton}>
-          <Text style={doctorStyles.diagnosisSortButtonText}>↕ Νεότερες προς Παλαιότερες</Text>
+        <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
+          <Text style={doctorStyles.diagnosisSortButtonText}>
+            ↕ {newestFirst ? 'Νεότεροι προς Παλαιότεροι' : 'Παλαιότεροι προς Νεότεροι'}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : vaccinations.length === 0 ? (
+      ) : sortedVaccinations.length === 0 ? (
         <Text style={styles.emptyText}>Δεν υπάρχουν εμβολιασμοί.</Text>
       ) : (
         <FlatList
-          data={vaccinations}
+          data={sortedVaccinations}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
