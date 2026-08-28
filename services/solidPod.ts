@@ -19,61 +19,10 @@ export function getCategoryFolderUrl(webId: string, category: string): string {
   return `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/${encodeURIComponent(category)}/`;
 }
 
-async function folderExists(folderUrl: string, accessToken: string): Promise<boolean> {
-  const dpopToken = await createDpopToken('GET', folderUrl);
-  const response = await fetch(folderUrl, {
-    method: 'GET',
-    headers: {
-      'Authorization': `DPoP ${accessToken}`,
-      'DPoP': dpopToken,
-      'Accept': 'text/turtle',
-    },
-  });
-  return response.ok;
-}
-
-// Δημιουργεί το φάκελο βάζοντας ένα κενό αρχείο-δείκτη μέσα του· οι Solid servers
-// δημιουργούν αυτόματα τον ίδιο τον φάκελο (τον άμεσο γονέα του marker) όταν κάνουμε
-// PUT σε μια διαδρομή που δεν υπάρχει ακόμα.
-async function createFolder(folderUrl: string, accessToken: string): Promise<void> {
-  const markerUrl = `${folderUrl}.keep`;
-  const dpopToken = await createDpopToken('PUT', markerUrl);
-  await fetch(markerUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Authorization': `DPoP ${accessToken}`,
-      'DPoP': dpopToken,
-    },
-    body: '',
-  });
-}
-
-// Δημιουργεί τον φάκελο μιας συγκεκριμένης κατηγορίας αν δεν υπάρχει ήδη - μπορεί να
-// κληθεί οποτεδήποτε (π.χ. από μια οθόνη ιστορικού όταν ανοίγει), όχι μόνο κατά το login.
-export async function ensureCategoryFolder(webId: string, category: string, accessToken: string): Promise<void> {
-  const categoryUrl = getCategoryFolderUrl(webId, category);
-  if (!(await folderExists(categoryUrl, accessToken))) {
-    await createFolder(categoryUrl, accessToken);
-  }
-}
-
-// Καλείται κατά τη σύνδεση του ασθενή· φτιάχνει (αν λείπουν) τον φάκελο MedPod/ και τους
-// 6 υποφακέλους κατηγοριών ιστορικού, ώστε να είναι οργανωμένα από την αρχή τόσο για τον
-// ασθενή όσο και για τους γιατρούς που προσθέτουν νέο ιστορικό. Φτιάχνουμε πρώτα το ίδιο
-// το MedPod/ (ξεχωριστό βήμα) ώστε κάθε PUT να χρειάζεται να δημιουργήσει το πολύ έναν
-// ενδιάμεσο φάκελο τη φορά, αντί να βασιζόμαστε στο αν ο server δημιουργεί αυτόματα
-// πολλαπλά επίπεδα φακέλων ταυτόχρονα.
-export async function ensureMedPodStructure(webId: string, accessToken: string): Promise<void> {
-  const medPodUrl = `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/`;
-  if (!(await folderExists(medPodUrl, accessToken))) {
-    await createFolder(medPodUrl, accessToken);
-  }
-
-  for (const category of HISTORY_CATEGORIES) {
-    await ensureCategoryFolder(webId, category, accessToken);
-  }
-}
+// Δεν δημιουργούμε πια προληπτικά τους φακέλους κατηγοριών (π.χ. με ένα κενό .keep αρχείο).
+// Κάθε φάκελος κατηγορίας δημιουργείται αυτόματα από τον ίδιο τον Solid server ως side effect
+// του πρώτου πραγματικού saveFileContent (PUT) μέσα του - το ίδιο μοτίβο και για τις 6
+// κατηγορίες. Μέχρι τότε, μια οθόνη ιστορικού απλά βλέπει ότι ο φάκελος δεν υπάρχει ακόμα.
 
 export async function listFolderFiles(folderUrl: string, accessToken: string): Promise<string[]> {
   const dpopToken = await createDpopToken('GET', folderUrl);

@@ -51,10 +51,15 @@ export default function DoctorDiagnoseisScreen() {
       try {
         files = await listFolderFiles(folderUrl, accessToken);
       } catch {
-        // Ο φάκελος μπορεί να έχει μόλις δημιουργηθεί (κατά το login του ασθενή) και ο
-        // server να χρειάζεται μια στιγμή - ξαναδοκιμάζουμε μία φορά πριν παραδεχτούμε αποτυχία.
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        files = await listFolderFiles(folderUrl, accessToken);
+        try {
+          // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          files = await listFolderFiles(folderUrl, accessToken);
+        } catch {
+          // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - θα δημιουργηθεί αυτόματα με την πρώτη
+          // διάγνωση που θα προστεθεί. Μέχρι τότε δείχνουμε απλώς άδεια λίστα.
+          files = [];
+        }
       }
       const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
 

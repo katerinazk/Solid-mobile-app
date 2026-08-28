@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, ensureCategoryFolder } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 
@@ -54,9 +54,15 @@ export default function DoctorVaccinationsScreen() {
       try {
         files = await listFolderFiles(folderUrl, accessToken);
       } catch {
-        // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - τον δημιουργούμε και τον αφήνουμε κενό.
-        await ensureCategoryFolder(webId, CATEGORY, accessToken);
-        files = [];
+        try {
+          // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          files = await listFolderFiles(folderUrl, accessToken);
+        } catch {
+          // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - θα δημιουργηθεί αυτόματα με τον πρώτο
+          // εμβολιασμό που θα προστεθεί. Μέχρι τότε δείχνουμε απλώς άδεια λίστα.
+          files = [];
+        }
       }
 
       const vaccinationFiles = files.filter((url) => url.endsWith('.json'));

@@ -5,7 +5,6 @@ import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
 import { supabase } from '../services/supabase';
 import { createDpopToken } from '../utils/dpop';
-import { ensureMedPodStructure } from '../services/solidPod';
 import { ROUTES } from '../constants/routes';
 
 type Role = 'doctor' | 'patient';
@@ -59,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isBrowserOpen = useRef(false);
   const expectingResponse = useRef(false);
 
-  const handlePatientLoginVerification = async (webId: string, freshAccessToken: string): Promise<boolean> => {
+  const handlePatientLoginVerification = async (webId: string): Promise<boolean> => {
     try {
       // Ελέγχουμε αν το webId ανήκει σε γιατρό (cached browser session από γιατρό)
       const { data: doctorCheck } = await supabase
@@ -98,13 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("✅ Ο ασθενής επαληθεύτηκε επιτυχώς!");
       const patientFolder = webId.replace('profile/card#me', 'public/');
       setActivePatientFolderUrl(patientFolder);
-
-      try {
-        await ensureMedPodStructure(webId, freshAccessToken);
-      } catch (error) {
-        // Δεν μπλοκάρουμε το login αν αποτύχει η προετοιμασία των φακέλων ιστορικού
-        console.error("Σφάλμα δημιουργίας δομής MedPod:", error);
-      }
 
       return true;
 
@@ -200,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("🔑 WebID από token:", webId);
 
             if (role === 'patient') {
-              const verified = await handlePatientLoginVerification(webId, tokenData.access_token);
+              const verified = await handlePatientLoginVerification(webId);
               if (verified) {
                 setIsLoggedIn(true);
                 router.replace(ROUTES.PATIENT_ACCESS);
