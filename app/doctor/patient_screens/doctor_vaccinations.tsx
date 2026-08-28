@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, ensureCategoryFolder } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, ensureCategoryFolder } from '../../../services/solidPod';
+import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 
 const CATEGORY = 'Εμβολιασμοί';
@@ -24,11 +26,19 @@ interface Vaccination {
 
 export default function DoctorVaccinationsScreen() {
   const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
-  const { accessToken } = useAuth();
+  const { accessToken, loggedInDoctorAmka } = useAuth();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [loading, setLoading] = useState(false);
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
+
+  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formCommercialName, setFormCommercialName] = useState('');
+  const [formBatchNumber, setFormBatchNumber] = useState('');
+  const [formDoseNumber, setFormDoseNumber] = useState('');
+  const [formAdministeredDate, setFormAdministeredDate] = useState('');
 
   const loadVaccinations = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
@@ -77,6 +87,51 @@ export default function DoctorVaccinationsScreen() {
     loadVaccinations();
   }, []);
 
+  const handleSaveVaccination = async () => {
+    if (!formTitle.trim() || !formCommercialName.trim() || !formBatchNumber.trim() || !formDoseNumber.trim() || !formAdministeredDate.trim()) {
+      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      return;
+    }
+
+    if (!accessToken) {
+      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+      const doctorName = doctorData
+        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
+        : 'Δρ.';
+
+      const record = {
+        title: formTitle.trim(),
+        commercialName: formCommercialName.trim(),
+        doctorName,
+        batchNumber: formBatchNumber.trim(),
+        doseNumber: formDoseNumber.trim(),
+        administeredDate: formAdministeredDate.trim(),
+      };
+
+      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+
+      setVaccinations((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      setIsAddModalVisible(false);
+      setFormTitle('');
+      setFormCommercialName('');
+      setFormBatchNumber('');
+      setFormDoseNumber('');
+      setFormAdministeredDate('');
+    } catch (error: any) {
+      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -91,7 +146,7 @@ export default function DoctorVaccinationsScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
           <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
         </TouchableOpacity>
 
@@ -132,6 +187,60 @@ export default function DoctorVaccinationsScreen() {
           )}
         />
       )}
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isAddModalVisible}
+        onRequestClose={() => setIsAddModalVisible(false)}
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <TouchableOpacity
+              onPress={() => setIsAddModalVisible(false)}
+              style={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={22} color={COLORS.text} />
+            </TouchableOpacity>
+
+            <Text style={styles.addmodalTitle}>Νέος{'\n'}Εμβολιασμός</Text>
+
+            <Text style={loginStyles.inputLabel}>Όνομα</Text>
+            <TextInput style={loginStyles.loginInput} value={formTitle} onChangeText={setFormTitle} />
+
+            <Text style={loginStyles.inputLabel}>Εμπορική Ονομασία</Text>
+            <TextInput style={loginStyles.loginInput} value={formCommercialName} onChangeText={setFormCommercialName} />
+
+            <Text style={loginStyles.inputLabel}>Αριθμός Παρτίδας</Text>
+            <TextInput style={loginStyles.loginInput} value={formBatchNumber} onChangeText={setFormBatchNumber} />
+
+            <Text style={loginStyles.inputLabel}>Αριθμός Δόσης</Text>
+            <TextInput
+              style={[loginStyles.loginInput, { width: '35%' }]}
+              keyboardType="numeric"
+              value={formDoseNumber}
+              onChangeText={setFormDoseNumber}
+            />
+
+            <Text style={loginStyles.inputLabel}>Ημερομηνία Χορήγησης</Text>
+            <TextInput
+              style={loginStyles.loginInput}
+              placeholder="π.χ. 2025-10-15"
+              value={formAdministeredDate}
+              onChangeText={setFormAdministeredDate}
+            />
+
+            <TouchableOpacity
+              style={[styles.addButton, { borderRadius: 25, marginBottom: 0 }]}
+              onPress={handleSaveVaccination}
+              disabled={saving}
+            >
+              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
