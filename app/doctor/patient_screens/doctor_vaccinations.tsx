@@ -39,7 +39,10 @@ export default function DoctorVaccinationsScreen() {
   const [formCommercialName, setFormCommercialName] = useState('');
   const [formBatchNumber, setFormBatchNumber] = useState('');
   const [formDoseNumber, setFormDoseNumber] = useState('');
-  const [formAdministeredDate, setFormAdministeredDate] = useState('');
+  const [dateDay, setDateDay] = useState('');
+  const [dateMonth, setDateMonth] = useState('');
+  const [dateYear, setDateYear] = useState('');
+  const formAdministeredDate = dateDay + (dateMonth ? `/${dateMonth}` : '') + (dateYear ? `/${dateYear}` : '');
 
   const loadVaccinations = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
@@ -94,22 +97,37 @@ export default function DoctorVaccinationsScreen() {
     });
   }, [vaccinations, newestFirst]);
 
-  // Μορφοποιεί την ημερομηνία καθώς πληκτρολογεί ο χρήστης: ΗΗ/ΜΜ/ΕΕΕΕ, βάζοντας
-  // αυτόματα κάθετες μετά τα 2 πρώτα (ημέρα) και τα επόμενα 2 (μήνας) ψηφία. Χειρίζεται
-  // και το backspace πάνω σε μια αυτόματη κάθετο, ώστε να σβήνει και το προηγούμενο ψηφίο.
+  // Χτίζει την ημερομηνία ΗΗ/ΜΜ/ΕΕΕΕ ψηφίο-ψηφίο σε ξεχωριστά κομμάτια (ημέρα/μήνας/έτος).
+  // Αν το πρώτο ψηφίο ημέρας είναι 4-9 (καμία μέρα δεν αρχίζει από 40-99) ή το πρώτο ψηφίο
+  // μήνα είναι 2-9 (κανένας μήνας δεν αρχίζει από 20-99), το συμπληρώνει αυτόματα με μηδενικό
+  // και προχωράει στο επόμενο κομμάτι - έτσι δεν χρειάζεται ο χρήστης να γράφει πάντα 2 ψηφία
+  // (π.χ. "5" για μέρα 5), χωρίς να μπερδεύονται τα επόμενα ψηφία με λάθος κομμάτι.
   const handleDateChange = (text: string) => {
-    const previousDigitCount = formAdministeredDate.replace(/[^0-9]/g, '').length;
     const isDeleting = text.length < formAdministeredDate.length;
 
-    let digits = text.replace(/[^0-9]/g, '').slice(0, 8);
-    if (isDeleting && digits.length === previousDigitCount) {
-      digits = digits.slice(0, -1);
+    if (isDeleting) {
+      if (dateYear) setDateYear(dateYear.slice(0, -1));
+      else if (dateMonth) setDateMonth(dateMonth.slice(0, -1));
+      else if (dateDay) setDateDay(dateDay.slice(0, -1));
+      return;
     }
 
-    let masked = digits.slice(0, 2);
-    if (digits.length > 2) masked += `/${digits.slice(2, 4)}`;
-    if (digits.length > 4) masked += `/${digits.slice(4, 8)}`;
-    setFormAdministeredDate(masked);
+    const newDigit = text.slice(-1);
+    if (!/[0-9]/.test(newDigit)) return;
+
+    if (dateDay.length < 2) {
+      const next = dateDay + newDigit;
+      setDateDay(next.length === 1 && Number(next) >= 4 ? `0${next}` : next);
+      return;
+    }
+    if (dateMonth.length < 2) {
+      const next = dateMonth + newDigit;
+      setDateMonth(next.length === 1 && Number(next) >= 2 ? `0${next}` : next);
+      return;
+    }
+    if (dateYear.length < 4) {
+      setDateYear(dateYear + newDigit);
+    }
   };
 
   const handleSaveVaccination = async () => {
@@ -118,7 +136,7 @@ export default function DoctorVaccinationsScreen() {
       return;
     }
 
-    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(formAdministeredDate)) {
+    if (dateDay.length !== 2 || dateMonth.length !== 2 || dateYear.length !== 4) {
       alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία (ΗΗ/ΜΜ/ΕΕΕΕ).");
       return;
     }
@@ -136,15 +154,13 @@ export default function DoctorVaccinationsScreen() {
         ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
         : 'Δρ.';
 
-      const [day, month, year] = formAdministeredDate.split('/');
-
       const record = {
         title: formTitle.trim(),
         commercialName: formCommercialName.trim(),
         doctorName,
         batchNumber: formBatchNumber.trim(),
         doseNumber: formDoseNumber.trim(),
-        administeredDate: `${year}-${month}-${day}`,
+        administeredDate: `${dateYear}-${dateMonth}-${dateDay}`,
       };
 
       const fileUrl = `${folderUrl}${Date.now()}.json`;
@@ -156,7 +172,9 @@ export default function DoctorVaccinationsScreen() {
       setFormCommercialName('');
       setFormBatchNumber('');
       setFormDoseNumber('');
-      setFormAdministeredDate('');
+      setDateDay('');
+      setDateMonth('');
+      setDateYear('');
     } catch (error: any) {
       alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
