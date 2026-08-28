@@ -47,7 +47,15 @@ export default function DoctorDiagnoseisScreen() {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
-      const files = await listFolderFiles(folderUrl, accessToken);
+      let files: string[];
+      try {
+        files = await listFolderFiles(folderUrl, accessToken);
+      } catch {
+        // Ο φάκελος μπορεί να έχει μόλις δημιουργηθεί (κατά το login του ασθενή) και ο
+        // server να χρειάζεται μια στιγμή - ξαναδοκιμάζουμε μία φορά πριν παραδεχτούμε αποτυχία.
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        files = await listFolderFiles(folderUrl, accessToken);
+      }
       const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
 
       const loaded = await Promise.all(diagnosisFiles.map(async (url) => {
