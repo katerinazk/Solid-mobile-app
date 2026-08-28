@@ -29,7 +29,13 @@ export default function DoctorHistoryScreen() {
         <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Φάρμακα', 'Η λειτουργία έρχεται σύντομα.')}>
           <Text style={styles.historyCategoryButtonText}>Φάρμακα</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Αλλεργίες', 'Η λειτουργία έρχεται σύντομα.')}>
+        <TouchableOpacity
+          style={styles.historyCategoryButton}
+          onPress={() => router.push({
+            pathname: ROUTES.DOCTOR_ALLERGIES,
+            params: { amka, firstName, lastName, webId },
+          })}
+        >
           <Text style={styles.historyCategoryButtonText}>Αλλεργίες</Text>
         </TouchableOpacity>
         <TouchableOpacity
