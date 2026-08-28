@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -199,7 +199,7 @@ export default function DoctorVaccinationsScreen() {
             <TouchableOpacity
               onPress={() => setIsAddModalVisible(false)}
               style={{ position: 'absolute', top: 15, right: 15, zIndex: 1 }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
             >
               <Ionicons name="close" size={22} color={COLORS.text} />
             </TouchableOpacity>
@@ -207,17 +207,17 @@ export default function DoctorVaccinationsScreen() {
             <Text style={styles.addmodalTitle}>Νέος{'\n'}Εμβολιασμός</Text>
 
             <Text style={loginStyles.inputLabel}>Όνομα</Text>
-            <TextInput style={loginStyles.loginInput} value={formTitle} onChangeText={setFormTitle} />
+            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
 
             <Text style={loginStyles.inputLabel}>Εμπορική Ονομασία</Text>
-            <TextInput style={loginStyles.loginInput} value={formCommercialName} onChangeText={setFormCommercialName} />
+            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formCommercialName} onChangeText={setFormCommercialName} />
 
             <Text style={loginStyles.inputLabel}>Αριθμός Παρτίδας</Text>
-            <TextInput style={loginStyles.loginInput} value={formBatchNumber} onChangeText={setFormBatchNumber} />
+            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formBatchNumber} onChangeText={setFormBatchNumber} />
 
             <Text style={loginStyles.inputLabel}>Αριθμός Δόσης</Text>
             <TextInput
-              style={[loginStyles.loginInput, { width: '35%' }]}
+              style={[loginStyles.loginInput, localStyles.input, { width: 70, paddingVertical: 10, marginBottom: 30 }]}
               keyboardType="numeric"
               value={formDoseNumber}
               onChangeText={setFormDoseNumber}
@@ -225,14 +225,14 @@ export default function DoctorVaccinationsScreen() {
 
             <Text style={loginStyles.inputLabel}>Ημερομηνία Χορήγησης</Text>
             <TextInput
-              style={loginStyles.loginInput}
+              style={[loginStyles.loginInput, localStyles.input]}
               placeholder="π.χ. 2025-10-15"
               value={formAdministeredDate}
               onChangeText={setFormAdministeredDate}
             />
 
             <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, marginBottom: 0 }]}
+              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
               onPress={handleSaveVaccination}
               disabled={saving}
             >
@@ -244,3 +244,12 @@ export default function DoctorVaccinationsScreen() {
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  input: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 25,
+  },
+});
