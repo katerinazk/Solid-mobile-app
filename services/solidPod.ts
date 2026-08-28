@@ -49,6 +49,15 @@ async function createFolder(folderUrl: string, accessToken: string): Promise<voi
   });
 }
 
+// Δημιουργεί τον φάκελο μιας συγκεκριμένης κατηγορίας αν δεν υπάρχει ήδη - μπορεί να
+// κληθεί οποτεδήποτε (π.χ. από μια οθόνη ιστορικού όταν ανοίγει), όχι μόνο κατά το login.
+export async function ensureCategoryFolder(webId: string, category: string, accessToken: string): Promise<void> {
+  const categoryUrl = getCategoryFolderUrl(webId, category);
+  if (!(await folderExists(categoryUrl, accessToken))) {
+    await createFolder(categoryUrl, accessToken);
+  }
+}
+
 // Καλείται κατά τη σύνδεση του ασθενή· φτιάχνει (αν λείπουν) τον φάκελο MedPod/ και τους
 // 6 υποφακέλους κατηγοριών ιστορικού, ώστε να είναι οργανωμένα από την αρχή τόσο για τον
 // ασθενή όσο και για τους γιατρούς που προσθέτουν νέο ιστορικό. Φτιάχνουμε πρώτα το ίδιο
@@ -62,10 +71,7 @@ export async function ensureMedPodStructure(webId: string, accessToken: string):
   }
 
   for (const category of HISTORY_CATEGORIES) {
-    const categoryUrl = getCategoryFolderUrl(webId, category);
-    if (!(await folderExists(categoryUrl, accessToken))) {
-      await createFolder(categoryUrl, accessToken);
-    }
+    await ensureCategoryFolder(webId, category, accessToken);
   }
 }
 

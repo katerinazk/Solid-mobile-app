@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
+import { useAuth } from '../../../hooks/useAuth';
+import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, ensureCategoryFolder } from '../../../services/solidPod';
+import { formatDate } from '../../../utils/age';
+
+const CATEGORY = 'Εμβολιασμοί';
 
 interface Vaccination {
-  id: string;
+  url: string;
   title: string;
   commercialName: string;
   doctorName: string;
@@ -17,32 +22,60 @@ interface Vaccination {
   administeredDate: string;
 }
 
-// Προσωρινά στατικά δεδομένα - θα αντικατασταθούν όταν συνδέσουμε την οθόνη με το Solid Pod
-// (φάκελος MedPod/Εμβολιασμοί/), όπως έγινε ήδη με τις Διαγνώσεις.
-const MOCK_VACCINATIONS: Vaccination[] = [
-  {
-    id: '1',
-    title: 'Εποχική Γρίπη',
-    commercialName: 'VaxigripTetra',
-    doctorName: 'Δρ. Παπαδόπουλος Ιωάννης (Πνευμονολόγος)',
-    batchNumber: 'T3A451V',
-    doseNumber: '1',
-    administeredDate: '15/10/2025',
-  },
-  {
-    id: '2',
-    title: 'Τέτανος - Διφθερίτιδα - Κοκκύτης',
-    commercialName: 'Boostrix',
-    doctorName: 'Δρ. Παπαδόπουλος Ιωάννης (Πνευμονολόγος)',
-    batchNumber: 'AC22B34',
-    doseNumber: '1',
-    administeredDate: '05/04/2022',
-  },
-];
-
 export default function DoctorVaccinationsScreen() {
-  const { amka } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
-  const [vaccinations] = useState<Vaccination[]>(MOCK_VACCINATIONS);
+  const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { accessToken } = useAuth();
+  const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
+
+  const [loading, setLoading] = useState(false);
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
+
+  const loadVaccinations = async () => {
+    if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
+    try {
+      setLoading(true);
+      let files: string[];
+      try {
+        files = await listFolderFiles(folderUrl, accessToken);
+      } catch {
+        // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - τον δημιουργούμε και τον αφήνουμε κενό.
+        await ensureCategoryFolder(webId, CATEGORY, accessToken);
+        files = [];
+      }
+
+      const vaccinationFiles = files.filter((url) => url.endsWith('.json'));
+
+      const loaded = await Promise.all(vaccinationFiles.map(async (url) => {
+        try {
+          const content = await fetchFileContent(url, accessToken);
+          const record = JSON.parse(content);
+          return {
+            url,
+            title: record.title,
+            commercialName: record.commercialName,
+            doctorName: record.doctorName,
+            batchNumber: record.batchNumber,
+            doseNumber: record.doseNumber,
+            administeredDate: record.administeredDate,
+          } as Vaccination;
+        } catch {
+          return null;
+        }
+      }));
+
+      const valid = loaded.filter((v): v is Vaccination => v !== null);
+      valid.sort((a, b) => new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime());
+      setVaccinations(valid);
+    } catch (error: any) {
+      Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadVaccinations();
+  }, []);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -67,7 +100,38 @@ export default function DoctorVaccinationsScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.emptyText}>Δεν υπάρχουν εμβολιασμοί.</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+      ) : vaccinations.length === 0 ? (
+        <Text style={styles.emptyText}>Δεν υπάρχουν εμβολιασμοί.</Text>
+      ) : (
+        <FlatList
+          data={vaccinations}
+          keyExtractor={(item) => item.url}
+          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+          renderItem={({ item }) => (
+            <View style={doctorStyles.diagnosisCard}>
+              <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Εμπορική Ονομασία: </Text>{item.commercialName}
+              </Text>
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
+              </Text>
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Παρτίδας: </Text>{item.batchNumber}
+              </Text>
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Δόσης: </Text>{item.doseNumber}
+              </Text>
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
+              </Text>
+            </View>
+          )}
+        />
+      )}
     </SafeAreaView>
   );
 }
