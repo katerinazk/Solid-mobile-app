@@ -8,6 +8,7 @@ export default function DoctorLayout() {
         <Stack.Screen name="patient_screens/doctor_diagnoseis" options={{ presentation: 'modal' }} />
         <Stack.Screen name="patient_screens/doctor_vaccinations" options={{ presentation: 'modal' }} />
         <Stack.Screen name="patient_screens/doctor_allergies" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="patient_screens/doctor_hospitalizations" options={{ presentation: 'modal' }} />
       </Stack>
     </DoctorMenuProvider>
   );

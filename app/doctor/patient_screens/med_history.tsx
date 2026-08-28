@@ -47,7 +47,13 @@ export default function DoctorHistoryScreen() {
         >
           <Text style={styles.historyCategoryButtonText}>Διαγνώσεις</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Νοσηλίες', 'Η λειτουργία έρχεται σύντομα.')}>
+        <TouchableOpacity
+          style={styles.historyCategoryButton}
+          onPress={() => router.push({
+            pathname: ROUTES.DOCTOR_HOSPITALIZATIONS,
+            params: { amka, firstName, lastName, webId },
+          })}
+        >
           <Text style={styles.historyCategoryButtonText}>Νοσηλίες</Text>
         </TouchableOpacity>
         <TouchableOpacity
