@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, ensureCategoryFolder } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, ensureCategoryFolder } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 
@@ -19,6 +19,7 @@ interface Vaccination {
   title: string;
   commercialName: string;
   doctorName: string;
+  doctorAmka: string;
   batchNumber: string;
   doseNumber: string;
   administeredDate: string;
@@ -68,6 +69,7 @@ export default function DoctorVaccinationsScreen() {
             title: record.title,
             commercialName: record.commercialName,
             doctorName: record.doctorName,
+            doctorAmka: record.doctorAmka,
             batchNumber: record.batchNumber,
             doseNumber: record.doseNumber,
             administeredDate: record.administeredDate,
@@ -158,6 +160,7 @@ export default function DoctorVaccinationsScreen() {
         title: formTitle.trim(),
         commercialName: formCommercialName.trim(),
         doctorName,
+        doctorAmka: loggedInDoctorAmka,
         batchNumber: formBatchNumber.trim(),
         doseNumber: formDoseNumber.trim(),
         administeredDate: `${dateYear}-${dateMonth}-${dateDay}`,
@@ -180,6 +183,32 @@ export default function DoctorVaccinationsScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditVaccination = (item: Vaccination) => {
+    // TODO: λειτουργία επεξεργασίας - έρχεται σύντομα
+  };
+
+  const handleDeleteVaccination = (item: Vaccination) => {
+    Alert.alert(
+      "Διαγραφή",
+      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον εμβολιασμό;",
+      [
+        { text: "Ακύρωση", style: "cancel" },
+        {
+          text: "Διαγραφή",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteFile(item.url, accessToken);
+              setVaccinations((prev) => prev.filter((v) => v.url !== item.url));
+            } catch (error: any) {
+              alert(error.message || "Αποτυχία διαγραφής.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -218,7 +247,19 @@ export default function DoctorVaccinationsScreen() {
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
-              <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+              <View style={doctorStyles.diagnosisCardHeader}>
+                <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                {item.doctorAmka === loggedInDoctorAmka && (
+                  <View style={{ flexDirection: 'row' }}>
+                    <TouchableOpacity onPress={() => handleEditVaccination(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                      <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeleteVaccination(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                      <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
 
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Εμπορική Ονομασία: </Text>{item.commercialName}
