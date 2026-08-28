@@ -30,6 +30,7 @@ export default function DoctorAllergiesScreen() {
   const [allergies, setAllergies] = useState<Allergy[]>([]);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [editingAllergy, setEditingAllergy] = useState<Allergy | null>(null);
   const [saving, setSaving] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formReaction, setFormReaction] = useState('');
@@ -80,6 +81,29 @@ export default function DoctorAllergiesScreen() {
     }
   };
 
+  const resetForm = () => {
+    setFormTitle('');
+    setFormReaction('');
+  };
+
+  const openAddModal = () => {
+    setEditingAllergy(null);
+    resetForm();
+    setIsAddModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsAddModalVisible(false);
+    setEditingAllergy(null);
+  };
+
+  const handleEditAllergy = (item: Allergy) => {
+    setEditingAllergy(item);
+    setFormTitle(item.title);
+    setFormReaction(item.reaction);
+    setIsAddModalVisible(true);
+  };
+
   const handleSaveAllergy = async () => {
     if (!formTitle.trim() || !formReaction.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
@@ -94,25 +118,32 @@ export default function DoctorAllergiesScreen() {
     try {
       setSaving(true);
 
-      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-      const doctorName = doctorData
-        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-        : 'Δρ.';
+      let doctorName = editingAllergy?.doctorName || '';
+      let doctorAmka = editingAllergy?.doctorAmka || '';
+      if (!editingAllergy) {
+        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        doctorName = doctorData ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})` : 'Δρ.';
+        doctorAmka = loggedInDoctorAmka;
+      }
 
       const record = {
         title: formTitle.trim(),
         reaction: formReaction.trim(),
         doctorName,
-        doctorAmka: loggedInDoctorAmka,
+        doctorAmka,
       };
 
-      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      const fileUrl = editingAllergy ? editingAllergy.url : `${folderUrl}${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
-      setAllergies((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      setIsAddModalVisible(false);
-      setFormTitle('');
-      setFormReaction('');
+      if (editingAllergy) {
+        setAllergies((prev) => prev.map((a) => a.url === fileUrl ? { url: fileUrl, ...record } : a));
+      } else {
+        setAllergies((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      }
+
+      closeModal();
+      resetForm();
     } catch (error: any) {
       alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
@@ -160,7 +191,7 @@ export default function DoctorAllergiesScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Προσθήκη Αλλεργίας</Text>
         </TouchableOpacity>
       </View>
@@ -180,7 +211,7 @@ export default function DoctorAllergiesScreen() {
                 <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
                 {item.doctorAmka === loggedInDoctorAmka && (
                   <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <TouchableOpacity onPress={() => handleEditAllergy(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteAllergy(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -205,14 +236,16 @@ export default function DoctorAllergiesScreen() {
         animationType="slide"
         transparent={true}
         visible={isAddModalVisible}
-        onRequestClose={() => setIsAddModalVisible(false)}
+        onRequestClose={closeModal}
       >
         <View style={styles.addmodalOverlay}>
           <View style={styles.addmodalContent}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Νέα Αλλεργία</Text>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
+                {editingAllergy ? 'Επεξεργασία Αλλεργίας' : 'Νέα Αλλεργία'}
+              </Text>
               <TouchableOpacity
-                onPress={() => setIsAddModalVisible(false)}
+                onPress={closeModal}
                 hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
               >
                 <Ionicons name="close" size={22} color={COLORS.text} />
