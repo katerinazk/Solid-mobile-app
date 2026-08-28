@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 
 const CATEGORY = 'Αλλεργίες';
@@ -120,6 +120,28 @@ export default function DoctorAllergiesScreen() {
     }
   };
 
+  const handleDeleteAllergy = (item: Allergy) => {
+    Alert.alert(
+      "Διαγραφή",
+      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την αλλεργία;",
+      [
+        { text: "Ακύρωση", style: "cancel" },
+        {
+          text: "Διαγραφή",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteFile(item.url, accessToken);
+              setAllergies((prev) => prev.filter((a) => a.url !== item.url));
+            } catch (error: any) {
+              alert(error.message || "Αποτυχία διαγραφής.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   useEffect(() => {
     loadAllergies();
   }, []);
@@ -161,7 +183,7 @@ export default function DoctorAllergiesScreen() {
                     <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
-                    <TouchableOpacity hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <TouchableOpacity onPress={() => handleDeleteAllergy(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                   </View>
