@@ -84,6 +84,7 @@ export default function DoctorHospitalizationsScreen() {
   const [hospitalizations, setHospitalizations] = useState<Hospitalization[]>([]);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [editingHospitalization, setEditingHospitalization] = useState<Hospitalization | null>(null);
   const [saving, setSaving] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formHospitalClinic, setFormHospitalClinic] = useState('');
@@ -187,6 +188,29 @@ export default function DoctorHospitalizationsScreen() {
     setPendingFiles((prev) => prev.filter((file) => file.name !== name));
   };
 
+  const openAddModal = () => {
+    setEditingHospitalization(null);
+    resetForm();
+    setIsAddModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsAddModalVisible(false);
+    setEditingHospitalization(null);
+  };
+
+  const handleEditHospitalization = (item: Hospitalization) => {
+    setEditingHospitalization(item);
+    setFormTitle(item.title);
+    setFormHospitalClinic(item.hospitalClinic);
+    const [ay, am, ad] = item.admissionDate.split('-');
+    setAdmYear(ay); setAdmMonth(am); setAdmDay(ad);
+    const [dy, dm, dd] = item.dischargeDate.split('-');
+    setDisYear(dy); setDisMonth(dm); setDisDay(dd);
+    setPendingFiles([]);
+    setIsAddModalVisible(true);
+  };
+
   const handleDeleteHospitalization = (item: Hospitalization) => {
     Alert.alert(
       "Διαγραφή",
@@ -254,12 +278,17 @@ export default function DoctorHospitalizationsScreen() {
     try {
       setSaving(true);
 
-      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-      const doctorName = doctorData
-        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-        : 'Δρ.';
+      let doctorName = editingHospitalization?.doctorName || '';
+      let doctorAmka = editingHospitalization?.doctorAmka || '';
+      if (!editingHospitalization) {
+        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        doctorName = doctorData
+          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
+          : 'Δρ.';
+        doctorAmka = loggedInDoctorAmka;
+      }
 
-      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      const fileUrl = editingHospitalization ? editingHospitalization.url : `${folderUrl}${Date.now()}.json`;
 
       for (const file of pendingFiles) {
         await uploadAttachment(fileUrl, file.name, file.uri, file.mimeType, accessToken);
@@ -269,16 +298,21 @@ export default function DoctorHospitalizationsScreen() {
         title: formTitle.trim(),
         hospitalClinic: formHospitalClinic.trim(),
         doctorName,
-        doctorAmka: loggedInDoctorAmka,
+        doctorAmka,
         admissionDate: `${admYear}-${admMonth}-${admDay}`,
         dischargeDate: `${disYear}-${disMonth}-${disDay}`,
-        attachments: pendingFiles.map((file) => file.name),
+        attachments: [...(editingHospitalization?.attachments || []), ...pendingFiles.map((file) => file.name)],
       };
 
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
-      setHospitalizations((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      setIsAddModalVisible(false);
+      if (editingHospitalization) {
+        setHospitalizations((prev) => prev.map((h) => h.url === fileUrl ? { url: fileUrl, ...record } : h));
+      } else {
+        setHospitalizations((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      }
+
+      closeModal();
       resetForm();
     } catch (error: any) {
       alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
@@ -305,7 +339,7 @@ export default function DoctorHospitalizationsScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Προσθήκη Νοσηλίας</Text>
         </TouchableOpacity>
       </View>
@@ -325,7 +359,7 @@ export default function DoctorHospitalizationsScreen() {
                 <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
                 {item.doctorAmka === loggedInDoctorAmka && (
                   <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <TouchableOpacity onPress={() => handleEditHospitalization(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteHospitalization(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -364,14 +398,16 @@ export default function DoctorHospitalizationsScreen() {
         animationType="slide"
         transparent={true}
         visible={isAddModalVisible}
-        onRequestClose={() => setIsAddModalVisible(false)}
+        onRequestClose={closeModal}
       >
         <View style={styles.addmodalOverlay}>
           <View style={styles.addmodalContent}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Νέα Νοσηλία</Text>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
+                {editingHospitalization ? 'Επεξεργασία Νοσηλίας' : 'Νέα Νοσηλία'}
+              </Text>
               <TouchableOpacity
-                onPress={() => setIsAddModalVisible(false)}
+                onPress={closeModal}
                 hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
               >
                 <Ionicons name="close" size={22} color={COLORS.text} />
