@@ -3,7 +3,6 @@ import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, Status
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import * as Sharing from 'expo-sharing';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
@@ -13,6 +12,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
+import { openLocalFile } from '../../../utils/openLocalFile';
 
 const CATEGORY = 'Νοσηλίες';
 
@@ -186,9 +186,9 @@ export default function DoctorHospitalizationsScreen() {
     try {
       setDownloadingAttachment(fileName);
       const localUri = await downloadAttachment(item.url, fileName, accessToken);
-      await Sharing.shareAsync(localUri);
+      await openLocalFile(localUri, fileName);
     } catch (error: any) {
-      alert(error.message || 'Αποτυχία λήψης αρχείου.');
+      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
     } finally {
       setDownloadingAttachment(null);
     }
