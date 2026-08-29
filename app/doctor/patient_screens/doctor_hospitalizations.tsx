@@ -111,17 +111,21 @@ export default function DoctorHospitalizationsScreen() {
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
-      } catch {
+      } catch (error: any) {
+        console.warn('⚠️ Πρώτη προσπάθεια listFolderFiles (Νοσηλίες) απέτυχε:', error?.message || error);
         try {
           // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
           await new Promise((resolve) => setTimeout(resolve, 800));
           files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
+        } catch (retryError: any) {
           // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - θα δημιουργηθεί αυτόματα με την πρώτη
           // νοσηλία που θα προστεθεί. Μέχρι τότε δείχνουμε απλώς άδεια λίστα.
+          console.warn('⚠️ Δεύτερη προσπάθεια listFolderFiles (Νοσηλίες) απέτυχε επίσης:', retryError?.message || retryError);
           files = [];
         }
       }
+
+      console.log('📁 Αρχεία στον φάκελο Νοσηλίες:', files);
 
       const hospitalizationFiles = files.filter((url) => url.endsWith('.json'));
 
@@ -139,7 +143,8 @@ export default function DoctorHospitalizationsScreen() {
             dischargeDate: record.dischargeDate,
             attachments: record.attachments || [],
           } as Hospitalization;
-        } catch {
+        } catch (error: any) {
+          console.warn('⚠️ Αποτυχία φόρτωσης νοσηλίας', url, error?.message || error);
           return null;
         }
       }));

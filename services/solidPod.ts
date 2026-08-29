@@ -42,13 +42,32 @@ export async function listFolderFiles(folderUrl: string, accessToken: string): P
 
   const text = await response.text();
 
+  // Χαρτογραφούμε τα @prefix ώστε να μπορούμε να επεκτείνουμε "prefixed names" (π.χ. n1:)
+  // που ο server χρησιμοποιεί μέσα στη λίστα ldp:contains για nested containers
+  // (π.χ. τους φακέλους συνημμένων αρχείων _files/) αντί για πλήρες <URL>.
+  const prefixes: Record<string, string> = {};
+  for (const prefixMatch of text.matchAll(/@prefix\s+([a-zA-Z0-9_-]*):\s*<([^>]*)>\s*\./g)) {
+    prefixes[prefixMatch[1]] = prefixMatch[2];
+  }
+
   // Ισοπεδώνουμε τα newlines ώστε να πιάνουμε και πολυγραμμικές λίστες
   const flatText = text.replace(/\r?\n\s*/g, ' ');
   const fileUrls: string[] = [];
-  // Βρίσκουμε κάθε ldp:contains block (μπορεί να έχει πολλά URLs με κόμμα)
-  for (const containsMatch of flatText.matchAll(/ldp:contains\s+((?:<[^>]+>(?:\s*,\s*)?)+)/g)) {
-    for (const uriMatch of containsMatch[1].matchAll(/<([^>]+)>/g)) {
-      const uri = uriMatch[1];
+  const itemSource = '<[^>]*>|[a-zA-Z0-9_-]*:';
+  // Βρίσκουμε κάθε ldp:contains block - τα περιεχόμενα μπορεί να αναφέρονται είτε ως πλήρες
+  // <URI> είτε ως prefixed name (π.χ. n1:) όταν πρόκειται για nested container.
+  for (const containsMatch of flatText.matchAll(new RegExp(`ldp:contains\\s+((?:(?:${itemSource})(?:\\s*,\\s*)?)+)`, 'g'))) {
+    for (const itemMatch of containsMatch[1].matchAll(new RegExp(itemSource, 'g'))) {
+      const token = itemMatch[0];
+      let uri: string;
+      if (token.startsWith('<')) {
+        uri = token.slice(1, -1);
+      } else {
+        const prefix = token.slice(0, -1);
+        if (!(prefix in prefixes)) continue;
+        uri = prefixes[prefix];
+      }
+
       if (uri.startsWith('http')) {
         fileUrls.push(uri);
       } else if (uri.startsWith('/')) {
