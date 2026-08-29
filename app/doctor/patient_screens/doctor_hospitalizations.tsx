@@ -299,7 +299,19 @@ export default function DoctorHospitalizationsScreen() {
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
-              <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+              <View style={doctorStyles.diagnosisCardHeader}>
+                <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                {item.doctorAmka === loggedInDoctorAmka && (
+                  <View style={{ flexDirection: 'row' }}>
+                    <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                      <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                      <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
 
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}
