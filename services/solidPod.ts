@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { createDpopToken } from '../utils/dpop';
 
 // Ανακατασκευάζει το WebID του ασθενή-ιδιοκτήτη από το URL του δημόσιου φακέλου του
@@ -111,6 +112,61 @@ export async function saveFileContent(url: string, accessToken: string, content:
     const errorText = await response.text();
     throw new Error(`ΚΩΔΙΚΟΣ: ${response.status}\n\nΛΟΓΟΣ:\n${errorText.substring(0, 150)}`);
   }
+}
+
+// Ο φάκελος συνημμένων αρχείων μιας συγκεκριμένης εγγραφής (π.χ. μιας νοσηλίας) -
+// παράγεται από το URL του ίδιου του .json αρχείου της εγγραφής, ώστε τα αρχεία
+// να συνδέονται αυτόματα μαζί της χωρίς επιπλέον μεταδεδομένα.
+export function getAttachmentsFolderUrl(recordUrl: string): string {
+  return recordUrl.replace(/\.json$/, '') + '_files/';
+}
+
+export async function uploadAttachment(
+  recordUrl: string,
+  fileName: string,
+  localUri: string,
+  mimeType: string,
+  accessToken: string
+): Promise<void> {
+  const fileUrl = `${getAttachmentsFolderUrl(recordUrl)}${encodeURIComponent(fileName)}`;
+  const dpopToken = await createDpopToken('PUT', fileUrl);
+  const result = await FileSystem.uploadAsync(fileUrl, localUri, {
+    httpMethod: 'PUT',
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+    headers: {
+      'Content-Type': mimeType || 'application/octet-stream',
+      'Authorization': `DPoP ${accessToken}`,
+      'DPoP': dpopToken,
+    },
+  });
+
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Αποτυχία μεταφόρτωσης του αρχείου "${fileName}" (κωδικός ${result.status}).`);
+  }
+}
+
+// Κατεβάζει ένα συνημμένο αρχείο τοπικά (cache) ώστε να μπορεί να ανοιχτεί/μοιραστεί
+// με το Sharing API. Επιστρέφει το τοπικό file:// URI.
+export async function downloadAttachment(
+  recordUrl: string,
+  fileName: string,
+  accessToken: string
+): Promise<string> {
+  const fileUrl = `${getAttachmentsFolderUrl(recordUrl)}${encodeURIComponent(fileName)}`;
+  const localUri = `${FileSystem.cacheDirectory}${fileName}`;
+  const dpopToken = await createDpopToken('GET', fileUrl);
+  const result = await FileSystem.downloadAsync(fileUrl, localUri, {
+    headers: {
+      'Authorization': `DPoP ${accessToken}`,
+      'DPoP': dpopToken,
+    },
+  });
+
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Αποτυχία λήψης του αρχείου "${fileName}".`);
+  }
+
+  return result.uri;
 }
 
 interface UpdatePodAclParams {

@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Sharing from 'expo-sharing';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 
@@ -22,6 +24,13 @@ interface Hospitalization {
   doctorAmka: string;
   admissionDate: string;
   dischargeDate: string;
+  attachments: string[];
+}
+
+interface PendingFile {
+  name: string;
+  uri: string;
+  mimeType: string;
 }
 
 // Χτίζει μια ημερομηνία ΗΗ/ΜΜ/ΕΕΕΕ ψηφίο-ψηφίο σε ξεχωριστά κομμάτια (ημέρα/μήνας/έτος),
@@ -78,6 +87,10 @@ export default function DoctorHospitalizationsScreen() {
   const [saving, setSaving] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formHospitalClinic, setFormHospitalClinic] = useState('');
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+
+  const [viewingAttachmentsFor, setViewingAttachmentsFor] = useState<Hospitalization | null>(null);
+  const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
 
   const [admDay, setAdmDay] = useState('');
   const [admMonth, setAdmMonth] = useState('');
@@ -124,6 +137,7 @@ export default function DoctorHospitalizationsScreen() {
             doctorAmka: record.doctorAmka,
             admissionDate: record.admissionDate,
             dischargeDate: record.dischargeDate,
+            attachments: record.attachments || [],
           } as Hospitalization;
         } catch {
           return null;
@@ -144,6 +158,40 @@ export default function DoctorHospitalizationsScreen() {
     setFormHospitalClinic('');
     setAdmDay(''); setAdmMonth(''); setAdmYear('');
     setDisDay(''); setDisMonth(''); setDisYear('');
+    setPendingFiles([]);
+  };
+
+  const handlePickFiles = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
+      if (result.canceled || !result.assets) return;
+      setPendingFiles((prev) => [
+        ...prev,
+        ...result.assets.map((asset) => ({
+          name: asset.name,
+          uri: asset.uri,
+          mimeType: asset.mimeType || 'application/octet-stream',
+        })),
+      ]);
+    } catch (error: any) {
+      alert(error.message || 'Αποτυχία επιλογής αρχείου.');
+    }
+  };
+
+  const handleRemovePendingFile = (name: string) => {
+    setPendingFiles((prev) => prev.filter((file) => file.name !== name));
+  };
+
+  const handleOpenAttachment = async (item: Hospitalization, fileName: string) => {
+    try {
+      setDownloadingAttachment(fileName);
+      const localUri = await downloadAttachment(item.url, fileName, accessToken);
+      await Sharing.shareAsync(localUri);
+    } catch (error: any) {
+      alert(error.message || 'Αποτυχία λήψης αρχείου.');
+    } finally {
+      setDownloadingAttachment(null);
+    }
   };
 
   const handleSaveHospitalization = async () => {
@@ -184,6 +232,12 @@ export default function DoctorHospitalizationsScreen() {
         ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
         : 'Δρ.';
 
+      const fileUrl = `${folderUrl}${Date.now()}.json`;
+
+      for (const file of pendingFiles) {
+        await uploadAttachment(fileUrl, file.name, file.uri, file.mimeType, accessToken);
+      }
+
       const record = {
         title: formTitle.trim(),
         hospitalClinic: formHospitalClinic.trim(),
@@ -191,9 +245,9 @@ export default function DoctorHospitalizationsScreen() {
         doctorAmka: loggedInDoctorAmka,
         admissionDate: `${admYear}-${admMonth}-${admDay}`,
         dischargeDate: `${disYear}-${disMonth}-${disDay}`,
+        attachments: pendingFiles.map((file) => file.name),
       };
 
-      const fileUrl = `${folderUrl}${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
       setHospitalizations((prev) => [{ url: fileUrl, ...record }, ...prev]);
@@ -257,6 +311,7 @@ export default function DoctorHospitalizationsScreen() {
 
               <TouchableOpacity
                 style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginBottom: 0, marginTop: 12 }]}
+                onPress={() => setViewingAttachmentsFor(item)}
               >
                 <Ionicons name="link-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
                 <Text style={doctorStyles.diagnosisSortButtonText}>Συνημμένα Αρχεία</Text>
@@ -310,13 +365,27 @@ export default function DoctorHospitalizationsScreen() {
               onChangeText={handleDischargeDateChange}
             />
 
-            {/* TODO: λειτουργία επισύναψης αρχείων - έρχεται σύντομα */}
             <TouchableOpacity
               style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0 }]}
+              onPress={handlePickFiles}
             >
               <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
               <Text style={doctorStyles.diagnosisSortButtonText}>Επισύναψη αρχείων</Text>
             </TouchableOpacity>
+
+            {pendingFiles.length > 0 && (
+              <View style={{ marginTop: 10, marginBottom: 4 }}>
+                {pendingFiles.map((file) => (
+                  <View key={file.name} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+                    <Ionicons name="document-outline" size={18} color={COLORS.text} style={{ marginRight: 8 }} />
+                    <Text style={{ flex: 1 }} numberOfLines={1}>{file.name}</Text>
+                    <TouchableOpacity onPress={() => handleRemovePendingFile(file.name)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="close-circle-outline" size={20} color={COLORS.text} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
@@ -325,6 +394,44 @@ export default function DoctorHospitalizationsScreen() {
             >
               {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={!!viewingAttachmentsFor}
+        onRequestClose={() => setViewingAttachmentsFor(null)}
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Συνημμένα Αρχεία</Text>
+              <TouchableOpacity
+                onPress={() => setViewingAttachmentsFor(null)}
+                hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
+              >
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            {(!viewingAttachmentsFor?.attachments || viewingAttachmentsFor.attachments.length === 0) ? (
+              <Text style={styles.emptyText}>Δεν υπάρχουν συνημμένα αρχεία.</Text>
+            ) : (
+              viewingAttachmentsFor.attachments.map((fileName) => (
+                <TouchableOpacity
+                  key={fileName}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.medium }}
+                  onPress={() => handleOpenAttachment(viewingAttachmentsFor, fileName)}
+                  disabled={downloadingAttachment === fileName}
+                >
+                  <Ionicons name="document-outline" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                  <Text style={{ flex: 1 }} numberOfLines={1}>{fileName}</Text>
+                  {downloadingAttachment === fileName && <ActivityIndicator size="small" color={COLORS.primary} />}
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </View>
       </Modal>
