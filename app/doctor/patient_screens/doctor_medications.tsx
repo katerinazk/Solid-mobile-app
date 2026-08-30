@@ -24,10 +24,22 @@ interface Medication {
   doctorAmka: string;
 }
 
-function MedicationCard({ item }: { item: Medication }) {
+function MedicationCard({ item, loggedInDoctorAmka }: { item: Medication; loggedInDoctorAmka: string }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
-      <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+      <View style={doctorStyles.diagnosisCardHeader}>
+        <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+        {item.doctorAmka === loggedInDoctorAmka && (
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
       </Text>
@@ -231,7 +243,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} />)
           )}
 
           <TouchableOpacity
@@ -247,7 +259,7 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} />)
+                previousMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} />)
               )}
             </View>
           )}
