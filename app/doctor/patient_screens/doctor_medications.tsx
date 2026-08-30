@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 
 const CATEGORY = 'Φάρμακα';
@@ -44,12 +46,18 @@ function MedicationCard({ item }: { item: Medication }) {
 
 export default function DoctorMedicationsScreen() {
   const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
-  const { accessToken } = useAuth();
+  const { accessToken, loggedInDoctorAmka } = useAuth();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [loading, setLoading] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [showPrevious, setShowPrevious] = useState(false);
+
+  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formDosage, setFormDosage] = useState('');
+  const [formDurationDays, setFormDurationDays] = useState('');
 
   const loadMedications = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
@@ -102,6 +110,71 @@ export default function DoctorMedicationsScreen() {
     loadMedications();
   }, []);
 
+  const resetForm = () => {
+    setFormTitle('');
+    setFormDosage('');
+    setFormDurationDays('');
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setIsAddModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsAddModalVisible(false);
+  };
+
+  const handleSaveMedication = async () => {
+    if (!formTitle.trim() || !formDosage.trim() || !formDurationDays.trim()) {
+      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      return;
+    }
+
+    const durationDays = Number(formDurationDays);
+    if (!Number.isInteger(durationDays) || durationDays <= 0) {
+      alert("Η διάρκεια χορήγησης πρέπει να είναι θετικός αριθμός ημερών.");
+      return;
+    }
+
+    if (!accessToken) {
+      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+      const doctorName = doctorData
+        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
+        : 'Δρ.';
+
+      const today = new Date();
+      const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      const record = {
+        title: formTitle.trim(),
+        dosage: formDosage.trim(),
+        startDate,
+        durationDays,
+        doctorName,
+        doctorAmka: loggedInDoctorAmka,
+      };
+
+      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+
+      setMedications((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      closeModal();
+      resetForm();
+    } catch (error: any) {
+      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const { activeMedications, previousMedications } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -136,7 +209,7 @@ export default function DoctorMedicationsScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
         </TouchableOpacity>
 
@@ -180,6 +253,63 @@ export default function DoctorMedicationsScreen() {
           )}
         </ScrollView>
       )}
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isAddModalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Νέο Φάρμακο</Text>
+              <TouchableOpacity onPress={closeModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={loginStyles.inputLabel}>Όνομα</Text>
+            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
+
+            <Text style={loginStyles.inputLabel}>Δοσολογία</Text>
+            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formDosage} onChangeText={setFormDosage} />
+
+            <Text style={loginStyles.inputLabel}>Διάρκεια Χορήγησης</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 30 }}>
+              <TextInput
+                style={[loginStyles.loginInput, localStyles.input, localStyles.durationInput]}
+                keyboardType="numeric"
+                value={formDurationDays}
+                onChangeText={(text) => setFormDurationDays(text.replace(/[^0-9]/g, ''))}
+              />
+              <Text style={[loginStyles.inputLabel, { marginLeft: 10, marginBottom: 0 }]}>Ημέρες</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
+              onPress={handleSaveMedication}
+              disabled={saving}
+            >
+              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  input: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 20,
+  },
+  durationInput: {
+    width: 80,
+    marginBottom: 0,
+    textAlign: 'center',
+  },
+});
