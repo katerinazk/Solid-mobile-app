@@ -69,6 +69,7 @@ export default function DoctorExamsScreen() {
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -250,12 +251,22 @@ export default function DoctorExamsScreen() {
             pendingExams.map((item) => <PendingExamCard key={item.url} item={item} />)
           )}
 
-          <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }]}>Ολοκληρωμένες</Text>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
+            onPress={() => setShowCompleted((prev) => !prev)}
+          >
+            <Ionicons name={showCompleted ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+            <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ολοκληρωμένες</Text>
+          </TouchableOpacity>
 
-          {completedExams.length === 0 ? (
-            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
-          ) : (
-            completedExams.map((item) => <CompletedExamCard key={item.url} item={item} />)
+          {showCompleted && (
+            <View style={{ marginTop: 12 }}>
+              {completedExams.length === 0 ? (
+                <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
+              ) : (
+                completedExams.map((item) => <CompletedExamCard key={item.url} item={item} />)
+              )}
+            </View>
           )}
         </ScrollView>
       )}
