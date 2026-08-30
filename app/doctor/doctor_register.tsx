@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
-import { TYPOGRAPHY } from '../../constants/designSystem';
+import { TYPOGRAPHY, TOUCH } from '../../constants/designSystem';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
 import { registerDoctor } from '../../services/doctors';
@@ -82,7 +82,11 @@ export default function DoctorRegisterScreen() {
           {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Αποθήκευση</Text>}
         </TouchableOpacity>
 
-        <TouchableOpacity style={{ marginTop: 15, alignItems: 'center' }} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={{ marginTop: 15, alignItems: 'center', minHeight: TOUCH.minTargetSize, justifyContent: 'center' }}
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>Έχω ήδη λογαριασμό</Text>
         </TouchableOpacity>
       </View>

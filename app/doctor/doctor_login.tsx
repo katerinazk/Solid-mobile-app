@@ -4,7 +4,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
-import { TYPOGRAPHY } from '../../constants/designSystem';
+import { TYPOGRAPHY, TOUCH } from '../../constants/designSystem';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchDoctorByAmka } from '../../services/doctors';
@@ -86,8 +86,9 @@ export default function DoctorLoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={{ marginTop: 15, alignItems: 'center' }}
+          style={{ marginTop: 15, alignItems: 'center', minHeight: TOUCH.minTargetSize, justifyContent: 'center' }}
           onPress={() => router.push(ROUTES.DOCTOR_REGISTER)}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.secondaryText }}>Δεν έχετε λογαριασμό;</Text>
           <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText, fontWeight: 'bold' }}>Εγγραφή</Text>
