@@ -26,14 +26,14 @@ interface Exam {
   completedDate?: string;
 }
 
-function PendingExamCard({ item, loggedInDoctorAmka, onDelete }: { item: Exam; loggedInDoctorAmka: string; onDelete: (item: Exam) => void }) {
+function PendingExamCard({ item, loggedInDoctorAmka, onEdit, onDelete }: { item: Exam; loggedInDoctorAmka: string; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
         {item.doctorAmka === loggedInDoctorAmka && (
           <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <TouchableOpacity onPress={() => onEdit(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => onDelete(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -77,6 +77,7 @@ export default function DoctorExamsScreen() {
   const [exams, setExams] = useState<Exam[]>([]);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [saving, setSaving] = useState(false);
   const [formName, setFormName] = useState('');
   const [formType, setFormType] = useState('');
@@ -139,6 +140,7 @@ export default function DoctorExamsScreen() {
   }), [exams]);
 
   const openAddModal = () => {
+    setEditingExam(null);
     setFormName('');
     setFormType('');
     setIsTypeListVisible(false);
@@ -147,7 +149,16 @@ export default function DoctorExamsScreen() {
 
   const closeModal = () => {
     setIsAddModalVisible(false);
+    setEditingExam(null);
     setIsTypeListVisible(false);
+  };
+
+  const handleEditExam = (item: Exam) => {
+    setEditingExam(item);
+    setFormName(item.title);
+    setFormType(item.type);
+    setIsTypeListVisible(false);
+    setIsAddModalVisible(true);
   };
 
   const handleSelectType = (type: string) => {
@@ -191,23 +202,34 @@ export default function DoctorExamsScreen() {
     try {
       setSaving(true);
 
-      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-      const doctorName = doctorData
-        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-        : 'Δρ.';
+      let doctorName = editingExam?.doctorName || '';
+      let doctorAmka = editingExam?.doctorAmka || '';
+      if (!editingExam) {
+        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        doctorName = doctorData
+          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
+          : 'Δρ.';
+        doctorAmka = loggedInDoctorAmka;
+      }
 
       const record = {
         title: formName.trim(),
         type: formType,
-        status: 'pending' as const,
+        status: editingExam?.status || ('pending' as const),
         doctorName,
-        doctorAmka: loggedInDoctorAmka,
+        doctorAmka,
+        completedDate: editingExam?.completedDate,
       };
 
-      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      const fileUrl = editingExam ? editingExam.url : `${folderUrl}${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
-      setExams((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      if (editingExam) {
+        setExams((prev) => prev.map((e) => e.url === fileUrl ? { url: fileUrl, ...record } : e));
+      } else {
+        setExams((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      }
+
       closeModal();
     } catch (error: any) {
       alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
@@ -272,7 +294,7 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onDelete={handleDeleteExam} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditExam} onDelete={handleDeleteExam} />)
           )}
 
           <TouchableOpacity
@@ -304,7 +326,9 @@ export default function DoctorExamsScreen() {
         <View style={styles.addmodalOverlay}>
           <View style={styles.addmodalContent}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Νέα Εξέταση</Text>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
+                {editingExam ? 'Επεξεργασία Εξέτασης' : 'Νέα Εξέταση'}
+              </Text>
               <TouchableOpacity onPress={closeModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
                 <Ionicons name="close" size={22} color={COLORS.text} />
               </TouchableOpacity>
