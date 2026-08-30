@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 
@@ -24,7 +24,7 @@ interface Medication {
   doctorAmka: string;
 }
 
-function MedicationCard({ item, loggedInDoctorAmka }: { item: Medication; loggedInDoctorAmka: string }) {
+function MedicationCard({ item, loggedInDoctorAmka, onDelete }: { item: Medication; loggedInDoctorAmka: string; onDelete: (item: Medication) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
@@ -34,7 +34,7 @@ function MedicationCard({ item, loggedInDoctorAmka }: { item: Medication; logged
             <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
             </TouchableOpacity>
-            <TouchableOpacity hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <TouchableOpacity onPress={() => onDelete(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
@@ -187,6 +187,28 @@ export default function DoctorMedicationsScreen() {
     }
   };
 
+  const handleDeleteMedication = (item: Medication) => {
+    Alert.alert(
+      "Διαγραφή",
+      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το φάρμακο;",
+      [
+        { text: "Ακύρωση", style: "cancel" },
+        {
+          text: "Διαγραφή",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteFile(item.url, accessToken);
+              setMedications((prev) => prev.filter((m) => m.url !== item.url));
+            } catch (error: any) {
+              alert(error.message || "Αποτυχία διαγραφής.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const { activeMedications, previousMedications } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -243,7 +265,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onDelete={handleDeleteMedication} />)
           )}
 
           <TouchableOpacity
@@ -259,7 +281,7 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} />)
+                previousMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onDelete={handleDeleteMedication} />)
               )}
             </View>
           )}
