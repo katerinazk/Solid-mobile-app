@@ -20,7 +20,7 @@ export interface AuthContextValue {
   loggedInDoctorAmka: string;
   activePatientFolderUrl: string;
   setActivePatientFolderUrl: (url: string) => void;
-  login: (role: Role, amka: string) => void;
+  login: (role: Role, amka: string, providerUrl?: string) => void;
   logout: () => void;
   confirmLogout: () => void;
 }
@@ -315,14 +315,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = (selectedRole: Role, amka: string) => {
+  const login = (selectedRole: Role, amka: string, providerUrl?: string) => {
     setRole(selectedRole);
     if (selectedRole === 'patient') {
       setLoggedInPatientAmka(amka);
     } else {
       setLoggedInDoctorAmka(amka);
     }
-    runDynamicLogin(SOLID_PROVIDER_URL);
+    runDynamicLogin(providerUrl || SOLID_PROVIDER_URL);
   };
 
   const logout = () => {

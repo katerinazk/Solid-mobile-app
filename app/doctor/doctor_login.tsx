@@ -1,14 +1,46 @@
 import React, { useState } from 'react';
 import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
+import { TYPOGRAPHY } from '../../constants/designSystem';
+import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
+import { fetchDoctorByAmka } from '../../services/doctors';
 
 export default function DoctorLoginScreen() {
   const { login, loading } = useAuth();
   const [doctorAmka, setDoctorAmka] = useState('');
+  const [solidProvider, setSolidProvider] = useState('https://datapod.igrant.io');
+  const [checking, setChecking] = useState(false);
+
+  const handleLogin = async () => {
+    if (!doctorAmka.trim() || !solidProvider.trim()) {
+      alert("Παρακαλώ συμπληρώστε ΑΜΚΑ και Solid Provider.");
+      return;
+    }
+
+    try {
+      setChecking(true);
+      const { data, error } = await fetchDoctorByAmka(doctorAmka.trim());
+
+      if (error || !data) {
+        // Δεν υπάρχει γιατρός με αυτό το ΑΜΚΑ - πάμε πρώτα στη δημιουργία λογαριασμού
+        router.push({
+          pathname: ROUTES.DOCTOR_REGISTER,
+          params: { amka: doctorAmka.trim(), solidProvider: solidProvider.trim(), fromLoginAttempt: 'true' },
+        });
+        return;
+      }
+
+      login('doctor', doctorAmka.trim(), solidProvider.trim());
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.loginContainer}>
@@ -18,9 +50,9 @@ export default function DoctorLoginScreen() {
       </TouchableOpacity>
 
       <View style={styles.loginCard}>
-        <Ionicons name="medical" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
-        <Text style={styles.loginTitle}>Πρόσβαση Ιατρού</Text>
-        <Text style={styles.loginSubtitle}>Συνδεθείτε μέσω του Solid Pod σας</Text>
+        <MaterialCommunityIcons name="heart-pulse" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
+        <Text style={styles.loginTitle}>MedPod</Text>
+        <Text style={styles.loginSubtitle}>Σύνδεση</Text>
 
         <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
         <TextInput
@@ -31,28 +63,34 @@ export default function DoctorLoginScreen() {
           onChangeText={setDoctorAmka}
         />
 
-        <Text style={styles.inputLabel}>Solid Provider (π.χ. inrupt.com)</Text>
-        <TextInput style={styles.loginInput} value="https://datapod.igrant.io" editable={false} />
+        <Text style={styles.inputLabel}>Solid Provider</Text>
+        <TextInput
+          style={styles.loginInput}
+          placeholder="π.χ. https://datapod.igrant.io"
+          autoCapitalize="none"
+          autoCorrect={false}
+          value={solidProvider}
+          onChangeText={setSolidProvider}
+        />
 
         <TouchableOpacity
           style={styles.solidLoginButton}
-          onPress={() => {
-            if (!doctorAmka) {
-              alert("Παρακαλώ εισάγετε το ΑΜΚΑ σας.");
-              return;
-            }
-            login('doctor', doctorAmka);
-          }}
-          disabled={loading}
+          onPress={handleLogin}
+          disabled={loading || checking}
         >
-          {loading ? (
+          {(loading || checking) ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <>
-              <Text style={styles.solidLoginButtonText}>Σύνδεση στο Solid</Text>
-              <Feather name="external-link" size={20} color={COLORS.white} style={{ marginLeft: 10 }} />
-            </>
+            <Text style={styles.solidLoginButtonText}>Είσοδος</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{ marginTop: 15, alignItems: 'center' }}
+          onPress={() => router.push(ROUTES.DOCTOR_REGISTER)}
+        >
+          <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.secondaryText }}>Δεν έχετε λογαριασμό;</Text>
+          <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText, fontWeight: 'bold' }}>Εγγραφή</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
