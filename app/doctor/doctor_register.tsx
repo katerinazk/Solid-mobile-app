@@ -95,6 +95,6 @@ export default function DoctorRegisterScreen() {
 }
 
 const localStyles = StyleSheet.create({
-  label: { color: COLORS.primary },
+  label: { color: COLORS.primary, fontSize: TYPOGRAPHY.subtitle },
   input: { borderRadius: 25 },
 });

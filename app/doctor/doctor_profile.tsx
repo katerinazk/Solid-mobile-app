@@ -21,7 +21,7 @@ interface DoctorProfile {
 function ProfileField({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ marginBottom: SPACING.sectionGap }}>
-      <Text style={{ fontSize: TYPOGRAPHY.bodyText, fontWeight: 'bold', color: COLORS.primary, marginBottom: 4 }}>{label}</Text>
+      <Text style={{ fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginBottom: 4 }}>{label}</Text>
       <Text style={{ fontSize: TYPOGRAPHY.bodyText, color: COLORS.text }}>{value}</Text>
     </View>
   );
