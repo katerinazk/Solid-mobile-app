@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 
@@ -26,19 +26,21 @@ interface Exam {
   completedDate?: string;
 }
 
-function PendingExamCard({ item }: { item: Exam }) {
+function PendingExamCard({ item, loggedInDoctorAmka, onDelete }: { item: Exam; loggedInDoctorAmka: string; onDelete: (item: Exam) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
-        <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
+        {item.doctorAmka === loggedInDoctorAmka && (
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onDelete(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
@@ -153,6 +155,28 @@ export default function DoctorExamsScreen() {
     setIsTypeListVisible(false);
   };
 
+  const handleDeleteExam = (item: Exam) => {
+    Alert.alert(
+      "Διαγραφή",
+      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
+      [
+        { text: "Ακύρωση", style: "cancel" },
+        {
+          text: "Διαγραφή",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteFile(item.url, accessToken);
+              setExams((prev) => prev.filter((e) => e.url !== item.url));
+            } catch (error: any) {
+              alert(error.message || "Αποτυχία διαγραφής.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleSaveExam = async () => {
     if (!formName.trim() || !formType.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
@@ -248,7 +272,7 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onDelete={handleDeleteExam} />)
           )}
 
           <TouchableOpacity
