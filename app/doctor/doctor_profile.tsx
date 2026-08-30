@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
@@ -114,7 +114,10 @@ export default function DoctorProfileScreen() {
       ) : !doctor ? (
         <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν βρέθηκαν στοιχεία.</Text>
       ) : isEditing ? (
-        <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap, paddingBottom: SPACING.bottomMargin }}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={localStyles.label}>Όνομα</Text>
           <TextInput style={localStyles.input} value={formFirstName} onChangeText={setFormFirstName} />
 
@@ -140,9 +143,9 @@ export default function DoctorProfileScreen() {
           >
             {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Αποθήκευση</Text>}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       ) : (
-        <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap, paddingBottom: SPACING.bottomMargin }}>
           <ProfileField label="Όνομα" value={doctor.first_name} />
           <ProfileField label="Επίθετο" value={doctor.last_name} />
           <ProfileField label="ΑΜΚΑ" value={doctor.amka} />
@@ -156,7 +159,7 @@ export default function DoctorProfileScreen() {
           >
             <Text style={styles.addButtonText}>Επεξεργασία</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
