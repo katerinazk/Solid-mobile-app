@@ -16,4 +16,5 @@ export const ROUTES = {
   DOCTOR_ALLERGIES: '/doctor/patient_screens/doctor_allergies',
   DOCTOR_HOSPITALIZATIONS: '/doctor/patient_screens/doctor_hospitalizations',
   DOCTOR_MEDICATIONS: '/doctor/patient_screens/doctor_medications',
+  DOCTOR_EXAMS: '/doctor/patient_screens/doctor_exams',
 } as const;

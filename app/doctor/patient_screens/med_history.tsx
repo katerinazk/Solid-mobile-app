@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, Alert } from 'react-native';
+import { Text, View, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -23,7 +23,13 @@ export default function DoctorHistoryScreen() {
       <Text style={styles.historyAmka}>ΑΜΚΑ: <Text style={styles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: 20 }}>
-        <TouchableOpacity style={styles.historyCategoryButton} onPress={() => Alert.alert('Εξετάσεις', 'Η λειτουργία έρχεται σύντομα.')}>
+        <TouchableOpacity
+          style={styles.historyCategoryButton}
+          onPress={() => router.push({
+            pathname: ROUTES.DOCTOR_EXAMS,
+            params: { amka, firstName, lastName, webId },
+          })}
+        >
           <Text style={styles.historyCategoryButtonText}>Εξετάσεις</Text>
         </TouchableOpacity>
         <TouchableOpacity
