@@ -41,6 +41,9 @@ function PendingExamCard({ item }: { item: Exam }) {
         </View>
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
       </Text>
       <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.danger, fontWeight: 'bold', marginTop: 10 }]}>ΕΚΚΡΕΜΕΣ</Text>
