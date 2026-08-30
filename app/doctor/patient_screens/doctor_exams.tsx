@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, Modal, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -7,32 +7,26 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
+import { useAuth } from '../../../hooks/useAuth';
+import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { fetchDoctorByAmka } from '../../../services/doctors';
+import { formatDate } from '../../../utils/age';
 
+const CATEGORY = 'Εξετάσεις';
 const CATEGORIES = ['Όλες', 'Εκκρεμείς', 'Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
 const EXAM_TYPES = ['Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
 
-interface PendingExam {
-  id: string;
+interface Exam {
+  url: string;
   title: string;
+  type: string;
+  status: 'pending' | 'completed';
   doctorName: string;
+  doctorAmka: string;
+  completedDate?: string;
 }
 
-interface CompletedExam {
-  id: string;
-  title: string;
-  date: string;
-}
-
-const PENDING_EXAMS: PendingExam[] = [
-  { id: '1', title: 'Γενική Αίματος & Βιοχημικός Έλεγχος', doctorName: 'Δρ. Λάμπρου' },
-];
-
-const COMPLETED_EXAMS: CompletedExam[] = [
-  { id: '2', title: 'Γενική Αίματος & Βιοχημικός Έλεγχος', date: '14/03/2026' },
-  { id: '3', title: 'Γενική Αίματος & Βιοχημικός Έλεγχος', date: '14/03/2026' },
-];
-
-function PendingExamCard({ item }: { item: PendingExam }) {
+function PendingExamCard({ item }: { item: Exam }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
@@ -54,26 +48,89 @@ function PendingExamCard({ item }: { item: PendingExam }) {
   );
 }
 
-function CompletedExamCard({ item }: { item: CompletedExam }) {
+function CompletedExamCard({ item }: { item: Exam }) {
   return (
     <View style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}>
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
         <Text style={[doctorStyles.diagnosisCardTitle, { marginRight: 0 }]}>{item.title}</Text>
-        <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.date}</Text>
+        <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.completedDate ? formatDate(item.completedDate) : ''}</Text>
       </View>
     </View>
   );
 }
 
 export default function DoctorExamsScreen() {
-  const { amka } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { accessToken, loggedInDoctorAmka } = useAuth();
+  const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
+
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
 
+  const [loading, setLoading] = useState(false);
+  const [exams, setExams] = useState<Exam[]>([]);
+
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formName, setFormName] = useState('');
   const [formType, setFormType] = useState('');
   const [isTypeListVisible, setIsTypeListVisible] = useState(false);
+
+  const loadExams = async () => {
+    if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
+    try {
+      setLoading(true);
+      let files: string[];
+      try {
+        files = await listFolderFiles(folderUrl, accessToken);
+      } catch {
+        try {
+          // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          files = await listFolderFiles(folderUrl, accessToken);
+        } catch {
+          // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - θα δημιουργηθεί αυτόματα με την πρώτη
+          // εξέταση που θα προστεθεί. Μέχρι τότε δείχνουμε απλώς άδεια λίστα.
+          files = [];
+        }
+      }
+
+      const examFiles = files.filter((url) => url.endsWith('.json'));
+
+      const loaded = await Promise.all(examFiles.map(async (url) => {
+        try {
+          const content = await fetchFileContent(url, accessToken);
+          const record = JSON.parse(content);
+          return {
+            url,
+            title: record.title,
+            type: record.type,
+            status: record.status,
+            doctorName: record.doctorName,
+            doctorAmka: record.doctorAmka,
+            completedDate: record.completedDate,
+          } as Exam;
+        } catch {
+          return null;
+        }
+      }));
+
+      setExams(loaded.filter((e): e is Exam => e !== null));
+    } catch (error: any) {
+      Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadExams();
+  }, []);
+
+  const { pendingExams, completedExams } = useMemo(() => ({
+    pendingExams: exams.filter((e) => e.status === 'pending'),
+    completedExams: exams.filter((e) => e.status === 'completed'),
+  }), [exams]);
 
   const openAddModal = () => {
     setFormName('');
@@ -90,6 +147,45 @@ export default function DoctorExamsScreen() {
   const handleSelectType = (type: string) => {
     setFormType(type);
     setIsTypeListVisible(false);
+  };
+
+  const handleSaveExam = async () => {
+    if (!formName.trim() || !formType.trim()) {
+      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      return;
+    }
+
+    if (!accessToken) {
+      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+      const doctorName = doctorData
+        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
+        : 'Δρ.';
+
+      const record = {
+        title: formName.trim(),
+        type: formType,
+        status: 'pending' as const,
+        doctorName,
+        doctorAmka: loggedInDoctorAmka,
+      };
+
+      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+
+      setExams((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      closeModal();
+    } catch (error: any) {
+      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -139,19 +235,27 @@ export default function DoctorExamsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
-        <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Εκκρεμείς</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+      ) : (
+        <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
+          <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Εκκρεμείς</Text>
 
-        {PENDING_EXAMS.map((item) => (
-          <PendingExamCard key={item.id} item={item} />
-        ))}
+          {pendingExams.length === 0 ? (
+            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
+          ) : (
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} />)
+          )}
 
-        <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }]}>Ολοκληρωμένες</Text>
+          <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }]}>Ολοκληρωμένες</Text>
 
-        {COMPLETED_EXAMS.map((item) => (
-          <CompletedExamCard key={item.id} item={item} />
-        ))}
-      </ScrollView>
+          {completedExams.length === 0 ? (
+            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
+          ) : (
+            completedExams.map((item) => <CompletedExamCard key={item.url} item={item} />)
+          )}
+        </ScrollView>
+      )}
 
       <Modal
         animationType="slide"
@@ -195,8 +299,12 @@ export default function DoctorExamsScreen() {
               </View>
             )}
 
-            <TouchableOpacity style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}>
-              <Text style={styles.addButtonText}>Εντάξει</Text>
+            <TouchableOpacity
+              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
+              onPress={handleSaveExam}
+              disabled={saving}
+            >
+              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
             </TouchableOpacity>
           </View>
         </View>
