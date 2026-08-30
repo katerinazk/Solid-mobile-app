@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
@@ -43,20 +43,20 @@ export default function DoctorLoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.loginContainer}>
+    <SafeAreaView style={[styles.loginContainer, { backgroundColor: COLORS.medium }]}>
       <StatusBar barStyle="dark-content" />
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
         <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
       </TouchableOpacity>
 
       <View style={styles.loginCard}>
-        <MaterialCommunityIcons name="heart-pulse" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
+        <FontAwesome5 name="heartbeat" size={70} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
         <Text style={styles.loginTitle}>MedPod</Text>
         <Text style={styles.loginSubtitle}>Σύνδεση</Text>
 
         <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
         <TextInput
-          style={styles.loginInput}
+          style={[styles.loginInput, localStyles.input]}
           placeholder="11 ψηφία"
           keyboardType="numeric"
           value={doctorAmka}
@@ -65,7 +65,7 @@ export default function DoctorLoginScreen() {
 
         <Text style={styles.inputLabel}>Solid Provider</Text>
         <TextInput
-          style={styles.loginInput}
+          style={[styles.loginInput, localStyles.input]}
           placeholder="π.χ. https://datapod.igrant.io"
           autoCapitalize="none"
           autoCorrect={false}
@@ -96,3 +96,7 @@ export default function DoctorLoginScreen() {
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  input: { borderRadius: 25 },
+});

@@ -51,7 +51,7 @@ export const doctorStyles = StyleSheet.create({
   diagnosisCard: { backgroundColor: COLORS.lightest, borderRadius: 15, padding: 16, marginHorizontal: SPACING.sideMargin, marginBottom: 12 },
   diagnosisCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   diagnosisCardTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, flex: 1, marginRight: 10 },
-  diagnosisCardDetail: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text, marginTop: 6 },
+  diagnosisCardDetail: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, marginTop: 6 },
   diagnosisCardLabel: { fontWeight: 'bold' },
 
   container: {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator } from 'react-native';
+import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../constants/colors';
@@ -58,26 +58,25 @@ export default function DoctorRegisterScreen() {
       </TouchableOpacity>
 
       <View style={styles.loginCard}>
-        <Ionicons name="person-add" size={60} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
         <Text style={styles.loginTitle}>Δημιουργία Λογαριασμού</Text>
 
-        <Text style={styles.inputLabel}>Όνομα</Text>
-        <TextInput style={styles.loginInput} placeholder="π.χ. Δημήτρης" value={doctorForm.first_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, first_name: t })} />
+        <Text style={[styles.inputLabel, localStyles.label]}>Όνομα</Text>
+        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. Δημήτρης" value={doctorForm.first_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, first_name: t })} />
 
-        <Text style={styles.inputLabel}>Επίθετο</Text>
-        <TextInput style={styles.loginInput} placeholder="π.χ. Λάμπρου" value={doctorForm.last_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, last_name: t })} />
+        <Text style={[styles.inputLabel, localStyles.label]}>Επίθετο</Text>
+        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. Λάμπρου" value={doctorForm.last_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, last_name: t })} />
 
-        <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
-        <TextInput style={styles.loginInput} placeholder="11 ψηφία" keyboardType="numeric" value={doctorForm.amka} onChangeText={(t) => setDoctorForm({ ...doctorForm, amka: t })} />
+        <Text style={[styles.inputLabel, localStyles.label]}>ΑΜΚΑ</Text>
+        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="11 ψηφία" keyboardType="numeric" value={doctorForm.amka} onChangeText={(t) => setDoctorForm({ ...doctorForm, amka: t })} />
 
-        <Text style={styles.inputLabel}>Ειδικότητα</Text>
-        <TextInput style={styles.loginInput} placeholder="π.χ. Παθολόγος" value={doctorForm.specialty} onChangeText={(t) => setDoctorForm({ ...doctorForm, specialty: t })} />
+        <Text style={[styles.inputLabel, localStyles.label]}>Ειδικότητα</Text>
+        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. Παθολόγος" value={doctorForm.specialty} onChangeText={(t) => setDoctorForm({ ...doctorForm, specialty: t })} />
 
-        <Text style={styles.inputLabel}>Τηλέφωνο</Text>
-        <TextInput style={styles.loginInput} placeholder="π.χ. 6912345678" keyboardType="numeric" value={doctorForm.phone} onChangeText={(t) => setDoctorForm({ ...doctorForm, phone: t })} />
+        <Text style={[styles.inputLabel, localStyles.label]}>Τηλέφωνο</Text>
+        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. 6912345678" keyboardType="numeric" value={doctorForm.phone} onChangeText={(t) => setDoctorForm({ ...doctorForm, phone: t })} />
 
-        <Text style={styles.inputLabel}>Email</Text>
-        <TextInput style={styles.loginInput} placeholder="π.χ. giatros@email.com" keyboardType="email-address" autoCapitalize="none" value={doctorForm.email} onChangeText={(t) => setDoctorForm({ ...doctorForm, email: t })} />
+        <Text style={[styles.inputLabel, localStyles.label]}>Email</Text>
+        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. giatros@email.com" keyboardType="email-address" autoCapitalize="none" value={doctorForm.email} onChangeText={(t) => setDoctorForm({ ...doctorForm, email: t })} />
 
         <TouchableOpacity style={styles.solidLoginButton} onPress={handleDoctorRegister} disabled={loading}>
           {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Αποθήκευση</Text>}
@@ -90,3 +89,8 @@ export default function DoctorRegisterScreen() {
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  label: { color: COLORS.primary },
+  input: { borderRadius: 25 },
+});
