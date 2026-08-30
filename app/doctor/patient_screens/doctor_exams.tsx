@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 
 const CATEGORIES = ['Όλες', 'Εκκρεμείς', 'Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
+const EXAM_TYPES = ['Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
 
 interface PendingExam {
   id: string;
@@ -68,6 +70,28 @@ export default function DoctorExamsScreen() {
   const { amka } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
 
+  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formType, setFormType] = useState('');
+  const [isTypeListVisible, setIsTypeListVisible] = useState(false);
+
+  const openAddModal = () => {
+    setFormName('');
+    setFormType('');
+    setIsTypeListVisible(false);
+    setIsAddModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsAddModalVisible(false);
+    setIsTypeListVisible(false);
+  };
+
+  const handleSelectType = (type: string) => {
+    setFormType(type);
+    setIsTypeListVisible(false);
+  };
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -110,7 +134,7 @@ export default function DoctorExamsScreen() {
       </ScrollView>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Προσθήκη Εξέτασης</Text>
         </TouchableOpacity>
       </View>
@@ -128,11 +152,80 @@ export default function DoctorExamsScreen() {
           <CompletedExamCard key={item.id} item={item} />
         ))}
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isAddModalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Νέα Εξέταση</Text>
+              <TouchableOpacity onPress={closeModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={loginStyles.inputLabel}>Όνομα</Text>
+            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formName} onChangeText={setFormName} />
+
+            <Text style={loginStyles.inputLabel}>Τύπος</Text>
+            <TouchableOpacity
+              style={[loginStyles.loginInput, localStyles.input, { justifyContent: 'center', marginBottom: isTypeListVisible ? 0 : 30 }]}
+              onPress={() => setIsTypeListVisible((prev) => !prev)}
+            >
+              <Text style={{ color: formType ? COLORS.text : COLORS.medium, fontSize: TYPOGRAPHY.bodyText }}>
+                {formType || 'Επιλέξτε τύπο'}
+              </Text>
+            </TouchableOpacity>
+
+            {isTypeListVisible && (
+              <View style={localStyles.typeList}>
+                {EXAM_TYPES.map((type, index) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[localStyles.typeOption, index === EXAM_TYPES.length - 1 && { borderBottomWidth: 0 }]}
+                    onPress={() => handleSelectType(type)}
+                  >
+                    <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{type}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <TouchableOpacity style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}>
+              <Text style={styles.addButtonText}>Εντάξει</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
+  input: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 20,
+  },
+  typeList: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 20,
+    marginBottom: 30,
+    overflow: 'hidden',
+  },
+  typeOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightest,
+  },
   categoryPill: {
     paddingHorizontal: 18,
     height: TOUCH.buttonHeight,
