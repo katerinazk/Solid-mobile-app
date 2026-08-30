@@ -58,7 +58,7 @@ function CompletedExamCard({ item }: { item: CompletedExam }) {
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
         <Text style={[doctorStyles.diagnosisCardTitle, { marginRight: 0 }]}>{item.title}</Text>
-        <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.medium, marginTop: 2 }]}>{item.date}</Text>
+        <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.date}</Text>
       </View>
     </View>
   );
