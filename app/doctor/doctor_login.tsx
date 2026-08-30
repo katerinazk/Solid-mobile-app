@@ -51,10 +51,10 @@ export default function DoctorLoginScreen() {
 
       <View style={styles.loginCard}>
         <FontAwesome5 name="heartbeat" size={70} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
-        <Text style={styles.loginTitle}>MedPod</Text>
-        <Text style={styles.loginSubtitle}>Σύνδεση</Text>
+        <Text style={[styles.loginTitle, { color: COLORS.text }]}>MedPod</Text>
+        <Text style={[styles.loginSubtitle, { color: COLORS.text }]}>Σύνδεση</Text>
 
-        <Text style={styles.inputLabel}>ΑΜΚΑ</Text>
+        <Text style={[styles.inputLabel, { color: COLORS.primary }]}>ΑΜΚΑ</Text>
         <TextInput
           style={[styles.loginInput, localStyles.input]}
           placeholder="11 ψηφία"
@@ -63,7 +63,7 @@ export default function DoctorLoginScreen() {
           onChangeText={setDoctorAmka}
         />
 
-        <Text style={styles.inputLabel}>Solid Provider</Text>
+        <Text style={[styles.inputLabel, { color: COLORS.primary }]}>Solid Provider</Text>
         <TextInput
           style={[styles.loginInput, localStyles.input]}
           placeholder="π.χ. https://datapod.igrant.io"
