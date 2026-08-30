@@ -24,14 +24,14 @@ interface Medication {
   doctorAmka: string;
 }
 
-function MedicationCard({ item, loggedInDoctorAmka, onDelete }: { item: Medication; loggedInDoctorAmka: string; onDelete: (item: Medication) => void }) {
+function MedicationCard({ item, loggedInDoctorAmka, onEdit, onDelete }: { item: Medication; loggedInDoctorAmka: string; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
         {item.doctorAmka === loggedInDoctorAmka && (
           <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <TouchableOpacity onPress={() => onEdit(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => onDelete(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -66,6 +66,7 @@ export default function DoctorMedicationsScreen() {
   const [showPrevious, setShowPrevious] = useState(false);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   const [saving, setSaving] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formDosage, setFormDosage] = useState('');
@@ -129,12 +130,22 @@ export default function DoctorMedicationsScreen() {
   };
 
   const openAddModal = () => {
+    setEditingMedication(null);
     resetForm();
     setIsAddModalVisible(true);
   };
 
   const closeModal = () => {
     setIsAddModalVisible(false);
+    setEditingMedication(null);
+  };
+
+  const handleEditMedication = (item: Medication) => {
+    setEditingMedication(item);
+    setFormTitle(item.title);
+    setFormDosage(item.dosage);
+    setFormDurationDays(String(item.durationDays));
+    setIsAddModalVisible(true);
   };
 
   const handleSaveMedication = async () => {
@@ -157,13 +168,21 @@ export default function DoctorMedicationsScreen() {
     try {
       setSaving(true);
 
-      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-      const doctorName = doctorData
-        ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-        : 'Δρ.';
+      let doctorName = editingMedication?.doctorName || '';
+      let doctorAmka = editingMedication?.doctorAmka || '';
+      if (!editingMedication) {
+        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        doctorName = doctorData
+          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
+          : 'Δρ.';
+        doctorAmka = loggedInDoctorAmka;
+      }
 
-      const today = new Date();
-      const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      let startDate = editingMedication?.startDate || '';
+      if (!editingMedication) {
+        const today = new Date();
+        startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      }
 
       const record = {
         title: formTitle.trim(),
@@ -171,13 +190,18 @@ export default function DoctorMedicationsScreen() {
         startDate,
         durationDays,
         doctorName,
-        doctorAmka: loggedInDoctorAmka,
+        doctorAmka,
       };
 
-      const fileUrl = `${folderUrl}${Date.now()}.json`;
+      const fileUrl = editingMedication ? editingMedication.url : `${folderUrl}${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
-      setMedications((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      if (editingMedication) {
+        setMedications((prev) => prev.map((m) => m.url === fileUrl ? { url: fileUrl, ...record } : m));
+      } else {
+        setMedications((prev) => [{ url: fileUrl, ...record }, ...prev]);
+      }
+
       closeModal();
       resetForm();
     } catch (error: any) {
@@ -265,7 +289,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onDelete={handleDeleteMedication} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
           )}
 
           <TouchableOpacity
@@ -281,7 +305,7 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onDelete={handleDeleteMedication} />)
+                previousMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
               )}
             </View>
           )}
@@ -297,7 +321,9 @@ export default function DoctorMedicationsScreen() {
         <View style={styles.addmodalOverlay}>
           <View style={styles.addmodalContent}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Νέο Φάρμακο</Text>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
+                {editingMedication ? 'Επεξεργασία Φαρμάκου' : 'Νέο Φάρμακο'}
+              </Text>
               <TouchableOpacity onPress={closeModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
                 <Ionicons name="close" size={22} color={COLORS.text} />
               </TouchableOpacity>
