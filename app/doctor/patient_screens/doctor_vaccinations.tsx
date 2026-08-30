@@ -11,6 +11,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
+import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εμβολιασμοί';
 
@@ -28,6 +29,7 @@ interface Vaccination {
 export default function DoctorVaccinationsScreen() {
   const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [loading, setLoading] = useState(false);
@@ -88,6 +90,7 @@ export default function DoctorVaccinationsScreen() {
 
       const valid = loaded.filter((v): v is Vaccination => v !== null);
       setVaccinations(valid);
+      ensureDoctorInfo(valid.map((v) => v.doctorAmka));
     } catch (error: any) {
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
@@ -98,6 +101,11 @@ export default function DoctorVaccinationsScreen() {
   useEffect(() => {
     loadVaccinations();
   }, []);
+
+  const displayDoctorName = (item: Vaccination) => {
+    const info = getDoctorInfo(item.doctorAmka);
+    return info ? formatDoctorName(info) : item.doctorName;
+  };
 
   const sortedVaccinations = useMemo(() => {
     return [...vaccinations].sort((a, b) => {
@@ -317,7 +325,7 @@ export default function DoctorVaccinationsScreen() {
                 <Text style={doctorStyles.diagnosisCardLabel}>Εμπορική Ονομασία: </Text>{item.commercialName}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
+                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Παρτίδας: </Text>{item.batchNumber}

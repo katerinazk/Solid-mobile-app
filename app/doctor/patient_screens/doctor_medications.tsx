@@ -11,6 +11,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
+import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Φάρμακα';
 
@@ -24,7 +25,7 @@ interface Medication {
   doctorAmka: string;
 }
 
-function MedicationCard({ item, loggedInDoctorAmka, onEdit, onDelete }: { item: Medication; loggedInDoctorAmka: string; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
+function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, onEdit, onDelete }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
@@ -50,7 +51,7 @@ function MedicationCard({ item, loggedInDoctorAmka, onEdit, onDelete }: { item: 
         <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{item.durationDays} μέρες
       </Text>
       <Text style={doctorStyles.diagnosisCardDetail}>
-        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
+        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
     </View>
   );
@@ -59,6 +60,7 @@ function MedicationCard({ item, loggedInDoctorAmka, onEdit, onDelete }: { item: 
 export default function DoctorMedicationsScreen() {
   const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [loading, setLoading] = useState(false);
@@ -111,7 +113,9 @@ export default function DoctorMedicationsScreen() {
         }
       }));
 
-      setMedications(loaded.filter((m): m is Medication => m !== null));
+      const valid = loaded.filter((m): m is Medication => m !== null);
+      setMedications(valid);
+      ensureDoctorInfo(valid.map((m) => m.doctorAmka));
     } catch (error: any) {
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
@@ -122,6 +126,11 @@ export default function DoctorMedicationsScreen() {
   useEffect(() => {
     loadMedications();
   }, []);
+
+  const displayDoctorName = (item: Medication) => {
+    const info = getDoctorInfo(item.doctorAmka);
+    return info ? formatDoctorName(info) : item.doctorName;
+  };
 
   const resetForm = () => {
     setFormTitle('');
@@ -289,7 +298,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
           )}
 
           <TouchableOpacity
@@ -305,7 +314,7 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
+                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
               )}
             </View>
           )}

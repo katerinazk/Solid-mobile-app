@@ -10,6 +10,7 @@ import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCate
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
+import { useDoctorNames, formatDoctorLastNameOnly } from '../../../hooks/useDoctorNames';
 
 type Category = 'adult' | 'child';
 
@@ -25,6 +26,7 @@ interface Diagnosis {
 export default function DoctorDiagnoseisScreen() {
   const { amka, firstName, lastName, webId, birthDate } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const patientName = `${firstName} ${lastName}`;
   const folderUrl = webId ? getCategoryFolderUrl(webId, 'Διαγνώσεις') : '';
 
@@ -76,6 +78,7 @@ export default function DoctorDiagnoseisScreen() {
       const valid = loaded.filter((d): d is Diagnosis => d !== null);
       valid.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setDiagnoses(valid);
+      ensureDoctorInfo(valid.map((d) => d.doctorAmka));
     } catch (error: any) {
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
@@ -96,6 +99,11 @@ export default function DoctorDiagnoseisScreen() {
   }, [diagnoses, activeCategory, newestFirst]);
 
   const canAddDiagnosis = activeCategory === patientCategory;
+
+  const displayDoctorName = (item: Diagnosis) => {
+    const info = getDoctorInfo(item.doctorAmka);
+    return info ? formatDoctorLastNameOnly(info) : item.doctorName;
+  };
 
   const handleSaveDiagnosis = async () => {
     if (newDiagnosisTitle.trim() === '') {
@@ -256,7 +264,7 @@ export default function DoctorDiagnoseisScreen() {
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
+                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
               </Text>
             </View>
           )}

@@ -11,6 +11,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
+import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
 const CATEGORIES = ['Όλες', 'Εκκρεμείς', 'Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
@@ -26,7 +27,7 @@ interface Exam {
   completedDate?: string;
 }
 
-function PendingExamCard({ item, loggedInDoctorAmka, onEdit, onDelete }: { item: Exam; loggedInDoctorAmka: string; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, onEdit, onDelete }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
@@ -46,7 +47,7 @@ function PendingExamCard({ item, loggedInDoctorAmka, onEdit, onDelete }: { item:
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
       </Text>
       <Text style={doctorStyles.diagnosisCardDetail}>
-        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
+        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
       <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.danger, fontWeight: 'bold', marginTop: 10 }]}>ΕΚΚΡΕΜΕΣ</Text>
     </View>
@@ -68,6 +69,7 @@ function CompletedExamCard({ item }: { item: Exam }) {
 export default function DoctorExamsScreen() {
   const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
@@ -122,7 +124,9 @@ export default function DoctorExamsScreen() {
         }
       }));
 
-      setExams(loaded.filter((e): e is Exam => e !== null));
+      const valid = loaded.filter((e): e is Exam => e !== null);
+      setExams(valid);
+      ensureDoctorInfo(valid.map((e) => e.doctorAmka));
     } catch (error: any) {
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
@@ -133,6 +137,11 @@ export default function DoctorExamsScreen() {
   useEffect(() => {
     loadExams();
   }, []);
+
+  const displayDoctorName = (item: Exam) => {
+    const info = getDoctorInfo(item.doctorAmka);
+    return info ? formatDoctorName(info) : item.doctorName;
+  };
 
   const { pendingExams, completedExams } = useMemo(() => ({
     pendingExams: exams.filter((e) => e.status === 'pending'),
@@ -294,7 +303,7 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditExam} onDelete={handleDeleteExam} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditExam} onDelete={handleDeleteExam} />)
           )}
 
           <TouchableOpacity

@@ -13,6 +13,7 @@ import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCate
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
+import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Νοσηλίες';
 
@@ -78,6 +79,7 @@ function createDateHandler(
 export default function DoctorHospitalizationsScreen() {
   const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [loading, setLoading] = useState(false);
@@ -152,11 +154,17 @@ export default function DoctorHospitalizationsScreen() {
 
       const valid = loaded.filter((h): h is Hospitalization => h !== null);
       setHospitalizations(valid);
+      ensureDoctorInfo(valid.map((h) => h.doctorAmka));
     } catch (error: any) {
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const displayDoctorName = (item: Hospitalization) => {
+    const info = getDoctorInfo(item.doctorAmka);
+    return info ? formatDoctorName(info) : item.doctorName;
   };
 
   const resetForm = () => {
@@ -373,7 +381,7 @@ export default function DoctorHospitalizationsScreen() {
                 <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
+                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Εισαγωγής: </Text>{formatDate(item.admissionDate)}

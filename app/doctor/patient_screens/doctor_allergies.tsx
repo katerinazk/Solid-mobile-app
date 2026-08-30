@@ -10,6 +10,7 @@ import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
+import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Αλλεργίες';
 
@@ -24,6 +25,7 @@ interface Allergy {
 export default function DoctorAllergiesScreen() {
   const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
 
   const [loading, setLoading] = useState(false);
@@ -74,6 +76,7 @@ export default function DoctorAllergiesScreen() {
 
       const valid = loaded.filter((a): a is Allergy => a !== null);
       setAllergies(valid);
+      ensureDoctorInfo(valid.map((a) => a.doctorAmka));
     } catch (error: any) {
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
@@ -84,6 +87,11 @@ export default function DoctorAllergiesScreen() {
   const resetForm = () => {
     setFormTitle('');
     setFormReaction('');
+  };
+
+  const displayDoctorName = (item: Allergy) => {
+    const info = getDoctorInfo(item.doctorAmka);
+    return info ? formatDoctorName(info) : item.doctorName;
   };
 
   const openAddModal = () => {
@@ -225,7 +233,7 @@ export default function DoctorAllergiesScreen() {
                 <Text style={doctorStyles.diagnosisCardLabel}>Αντίδραση: </Text>{item.reaction}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{item.doctorName}
+                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
               </Text>
             </View>
           )}
