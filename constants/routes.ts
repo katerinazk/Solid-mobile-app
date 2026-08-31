@@ -6,6 +6,8 @@ export const ROUTES = {
   PATIENT_LOGIN: '/patient/patient_login',
   PATIENT_REGISTER: '/patient/patient_register',
   PATIENT_ACCESS: '/patient/screens/patient_access',
+  PATIENT_HOME: '/patient/screens/patient_home',
+  PATIENT_SETTINGS: '/patient/screens/patient_settings',
   DOCTOR_LOGIN: '/doctor/doctor_login',
   DOCTOR_REGISTER: '/doctor/doctor_register',
   DOCTOR_PROFILE: '/doctor/doctor_profile',

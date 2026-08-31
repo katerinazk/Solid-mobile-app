@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { loginStyles } from '../../../constants/loginStyles';
@@ -10,9 +10,10 @@ import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { addAccess, deleteAccess, updateAccessType } from '../../../services/access';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
+import { PatientHeader } from '../../../components/patient/PatientHeader';
 
-export default function PatientHomeScreen() {
-  const { loggedInPatientAmka, accessToken, activePatientFolderUrl, logout } = useAuth();
+export default function PatientAccessScreen() {
+  const { loggedInPatientAmka, accessToken, activePatientFolderUrl } = useAuth();
   const { accessList, setAccessList, loading, setLoading, refresh } = usePatientAccessList();
 
   const [isAddAccessModalVisible, setIsAddAccessModalVisible] = useState(false);
@@ -113,14 +114,7 @@ export default function PatientHomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => alert('Η λειτουργία έρχεται σύντομα.')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Feather name="menu" size={28} color={COLORS.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={logout} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
-        </TouchableOpacity>
-      </View>
+      <PatientHeader />
 
       <FlatList
         data={accessList}
