@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { loginStyles } from '../../../constants/loginStyles';
@@ -114,14 +114,34 @@ export default function PatientHomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <Text style={{ fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.text }}>Οι Προσβάσεις μου</Text>
-        <TouchableOpacity onPress={logout}>
-          <Ionicons name="log-out-outline" size={36} color={COLORS.primary} />
+        <TouchableOpacity onPress={() => alert('Η λειτουργία έρχεται σύντομα.')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Feather name="menu" size={28} color={COLORS.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={logout} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[styles.addButton, { marginHorizontal: SPACING.sideMargin, marginBottom: TOUCH.buttonGap }]} onPress={() => setIsAddAccessModalVisible(true)}>
-        <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
+      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddAccessModalVisible(true)}>
+          <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}>
+          <Text style={styles.addButtonText}>Αιτήματα</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={localStyles.sectionTitle}>Προσβάσεις</Text>
+
+      <Text style={localStyles.searchLabel}>Αναζήτηση γιατρού:</Text>
+      <View style={localStyles.searchContainer}>
+        <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+        <TextInput style={localStyles.searchInput} placeholderTextColor={COLORS.primary} />
+      </View>
+
+      <TouchableOpacity style={localStyles.sortButton} onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}>
+        <Text style={localStyles.sortButtonText}>↕  Όλες οι προσβάσεις</Text>
       </TouchableOpacity>
 
       {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
@@ -131,35 +151,27 @@ export default function PatientHomeScreen() {
           <FlatList
             data={accessList}
             keyExtractor={(item) => item.doctor_amka}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
             renderItem={({ item }) => (
-              <View style={styles.card}>
-                <View style={styles.cardDetails}>
-                  <Text style={styles.patientName}>
-                    Δρ. {item.doctors?.last_name} {item.doctors?.first_name}
-                  </Text>
-                  <Text style={styles.cardLabel}>Ειδικότητα: <Text style={styles.cardValue}>{item.doctors?.specialty}</Text></Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
-                    <Text style={styles.cardLabel}>Τύπος πρόσβασης: </Text>
-                    <TouchableOpacity
-                      onPress={() => handleChangeAccessType(item.doctor_amka, item.access_type)}
-                      style={{
-                        alignSelf: 'flex-start',
-                        backgroundColor: item.access_type === 'Πλήρης Πρόσβαση' ? COLORS.primary : COLORS.medium,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 20,
-                        marginTop: 5,
-                      }}
-                    >
-                      <Text style={{ color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>
-                        {item.access_type} ✎
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+              <View style={localStyles.card}>
+                <Text style={localStyles.doctorName}>
+                  Δρ. {item.doctors?.last_name} {item.doctors?.first_name}
+                </Text>
+                <Text style={localStyles.specialty}>{item.doctors?.specialty}</Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={localStyles.typeLabel}>Τύπος πρόσβασης: </Text>
+                  <TouchableOpacity
+                    style={localStyles.typePill}
+                    onPress={() => handleChangeAccessType(item.doctor_amka, item.access_type)}
+                  >
+                    <Text style={localStyles.typePillText}>{item.access_type}</Text>
+                    <Ionicons name="chevron-down" size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={[styles.cardActionButton, { backgroundColor: COLORS.danger }]} onPress={() => handleDeleteAccess(item.doctor_amka)}>
-                  <Text style={styles.cardActionButtonText}>Κατάργηση</Text>
+
+                <TouchableOpacity style={localStyles.removeButton} onPress={() => handleDeleteAccess(item.doctor_amka)}>
+                  <Text style={localStyles.removeButtonText}>Κατάργηση</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -212,3 +224,20 @@ export default function PatientHomeScreen() {
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  sectionTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap, paddingHorizontal: SPACING.sideMargin },
+  searchLabel: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary, marginBottom: 8, paddingHorizontal: SPACING.sideMargin },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 25, marginHorizontal: SPACING.sideMargin, paddingHorizontal: 15, marginBottom: SPACING.groupGap, borderWidth: 1, borderColor: COLORS.medium, minHeight: TOUCH.minTargetSize },
+  searchInput: { flex: 1, height: 40, fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
+  sortButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', alignItems: 'center', borderRadius: 25, marginHorizontal: SPACING.sideMargin, marginBottom: SPACING.sectionGap },
+  sortButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+  card: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginHorizontal: SPACING.sideMargin, marginBottom: 12 },
+  doctorName: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary },
+  specialty: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.medium, marginTop: 2, marginBottom: SPACING.groupGap },
+  typeLabel: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
+  typePill: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginLeft: 8 },
+  typePillText: { color: COLORS.primary, fontWeight: '600', fontSize: TYPOGRAPHY.secondaryText },
+  removeButton: { backgroundColor: COLORS.danger, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
+  removeButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+});
