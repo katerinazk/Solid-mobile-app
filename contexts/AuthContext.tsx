@@ -195,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const verified = await handlePatientLoginVerification(webId);
               if (verified) {
                 setIsLoggedIn(true);
-                router.replace(ROUTES.PATIENT_ACCESS);
+                router.replace(ROUTES.PATIENT_HOME);
               }
             } else if (role === 'doctor') {
               const verified = await handleDoctorLoginVerification(webId);
