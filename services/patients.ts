@@ -28,6 +28,14 @@ export async function fetchPatientsForDoctor(doctorAmka: string): Promise<Patien
     }));
 }
 
+export async function fetchPatientByAmka(amka: string) {
+  return supabase
+    .from('patients')
+    .select('*')
+    .eq('amka', amka)
+    .single();
+}
+
 export interface PatientRegistrationForm {
   first_name: string;
   last_name: string;
