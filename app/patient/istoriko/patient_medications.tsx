@@ -7,7 +7,7 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
@@ -21,17 +21,15 @@ interface Medication {
   durationDays: number;
   doctorName: string;
   doctorAmka: string;
+  // false = ο γιατρός μόλις το καταχώρησε και ο ασθενής δεν έχει πατήσει ακόμα "Έναρξη".
+  // undefined = παλιά εγγραφή από πριν υπάρξει αυτή η έννοια -> θεωρείται ήδη ενεργή.
+  started?: boolean;
 }
 
-// Ένα φάρμακο θεωρείται "εκκρεμές" όσο η ημερομηνία έναρξής του δεν έχει περάσει ακόμα -
-// δηλαδή μόλις καταχωρήθηκε από τον γιατρό, ο ασθενής δεν το έχει "ξεκινήσει" ακόμα. Μόλις
-// περάσει η ημερομηνία έναρξης, εμφανίζεται πλέον σαν κανονική ενεργή αγωγή.
+// Ένα φάρμακο είναι "εκκρεμές" μόνο όσο ο ασθενής δεν έχει πατήσει ακόμα "Έναρξη" - μόλις το
+// κάνει, περνάει αμέσως στην κανονική ενεργή αγωγή, ό,τι ημερομηνία κι αν έχει.
 function isPending(item: Medication): boolean {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(item.startDate);
-  start.setHours(0, 0, 0, 0);
-  return start >= today;
+  return item.started === false;
 }
 
 export default function PatientMedicationsScreen() {
@@ -76,6 +74,7 @@ export default function PatientMedicationsScreen() {
             durationDays: record.durationDays,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
+            started: record.started,
           } as Medication;
         } catch {
           return null;
@@ -100,6 +99,34 @@ export default function PatientMedicationsScreen() {
   const displayDoctorName = (item: Medication) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
+  };
+
+  const handleStartMedication = async (item: Medication) => {
+    if (!accessToken) {
+      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      return;
+    }
+
+    try {
+      const today = new Date();
+      const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      const record = {
+        title: item.title,
+        dosage: item.dosage,
+        startDate,
+        durationDays: item.durationDays,
+        doctorName: item.doctorName,
+        doctorAmka: item.doctorAmka,
+        started: true,
+      };
+
+      await saveFileContent(item.url, accessToken, JSON.stringify(record));
+
+      setMedications((prev) => prev.map((m) => m.url === item.url ? { ...m, startDate, started: true } : m));
+    } catch (error: any) {
+      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+    }
   };
 
   const handleDeleteMedication = (item: Medication) => {
@@ -197,7 +224,7 @@ export default function PatientMedicationsScreen() {
                   <View style={{ flexDirection: 'row', marginTop: 12 }}>
                     <TouchableOpacity
                       style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginRight: 8, marginBottom: 0 }]}
-                      onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}
+                      onPress={() => handleStartMedication(item)}
                     >
                       <Text style={doctorStyles.diagnosisSortButtonText}>Έναρξη</Text>
                     </TouchableOpacity>

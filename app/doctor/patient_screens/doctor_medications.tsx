@@ -23,6 +23,10 @@ interface Medication {
   durationDays: number;
   doctorName: string;
   doctorAmka: string;
+  // false = ο ασθενής δεν έχει πατήσει ακόμα "Έναρξη" στη δική του οθόνη (εμφανίζεται ως
+  // "εκκρεμές" εκεί). undefined = παλιά εγγραφή από πριν υπάρξει αυτή η έννοια -> θεωρείται
+  // ήδη ενεργή, όχι εκκρεμής.
+  started?: boolean;
 }
 
 function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, onEdit, onDelete }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
@@ -107,6 +111,7 @@ export default function DoctorMedicationsScreen() {
             durationDays: record.durationDays,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
+            started: record.started,
           } as Medication;
         } catch {
           return null;
@@ -193,6 +198,10 @@ export default function DoctorMedicationsScreen() {
         startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       }
 
+      // Νέα εγγραφή -> ξεκινάει "εκκρεμής" (started: false) μέχρι ο ασθενής να πατήσει
+      // "Έναρξη" στη δική του οθόνη. Επεξεργασία -> διατηρεί ό,τι ίσχυε ήδη.
+      const started = editingMedication ? editingMedication.started : false;
+
       const record = {
         title: formTitle.trim(),
         dosage: formDosage.trim(),
@@ -200,6 +209,7 @@ export default function DoctorMedicationsScreen() {
         durationDays,
         doctorName,
         doctorAmka,
+        started,
       };
 
       const fileUrl = editingMedication ? editingMedication.url : `${folderUrl}${Date.now()}.json`;
