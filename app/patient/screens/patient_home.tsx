@@ -10,13 +10,14 @@ import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { fetchPatientByAmka } from '../../../services/patients';
 
 // Προς το παρόν όλες οι κατηγορίες δείχνουν 0 εγγραφές - θα συνδεθούν με το Pod του ασθενή
-// (πλήθος αρχείων ανά φάκελο) σε επόμενο βήμα.
-const CATEGORIES = [
+// (πλήθος αρχείων ανά φάκελο) σε επόμενο βήμα. Μόνο οι Νοσηλίες έχουν προς το παρόν δική
+// τους οθόνη προβολής - οι υπόλοιπες θα συνδεθούν σταδιακά.
+const CATEGORIES: { label: string; count: number; route?: string }[] = [
   { label: 'Εξετάσεις', count: 0 },
   { label: 'Φάρμακα', count: 0 },
   { label: 'Αλλεργίες', count: 0 },
   { label: 'Διαγνώσεις', count: 0 },
-  { label: 'Νοσηλίες', count: 0 },
+  { label: 'Νοσηλίες', count: 0, route: ROUTES.PATIENT_HOSPITALIZATIONS },
   { label: 'Εμβολιασμοί', count: 0 },
 ];
 
@@ -64,6 +65,7 @@ export default function PatientHomeScreen() {
                 <TouchableOpacity
                   key={category.label}
                   style={[localStyles.categoryButton, i === 0 && row.length === 2 ? { marginRight: SPACING.groupGap } : null]}
+                  onPress={() => category.route && router.push(category.route as any)}
                 >
                   <Text style={localStyles.categoryButtonText}>{category.label} ({category.count})</Text>
                 </TouchableOpacity>

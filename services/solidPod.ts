@@ -3,7 +3,7 @@ import { createDpopToken } from '../utils/dpop';
 
 // Ανακατασκευάζει το WebID του ασθενή-ιδιοκτήτη από το URL του δημόσιου φακέλου του
 // (αντίστροφος μετασχηματισμός του webId.replace('profile/card#me', 'public/') στο AuthContext).
-function getOwnerWebId(folderUrl: string): string {
+export function getOwnerWebId(folderUrl: string): string {
   return folderUrl.replace('public/', 'profile/card#me');
 }
 
