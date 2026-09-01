@@ -24,7 +24,7 @@ const MENU_ITEMS: { label: string; route?: string; isTab?: boolean }[] = [
   { label: 'Εξετάσεις' },
   { label: 'Φάρμακα' },
   { label: 'Αλλεργίες', route: ROUTES.PATIENT_ALLERGIES },
-  { label: 'Διαγνώσεις' },
+  { label: 'Διαγνώσεις', route: ROUTES.PATIENT_DIAGNOSEIS },
   { label: 'Νοσηλίες', route: ROUTES.PATIENT_HOSPITALIZATIONS },
   { label: 'Εμβολιασμοί', route: ROUTES.PATIENT_VACCINATIONS },
   { label: 'Ρυθμίσεις', route: ROUTES.PATIENT_SETTINGS, isTab: true },

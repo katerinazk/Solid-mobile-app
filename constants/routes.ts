@@ -11,6 +11,7 @@ export const ROUTES = {
   PATIENT_HOSPITALIZATIONS: '/patient/istoriko/patient_hospitalizations',
   PATIENT_VACCINATIONS: '/patient/istoriko/patient_vaccinations',
   PATIENT_ALLERGIES: '/patient/istoriko/patient_allergies',
+  PATIENT_DIAGNOSEIS: '/patient/istoriko/patient_diagnoseis',
   DOCTOR_LOGIN: '/doctor/doctor_login',
   DOCTOR_REGISTER: '/doctor/doctor_register',
   DOCTOR_PROFILE: '/doctor/doctor_profile',
