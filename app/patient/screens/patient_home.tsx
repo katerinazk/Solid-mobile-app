@@ -56,19 +56,21 @@ export default function PatientHomeScreen() {
           <Text style={styles.addButtonText}>Διαχείριση Προσβάσεων</Text>
         </TouchableOpacity>
 
-        <Text style={localStyles.sectionTitle}>Ιστορικό</Text>
-        {rows.map((row, index) => (
-          <View key={index} style={{ flexDirection: 'row', marginBottom: SPACING.groupGap }}>
-            {row.map((category, i) => (
-              <TouchableOpacity
-                key={category.label}
-                style={[localStyles.categoryButton, i === 0 && row.length === 2 ? { marginRight: SPACING.groupGap } : null]}
-              >
-                <Text style={localStyles.categoryButtonText}>{category.label} ({category.count})</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
+        <View style={localStyles.historyContainer}>
+          <Text style={[localStyles.sectionTitle, { marginTop: 0 }]}>Ιστορικό</Text>
+          {rows.map((row, index) => (
+            <View key={index} style={{ flexDirection: 'row', marginBottom: SPACING.groupGap }}>
+              {row.map((category, i) => (
+                <TouchableOpacity
+                  key={category.label}
+                  style={[localStyles.categoryButton, i === 0 && row.length === 2 ? { marginRight: SPACING.groupGap } : null]}
+                >
+                  <Text style={localStyles.categoryButtonText}>{category.label} ({category.count})</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </View>
 
         <Text style={localStyles.sectionTitle}>Ειδοποιήσεις</Text>
         <Text style={[styles.emptyText, { marginTop: 10, textAlign: 'left' }]}>Δεν υπάρχουν ειδοποιήσεις αυτή τη στιγμή.</Text>
@@ -80,6 +82,7 @@ export default function PatientHomeScreen() {
 const localStyles = StyleSheet.create({
   welcome: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.groupGap, marginBottom: SPACING.sectionGap },
   sectionTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.sectionGap, marginBottom: SPACING.groupGap },
+  historyContainer: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginBottom: SPACING.groupGap },
   categoryButton: { flex: 1, backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
   categoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
 });
