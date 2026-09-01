@@ -15,7 +15,7 @@ import { fetchPatientByAmka } from '../../../services/patients';
 const CATEGORIES: { label: string; count: number; route?: string }[] = [
   { label: 'Εξετάσεις', count: 0 },
   { label: 'Φάρμακα', count: 0 },
-  { label: 'Αλλεργίες', count: 0 },
+  { label: 'Αλλεργίες', count: 0, route: ROUTES.PATIENT_ALLERGIES },
   { label: 'Διαγνώσεις', count: 0 },
   { label: 'Νοσηλίες', count: 0, route: ROUTES.PATIENT_HOSPITALIZATIONS },
   { label: 'Εμβολιασμοί', count: 0, route: ROUTES.PATIENT_VACCINATIONS },
