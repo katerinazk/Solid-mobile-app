@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -7,7 +7,7 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
@@ -102,6 +102,28 @@ export default function PatientMedicationsScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
+  const handleDeleteMedication = (item: Medication) => {
+    Alert.alert(
+      "Διαγραφή",
+      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το φάρμακο;",
+      [
+        { text: "Ακύρωση", style: "cancel" },
+        {
+          text: "Διαγραφή",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteFile(item.url, accessToken);
+              setMedications((prev) => prev.filter((m) => m.url !== item.url));
+            } catch (error: any) {
+              alert(error.message || "Αποτυχία διαγραφής.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const { activeMedications, previousMedications } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -181,7 +203,7 @@ export default function PatientMedicationsScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
-                      onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}
+                      onPress={() => handleDeleteMedication(item)}
                     >
                       <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
                     </TouchableOpacity>
