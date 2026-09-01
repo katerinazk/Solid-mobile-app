@@ -110,7 +110,7 @@ export default function PatientVaccinationsScreen() {
         <Text style={doctorStyles.historyTitle}>Εμβολιασμοί</Text>
       </View>
 
-      <TouchableOpacity style={[doctorStyles.diagnosisSortButton, { marginTop: SPACING.groupGap }]} onPress={() => setNewestFirst((prev) => !prev)}>
+      <TouchableOpacity style={[doctorStyles.diagnosisSortButton, { marginTop: SPACING.sectionGap }]} onPress={() => setNewestFirst((prev) => !prev)}>
         <Text style={doctorStyles.diagnosisSortButtonText}>
           ↕ {newestFirst ? 'Νεότεροι προς Παλαιότεροι' : 'Παλαιότεροι προς Νεότεροι'}
         </Text>
