@@ -15,16 +15,19 @@ export const PatientMenuContext = createContext<PatientMenuContextValue | null>(
 
 // Κατηγορίες ιστορικού που έχουν ήδη δική τους οθόνη προβολής για τον ασθενή - οι υπόλοιπες
 // δείχνουν προσωρινά "Η λειτουργία έρχεται σύντομα." μέχρι να συνδεθούν κι αυτές.
-const MENU_ITEMS: { label: string; route?: string }[] = [
-  { label: 'Αρχική', route: ROUTES.PATIENT_HOME },
-  { label: 'Προσβάσεις', route: ROUTES.PATIENT_ACCESS },
+// Οι 3 καρτέλες (Αρχική/Προσβάσεις/Ρυθμίσεις) αλλάζουν με replace (εναλλαγή καρτέλας, όχι
+// νέα οθόνη στη στοίβα) - οι υπόλοιπες με push, ώστε το βελάκι "πίσω" να επιστρέφει εκεί
+// από όπου άνοιξε το μενού, αντί να πηδάει πίσω από όλη την καρτέλα Αρχική.
+const MENU_ITEMS: { label: string; route?: string; isTab?: boolean }[] = [
+  { label: 'Αρχική', route: ROUTES.PATIENT_HOME, isTab: true },
+  { label: 'Προσβάσεις', route: ROUTES.PATIENT_ACCESS, isTab: true },
   { label: 'Εξετάσεις' },
   { label: 'Φάρμακα' },
   { label: 'Αλλεργίες', route: ROUTES.PATIENT_ALLERGIES },
   { label: 'Διαγνώσεις' },
   { label: 'Νοσηλίες', route: ROUTES.PATIENT_HOSPITALIZATIONS },
   { label: 'Εμβολιασμοί', route: ROUTES.PATIENT_VACCINATIONS },
-  { label: 'Ρυθμίσεις', route: ROUTES.PATIENT_SETTINGS },
+  { label: 'Ρυθμίσεις', route: ROUTES.PATIENT_SETTINGS, isTab: true },
 ];
 
 // Το πλαϊνό μενού ασθενή μπαίνει/βγαίνει με οριζόντιο slide, με το ίδιο animation/στυλ
@@ -47,10 +50,14 @@ export function PatientMenuProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const handleSelect = (item: { label: string; route?: string }) => {
+  const handleSelect = (item: { label: string; route?: string; isTab?: boolean }) => {
     closeMenu();
     if (item.route) {
-      router.replace(item.route as any);
+      if (item.isTab) {
+        router.replace(item.route as any);
+      } else {
+        router.push(item.route as any);
+      }
     } else {
       alert('Η λειτουργία έρχεται σύντομα.');
     }
