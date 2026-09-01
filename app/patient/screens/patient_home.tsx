@@ -14,7 +14,7 @@ import { fetchPatientByAmka } from '../../../services/patients';
 // τους οθόνη προβολής - οι υπόλοιπες θα συνδεθούν σταδιακά.
 const CATEGORIES: { label: string; count: number; route?: string }[] = [
   { label: 'Εξετάσεις', count: 0 },
-  { label: 'Φάρμακα', count: 0 },
+  { label: 'Φάρμακα', count: 0, route: ROUTES.PATIENT_MEDICATIONS },
   { label: 'Αλλεργίες', count: 0, route: ROUTES.PATIENT_ALLERGIES },
   { label: 'Διαγνώσεις', count: 0, route: ROUTES.PATIENT_DIAGNOSEIS },
   { label: 'Νοσηλίες', count: 0, route: ROUTES.PATIENT_HOSPITALIZATIONS },

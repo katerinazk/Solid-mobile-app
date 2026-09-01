@@ -22,7 +22,7 @@ const MENU_ITEMS: { label: string; route?: string; isTab?: boolean }[] = [
   { label: 'Αρχική', route: ROUTES.PATIENT_HOME, isTab: true },
   { label: 'Προσβάσεις', route: ROUTES.PATIENT_ACCESS, isTab: true },
   { label: 'Εξετάσεις' },
-  { label: 'Φάρμακα' },
+  { label: 'Φάρμακα', route: ROUTES.PATIENT_MEDICATIONS },
   { label: 'Αλλεργίες', route: ROUTES.PATIENT_ALLERGIES },
   { label: 'Διαγνώσεις', route: ROUTES.PATIENT_DIAGNOSEIS },
   { label: 'Νοσηλίες', route: ROUTES.PATIENT_HOSPITALIZATIONS },
