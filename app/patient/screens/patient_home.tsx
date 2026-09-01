@@ -18,7 +18,7 @@ const CATEGORIES: { label: string; count: number; route?: string }[] = [
   { label: 'Αλλεργίες', count: 0 },
   { label: 'Διαγνώσεις', count: 0 },
   { label: 'Νοσηλίες', count: 0, route: ROUTES.PATIENT_HOSPITALIZATIONS },
-  { label: 'Εμβολιασμοί', count: 0 },
+  { label: 'Εμβολιασμοί', count: 0, route: ROUTES.PATIENT_VACCINATIONS },
 ];
 
 function chunkPairs<T>(items: T[]): T[][] {
