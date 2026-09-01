@@ -2,14 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { COLORS } from '../../constants/colors';
-import { sharedStyles as styles } from '../../constants/sharedStyles';
-import { doctorStyles } from '../../constants/doctorStyles';
-import { SPACING } from '../../constants/designSystem';
-import { useAuth } from '../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../services/solidPod';
-import { formatDate } from '../../utils/age';
-import { useDoctorNames, formatDoctorName } from '../../hooks/useDoctorNames';
+import { COLORS } from '../../../constants/colors';
+import { sharedStyles as styles } from '../../../constants/sharedStyles';
+import { doctorStyles } from '../../../constants/doctorStyles';
+import { SPACING } from '../../../constants/designSystem';
+import { useAuth } from '../../../hooks/useAuth';
+import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { formatDate } from '../../../utils/age';
+import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εμβολιασμοί';
 
