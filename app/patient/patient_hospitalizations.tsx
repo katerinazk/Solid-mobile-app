@@ -125,7 +125,7 @@ export default function PatientHospitalizationsScreen() {
         <FlatList
           data={hospitalizations}
           keyExtractor={(item) => item.url}
-          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+          contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
               <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
