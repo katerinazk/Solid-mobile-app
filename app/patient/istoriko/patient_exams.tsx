@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -7,7 +7,7 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
@@ -24,7 +24,7 @@ interface Exam {
   completedDate?: string;
 }
 
-function PendingExamCard({ item, doctorDisplayName }: { item: Exam; doctorDisplayName: string }) {
+function PendingExamCard({ item, doctorDisplayName, onDelete }: { item: Exam; doctorDisplayName: string; onDelete: (item: Exam) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
@@ -45,7 +45,7 @@ function PendingExamCard({ item, doctorDisplayName }: { item: Exam; doctorDispla
 
       <TouchableOpacity
         style={[doctorStyles.diagnosisSortButton, { marginHorizontal: 0, marginBottom: 0 }]}
-        onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}
+        onPress={() => onDelete(item)}
       >
         <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
       </TouchableOpacity>
@@ -132,6 +132,28 @@ export default function PatientExamsScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
+  const handleDeleteExam = (item: Exam) => {
+    Alert.alert(
+      "Διαγραφή",
+      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
+      [
+        { text: "Ακύρωση", style: "cancel" },
+        {
+          text: "Διαγραφή",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteFile(item.url, accessToken);
+              setExams((prev) => prev.filter((e) => e.url !== item.url));
+            } catch (error: any) {
+              alert(error.message || "Αποτυχία διαγραφής.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const { pendingExams, completedExams } = useMemo(() => ({
     pendingExams: exams.filter((e) => e.status === 'pending'),
     completedExams: exams.filter((e) => e.status === 'completed'),
@@ -185,7 +207,7 @@ export default function PatientExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} onDelete={handleDeleteExam} />)
           )}
 
           <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Ολοκληρωμένες</Text>
