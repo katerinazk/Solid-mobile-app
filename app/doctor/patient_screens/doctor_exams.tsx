@@ -8,9 +8,10 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
+import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
@@ -25,6 +26,7 @@ interface Exam {
   doctorName: string;
   doctorAmka: string;
   completedDate?: string;
+  resultFile?: string;
 }
 
 function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, onEdit, onDelete }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
@@ -54,15 +56,20 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, onEdit, 
   );
 }
 
-function CompletedExamCard({ item }: { item: Exam }) {
+function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boolean; onOpen: (item: Exam) => void }) {
   return (
-    <View style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}>
+    <TouchableOpacity
+      style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}
+      onPress={() => onOpen(item)}
+      disabled={!item.resultFile || opening}
+    >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
         <Text style={[doctorStyles.diagnosisCardTitle, { marginRight: 0 }]}>{item.title}</Text>
         <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.completedDate ? formatDate(item.completedDate) : ''}</Text>
       </View>
-    </View>
+      {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
+    </TouchableOpacity>
   );
 }
 
@@ -77,6 +84,8 @@ export default function DoctorExamsScreen() {
 
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
+
+  const [openingResultFor, setOpeningResultFor] = useState<string | null>(null);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
@@ -118,6 +127,7 @@ export default function DoctorExamsScreen() {
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             completedDate: record.completedDate,
+            resultFile: record.resultFile,
           } as Exam;
         } catch {
           return null;
@@ -197,6 +207,19 @@ export default function DoctorExamsScreen() {
     );
   };
 
+  const handleOpenResult = async (item: Exam) => {
+    if (!item.resultFile) return;
+    try {
+      setOpeningResultFor(item.url);
+      const localUri = await downloadAttachment(item.url, item.resultFile, accessToken);
+      await openLocalFile(localUri, item.resultFile);
+    } catch (error: any) {
+      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+    } finally {
+      setOpeningResultFor(null);
+    }
+  };
+
   const handleSaveExam = async () => {
     if (!formName.trim() || !formType.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
@@ -228,6 +251,7 @@ export default function DoctorExamsScreen() {
         doctorName,
         doctorAmka,
         completedDate: editingExam?.completedDate,
+        resultFile: editingExam?.resultFile,
       };
 
       const fileUrl = editingExam ? editingExam.url : `${folderUrl}${Date.now()}.json`;
@@ -319,7 +343,7 @@ export default function DoctorExamsScreen() {
               {completedExams.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
               ) : (
-                completedExams.map((item) => <CompletedExamCard key={item.url} item={item} />)
+                completedExams.map((item) => <CompletedExamCard key={item.url} item={item} opening={openingResultFor === item.url} onOpen={handleOpenResult} />)
               )}
             </View>
           )}

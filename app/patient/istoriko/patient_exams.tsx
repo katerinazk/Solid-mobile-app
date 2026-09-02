@@ -2,13 +2,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
-import { listFolderFiles, fetchFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
+import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
@@ -22,9 +24,10 @@ interface Exam {
   doctorName: string;
   doctorAmka: string;
   completedDate?: string;
+  resultFile?: string;
 }
 
-function PendingExamCard({ item, doctorDisplayName, onDelete }: { item: Exam; doctorDisplayName: string; onDelete: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelete }: { item: Exam; doctorDisplayName: string; uploading: boolean; onUpload: (item: Exam) => void; onDelete: (item: Exam) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
@@ -37,10 +40,17 @@ function PendingExamCard({ item, doctorDisplayName, onDelete }: { item: Exam; do
 
       <TouchableOpacity
         style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginTop: 12 }]}
-        onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}
+        onPress={() => onUpload(item)}
+        disabled={uploading}
       >
-        <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
-        <Text style={doctorStyles.diagnosisSortButtonText}>Μεταφόρτωση Αποτελεσμάτων</Text>
+        {uploading ? (
+          <ActivityIndicator size="small" color={COLORS.white} />
+        ) : (
+          <>
+            <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
+            <Text style={doctorStyles.diagnosisSortButtonText}>Μεταφόρτωση Αποτελεσμάτων</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -53,15 +63,20 @@ function PendingExamCard({ item, doctorDisplayName, onDelete }: { item: Exam; do
   );
 }
 
-function CompletedExamCard({ item }: { item: Exam }) {
+function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boolean; onOpen: (item: Exam) => void }) {
   return (
-    <View style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}>
+    <TouchableOpacity
+      style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}
+      onPress={() => onOpen(item)}
+      disabled={!item.resultFile || opening}
+    >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
         <Text style={[doctorStyles.diagnosisCardTitle, { marginRight: 0 }]}>{item.title}</Text>
         <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.completedDate ? formatDate(item.completedDate) : ''}</Text>
       </View>
-    </View>
+      {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
+    </TouchableOpacity>
   );
 }
 
@@ -74,6 +89,8 @@ export default function PatientExamsScreen() {
   const [selectedCategory, setSelectedCategory] = useState('Εκκρεμείς');
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [openingResultFor, setOpeningResultFor] = useState<string | null>(null);
 
   const loadExams = async () => {
     try {
@@ -106,6 +123,7 @@ export default function PatientExamsScreen() {
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             completedDate: record.completedDate,
+            resultFile: record.resultFile,
           } as Exam;
         } catch {
           return null;
@@ -130,6 +148,57 @@ export default function PatientExamsScreen() {
   const displayDoctorName = (item: Exam) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
+  };
+
+  const handleUploadResult = async (item: Exam) => {
+    if (!accessToken) {
+      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      return;
+    }
+
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      const asset = result.assets[0];
+      setUploadingFor(item.url);
+
+      await uploadAttachment(item.url, asset.name, asset.uri, asset.mimeType || 'application/octet-stream', accessToken);
+
+      const today = new Date();
+      const completedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      const record = {
+        title: item.title,
+        type: item.type,
+        status: 'completed' as const,
+        doctorName: item.doctorName,
+        doctorAmka: item.doctorAmka,
+        completedDate,
+        resultFile: asset.name,
+      };
+
+      await saveFileContent(item.url, accessToken, JSON.stringify(record));
+
+      setExams((prev) => prev.map((e) => e.url === item.url ? { ...e, status: 'completed', completedDate, resultFile: asset.name } : e));
+    } catch (error: any) {
+      alert(error.message || "Αποτυχία μεταφόρτωσης αρχείου.");
+    } finally {
+      setUploadingFor(null);
+    }
+  };
+
+  const handleOpenResult = async (item: Exam) => {
+    if (!item.resultFile) return;
+    try {
+      setOpeningResultFor(item.url);
+      const localUri = await downloadAttachment(item.url, item.resultFile, accessToken);
+      await openLocalFile(localUri, item.resultFile);
+    } catch (error: any) {
+      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+    } finally {
+      setOpeningResultFor(null);
+    }
   };
 
   const handleDeleteExam = (item: Exam) => {
@@ -207,7 +276,16 @@ export default function PatientExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} onDelete={handleDeleteExam} />)
+            pendingExams.map((item) => (
+              <PendingExamCard
+                key={item.url}
+                item={item}
+                doctorDisplayName={displayDoctorName(item)}
+                uploading={uploadingFor === item.url}
+                onUpload={handleUploadResult}
+                onDelete={handleDeleteExam}
+              />
+            ))
           )}
 
           <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Ολοκληρωμένες</Text>
@@ -215,7 +293,9 @@ export default function PatientExamsScreen() {
           {completedExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
           ) : (
-            completedExams.map((item) => <CompletedExamCard key={item.url} item={item} />)
+            completedExams.map((item) => (
+              <CompletedExamCard key={item.url} item={item} opening={openingResultFor === item.url} onOpen={handleOpenResult} />
+            ))
           )}
         </ScrollView>
       )}
