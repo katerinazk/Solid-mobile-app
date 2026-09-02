@@ -7,11 +7,40 @@ import { loginStyles as styles } from '../../constants/loginStyles';
 import { ROUTES } from '../../constants/routes';
 import { TYPOGRAPHY, TOUCH } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
+import { fetchPatientByAmka } from '../../services/patients';
 
 export default function PatientLoginScreen() {
   const { login, loading } = useAuth();
   const [patientAmka, setPatientAmka] = useState('');
   const [solidProvider, setSolidProvider] = useState('https://datapod.igrant.io');
+  const [checking, setChecking] = useState(false);
+
+  const handleLogin = async () => {
+    if (!patientAmka.trim() || !solidProvider.trim()) {
+      alert("Παρακαλώ συμπληρώστε ΑΜΚΑ και Solid Provider.");
+      return;
+    }
+
+    try {
+      setChecking(true);
+      const { data, error } = await fetchPatientByAmka(patientAmka.trim());
+
+      if (error || !data) {
+        // Δεν υπάρχει ασθενής με αυτό το ΑΜΚΑ - πάμε πρώτα στη δημιουργία λογαριασμού
+        router.push({
+          pathname: ROUTES.PATIENT_REGISTER,
+          params: { amka: patientAmka.trim(), solidProvider: solidProvider.trim(), fromLoginAttempt: 'true' },
+        });
+        return;
+      }
+
+      login('patient', patientAmka.trim(), solidProvider.trim());
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.loginContainer, { backgroundColor: COLORS.medium }]}>
@@ -46,16 +75,10 @@ export default function PatientLoginScreen() {
 
         <TouchableOpacity
           style={styles.solidLoginButton}
-          onPress={() => {
-            if (!patientAmka.trim() || !solidProvider.trim()) {
-              alert("Παρακαλώ συμπληρώστε ΑΜΚΑ και Solid Provider.");
-              return;
-            }
-            login('patient', patientAmka.trim(), solidProvider.trim());
-          }}
-          disabled={loading}
+          onPress={handleLogin}
+          disabled={loading || checking}
         >
-          {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Είσοδος</Text>}
+          {(loading || checking) ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Είσοδος</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity

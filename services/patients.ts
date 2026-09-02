@@ -44,6 +44,7 @@ export interface PatientRegistrationForm {
   sex: string;
   blood_type: string;
   phone: string;
+  email: string;
 }
 
 export async function registerPatient(form: PatientRegistrationForm) {
@@ -55,5 +56,6 @@ export async function registerPatient(form: PatientRegistrationForm) {
     sex: form.sex || null,
     blood_type: form.blood_type || null,
     phone: form.phone || null,
+    email: form.email || null,
   }]);
 }
