@@ -59,3 +59,26 @@ export async function registerPatient(form: PatientRegistrationForm) {
     email: form.email || null,
   }]);
 }
+
+export interface PatientUpdateForm {
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+  sex: string;
+  blood_type: string;
+  phone: string;
+  email: string;
+}
+
+// Το ΑΜΚΑ δεν αλλάζει ποτέ - είναι το κλειδί αναγνώρισης του ασθενή.
+export async function updatePatient(amka: string, form: PatientUpdateForm) {
+  return supabase.from('patients').update({
+    first_name: form.first_name,
+    last_name: form.last_name,
+    birth_date: form.birth_date || null,
+    sex: form.sex || null,
+    blood_type: form.blood_type || null,
+    phone: form.phone || null,
+    email: form.email || null,
+  }).eq('amka', amka);
+}
