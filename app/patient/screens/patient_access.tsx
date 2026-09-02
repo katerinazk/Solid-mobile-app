@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
@@ -9,8 +9,16 @@ import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { addAccess, deleteAccess, updateAccessType } from '../../../services/access';
+import { fetchPendingAccessRequestsForPatient, resolveAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
+
+interface AccessRequest {
+  id: string;
+  doctor_amka: string;
+  access_type: string;
+  doctors: { first_name: string; last_name: string; specialty: string | null; web_id: string | null } | null;
+}
 
 export default function PatientAccessScreen() {
   const { loggedInPatientAmka, accessToken, activePatientFolderUrl } = useAuth();
@@ -19,6 +27,65 @@ export default function PatientAccessScreen() {
   const [isAddAccessModalVisible, setIsAddAccessModalVisible] = useState(false);
   const [newDoctorAmka, setNewDoctorAmka] = useState('');
   const [newAccessType, setNewAccessType] = useState('Πλήρης Πρόσβαση');
+
+  const [isRequestsModalVisible, setIsRequestsModalVisible] = useState(false);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
+  const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
+
+  const openRequestsModal = async () => {
+    setIsRequestsModalVisible(true);
+    try {
+      setLoadingRequests(true);
+      const { data, error } = await fetchPendingAccessRequestsForPatient(loggedInPatientAmka);
+      if (!error) setRequests((data || []) as unknown as AccessRequest[]);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  const handleAcceptRequest = async (request: AccessRequest) => {
+    try {
+      setResolvingRequestId(request.id);
+
+      const { error } = await addAccess(loggedInPatientAmka, request.doctor_amka, request.access_type);
+      if (error) {
+        alert("Σφάλμα: " + error.message);
+        return;
+      }
+
+      if (request.doctors?.web_id) {
+        await updatePodAcl({
+          activePatientFolderUrl,
+          accessToken,
+          accessList,
+          newDoctorWebId: request.doctors.web_id,
+          accessType: request.access_type,
+        });
+      }
+
+      await resolveAccessRequest(request.id, 'accepted');
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+      refresh();
+      alert(`Η πρόσβαση στον Δρ. ${request.doctors?.last_name || ''} δόθηκε επιτυχώς!`);
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setResolvingRequestId(null);
+    }
+  };
+
+  const handleRejectRequest = async (request: AccessRequest) => {
+    try {
+      setResolvingRequestId(request.id);
+      await resolveAccessRequest(request.id, 'rejected');
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setResolvingRequestId(null);
+    }
+  };
 
   const handleAddAccess = async () => {
     if (!newDoctorAmka) {
@@ -127,7 +194,7 @@ export default function PatientAccessScreen() {
                 <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}>
+              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openRequestsModal}>
                 <Text style={styles.addButtonText}>Αιτήματα</Text>
               </TouchableOpacity>
             </View>
@@ -222,6 +289,55 @@ export default function PatientAccessScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Αιτημάτων Πρόσβασης */}
+      <Modal animationType="slide" transparent={true} visible={isRequestsModalVisible} onRequestClose={() => setIsRequestsModalVisible(false)}>
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Αιτήματα Πρόσβασης</Text>
+              <TouchableOpacity onPress={() => setIsRequestsModalVisible(false)} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingRequests ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
+            ) : requests.length === 0 ? (
+              <Text style={[styles.emptyText, { marginTop: 0, marginBottom: 10 }]}>Δεν υπάρχουν εκκρεμή αιτήματα.</Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                {requests.map((item) => (
+                  <View key={item.id} style={localStyles.requestCard}>
+                    <Text style={localStyles.doctorName}>
+                      Δρ. {item.doctors?.last_name} {item.doctors?.first_name}
+                    </Text>
+                    {!!item.doctors?.specialty && <Text style={localStyles.specialty}>{item.doctors.specialty}</Text>}
+                    <Text style={localStyles.typeLabel}>Τύπος πρόσβασης: <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{item.access_type}</Text></Text>
+
+                    <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                      <TouchableOpacity
+                        style={[localStyles.requestActionButton, { backgroundColor: COLORS.primary, marginRight: 8 }]}
+                        onPress={() => handleAcceptRequest(item)}
+                        disabled={resolvingRequestId === item.id}
+                      >
+                        {resolvingRequestId === item.id ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={localStyles.requestActionButtonText}>Αποδοχή</Text>}
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[localStyles.requestActionButton, { backgroundColor: COLORS.danger }]}
+                        onPress={() => handleRejectRequest(item)}
+                        disabled={resolvingRequestId === item.id}
+                      >
+                        <Text style={localStyles.requestActionButtonText}>Απόρριψη</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -241,4 +357,7 @@ const localStyles = StyleSheet.create({
   typePillText: { color: COLORS.primary, fontWeight: '600', fontSize: TYPOGRAPHY.secondaryText },
   removeButton: { backgroundColor: COLORS.danger, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
   removeButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+  requestCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: 12 },
+  requestActionButton: { flex: 1, minHeight: TOUCH.buttonHeight, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  requestActionButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText },
 });
