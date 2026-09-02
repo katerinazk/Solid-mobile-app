@@ -66,7 +66,6 @@ export default function DoctorLoginScreen() {
         <Text style={[styles.inputLabel, { color: COLORS.primary, fontSize: TYPOGRAPHY.subtitle }]}>Solid Provider</Text>
         <TextInput
           style={[styles.loginInput, localStyles.input]}
-          placeholder="π.χ. https://datapod.igrant.io"
           autoCapitalize="none"
           autoCorrect={false}
           value={solidProvider}

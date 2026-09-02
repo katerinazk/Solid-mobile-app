@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../constants/colors';
 import { loginStyles as styles } from '../../constants/loginStyles';
-import { TYPOGRAPHY, TOUCH } from '../../constants/designSystem';
+import { TYPOGRAPHY, TOUCH, SPACING } from '../../constants/designSystem';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
 import { registerDoctor } from '../../services/doctors';
@@ -57,44 +57,52 @@ export default function DoctorRegisterScreen() {
         <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
       </TouchableOpacity>
 
-      <View style={styles.loginCard}>
-        <Text style={styles.loginTitle}>Δημιουργία Λογαριασμού</Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: SPACING.topMargin + 40, paddingBottom: SPACING.bottomMargin }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.loginCard}>
+          <Text style={[styles.loginTitle, localStyles.title]}>Δημιουργία Λογαριασμού</Text>
 
-        <Text style={[styles.inputLabel, localStyles.label]}>Όνομα</Text>
-        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. Δημήτρης" value={doctorForm.first_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, first_name: t })} />
+          <Text style={[styles.inputLabel, localStyles.label]}>Όνομα</Text>
+          <TextInput style={[styles.loginInput, localStyles.input]} value={doctorForm.first_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, first_name: t })} />
 
-        <Text style={[styles.inputLabel, localStyles.label]}>Επίθετο</Text>
-        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. Λάμπρου" value={doctorForm.last_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, last_name: t })} />
+          <Text style={[styles.inputLabel, localStyles.label]}>Επίθετο</Text>
+          <TextInput style={[styles.loginInput, localStyles.input]} value={doctorForm.last_name} onChangeText={(t) => setDoctorForm({ ...doctorForm, last_name: t })} />
 
-        <Text style={[styles.inputLabel, localStyles.label]}>ΑΜΚΑ</Text>
-        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="11 ψηφία" keyboardType="numeric" value={doctorForm.amka} onChangeText={(t) => setDoctorForm({ ...doctorForm, amka: t })} />
+          <Text style={[styles.inputLabel, localStyles.label]}>ΑΜΚΑ</Text>
+          <TextInput style={[styles.loginInput, localStyles.input]} placeholder="11 ψηφία" keyboardType="numeric" value={doctorForm.amka} onChangeText={(t) => setDoctorForm({ ...doctorForm, amka: t })} />
 
-        <Text style={[styles.inputLabel, localStyles.label]}>Ειδικότητα</Text>
-        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. Παθολόγος" value={doctorForm.specialty} onChangeText={(t) => setDoctorForm({ ...doctorForm, specialty: t })} />
+          <Text style={[styles.inputLabel, localStyles.label]}>Ειδικότητα</Text>
+          <TextInput style={[styles.loginInput, localStyles.input]} value={doctorForm.specialty} onChangeText={(t) => setDoctorForm({ ...doctorForm, specialty: t })} />
 
-        <Text style={[styles.inputLabel, localStyles.label]}>Τηλέφωνο</Text>
-        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. 6912345678" keyboardType="numeric" value={doctorForm.phone} onChangeText={(t) => setDoctorForm({ ...doctorForm, phone: t })} />
+          <Text style={[styles.inputLabel, localStyles.label]}>Τηλέφωνο</Text>
+          <TextInput style={[styles.loginInput, localStyles.input]} keyboardType="numeric" value={doctorForm.phone} onChangeText={(t) => setDoctorForm({ ...doctorForm, phone: t })} />
 
-        <Text style={[styles.inputLabel, localStyles.label]}>Email</Text>
-        <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. giatros@email.com" keyboardType="email-address" autoCapitalize="none" value={doctorForm.email} onChangeText={(t) => setDoctorForm({ ...doctorForm, email: t })} />
+          <Text style={[styles.inputLabel, localStyles.label]}>Email</Text>
+          <TextInput style={[styles.loginInput, localStyles.input]} keyboardType="email-address" autoCapitalize="none" value={doctorForm.email} onChangeText={(t) => setDoctorForm({ ...doctorForm, email: t })} />
 
-        <TouchableOpacity style={styles.solidLoginButton} onPress={handleDoctorRegister} disabled={loading}>
-          {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Αποθήκευση</Text>}
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.solidLoginButton} onPress={handleDoctorRegister} disabled={loading}>
+            {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Αποθήκευση</Text>}
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={{ marginTop: 15, alignItems: 'center', minHeight: TOUCH.minTargetSize, justifyContent: 'center' }}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>Έχω ήδη λογαριασμό</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={{ marginTop: 15, alignItems: 'center', minHeight: TOUCH.minTargetSize, justifyContent: 'center' }}
+            onPress={() => router.back()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>Έχω ήδη λογαριασμό</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
+  title: { marginBottom: SPACING.sectionGap },
   label: { color: COLORS.primary, fontSize: TYPOGRAPHY.subtitle },
   input: { borderRadius: 25 },
 });

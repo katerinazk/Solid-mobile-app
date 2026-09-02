@@ -139,10 +139,10 @@ export default function PatientProfileScreen() {
           <TextInput style={localStyles.input} value={formBirthDate} onChangeText={setFormBirthDate} placeholder="π.χ. 1990-07-22" />
 
           <Text style={localStyles.label}>Φύλο</Text>
-          <TextInput style={localStyles.input} value={formSex} onChangeText={setFormSex} placeholder="Άνδρας / Γυναίκα" />
+          <TextInput style={localStyles.input} value={formSex} onChangeText={setFormSex} />
 
           <Text style={localStyles.label}>Ομάδα Αίματος</Text>
-          <TextInput style={localStyles.input} value={formBloodType} onChangeText={setFormBloodType} placeholder="π.χ. A+" />
+          <TextInput style={localStyles.input} value={formBloodType} onChangeText={setFormBloodType} />
 
           <Text style={localStyles.label}>Τηλέφωνο</Text>
           <TextInput style={localStyles.input} value={formPhone} onChangeText={setFormPhone} keyboardType="numeric" />
