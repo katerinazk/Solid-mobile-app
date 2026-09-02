@@ -21,7 +21,7 @@ export const PatientMenuContext = createContext<PatientMenuContextValue | null>(
 const MENU_ITEMS: { label: string; route?: string; isTab?: boolean }[] = [
   { label: 'Αρχική', route: ROUTES.PATIENT_HOME, isTab: true },
   { label: 'Προσβάσεις', route: ROUTES.PATIENT_ACCESS, isTab: true },
-  { label: 'Εξετάσεις' },
+  { label: 'Εξετάσεις', route: ROUTES.PATIENT_EXAMS },
   { label: 'Φάρμακα', route: ROUTES.PATIENT_MEDICATIONS },
   { label: 'Αλλεργίες', route: ROUTES.PATIENT_ALLERGIES },
   { label: 'Διαγνώσεις', route: ROUTES.PATIENT_DIAGNOSEIS },
