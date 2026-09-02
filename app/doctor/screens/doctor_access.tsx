@@ -134,9 +134,13 @@ export default function DoctorAccessScreen() {
       >
         <View style={styles.addmodalOverlay}>
           <View style={styles.addmodalContent}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <View style={{ marginBottom: 20 }}>
               <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Αίτημα{'\n'}Πρόσβασης</Text>
-              <TouchableOpacity onPress={closeRequestModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
+              <TouchableOpacity
+                onPress={closeRequestModal}
+                style={{ position: 'absolute', top: 0, right: 0 }}
+                hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
+              >
                 <Ionicons name="close" size={22} color={COLORS.text} />
               </TouchableOpacity>
             </View>

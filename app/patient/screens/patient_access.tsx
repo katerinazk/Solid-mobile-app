@@ -38,7 +38,11 @@ export default function PatientAccessScreen() {
     try {
       setLoadingRequests(true);
       const { data, error } = await fetchPendingAccessRequestsForPatient(loggedInPatientAmka);
-      if (!error) setRequests((data || []) as unknown as AccessRequest[]);
+      if (error) {
+        alert("Σφάλμα φόρτωσης αιτημάτων: " + error.message);
+        return;
+      }
+      setRequests((data || []) as unknown as AccessRequest[]);
     } finally {
       setLoadingRequests(false);
     }
