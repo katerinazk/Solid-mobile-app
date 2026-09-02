@@ -1,18 +1,76 @@
-import React from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { loginStyles } from '../../../constants/loginStyles';
 import { ROUTES } from '../../../constants/routes';
 import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
-import { SPACING } from '../../../constants/designSystem';
+import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
+import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { Patient } from '../../../types/Patient';
+import { fetchPatientByAmka } from '../../../services/patients';
+import { hasPendingAccessRequest, createAccessRequest } from '../../../services/accessRequests';
 
 export default function DoctorAccessScreen() {
+  const { loggedInDoctorAmka } = useAuth();
   const { patients, loading } = useDoctorPatients();
+
+  const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
+  const [requestPatientAmka, setRequestPatientAmka] = useState('');
+  const [requestAccessType, setRequestAccessType] = useState('Πλήρης Πρόσβαση');
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+
+  const closeRequestModal = () => {
+    setIsRequestModalVisible(false);
+    setRequestPatientAmka('');
+    setRequestAccessType('Πλήρης Πρόσβαση');
+  };
+
+  const handleSubmitAccessRequest = async () => {
+    if (!requestPatientAmka.trim()) {
+      alert("Παρακαλώ εισάγετε το ΑΜΚΑ του ασθενή.");
+      return;
+    }
+
+    try {
+      setSubmittingRequest(true);
+
+      const { data: patientData, error: patientError } = await fetchPatientByAmka(requestPatientAmka.trim());
+      if (patientError || !patientData) {
+        alert("Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.");
+        return;
+      }
+
+      const alreadyHasAccess = patients.some((p) => p.amka === requestPatientAmka.trim());
+      if (alreadyHasAccess) {
+        alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
+        return;
+      }
+
+      const { data: pendingRequest } = await hasPendingAccessRequest(loggedInDoctorAmka, requestPatientAmka.trim());
+      if (pendingRequest) {
+        alert("Υπάρχει ήδη εκκρεμές αίτημα πρόσβασης για αυτόν τον ασθενή.");
+        return;
+      }
+
+      const { error } = await createAccessRequest(loggedInDoctorAmka, requestPatientAmka.trim(), requestAccessType);
+      if (error) {
+        alert("Σφάλμα: " + error.message);
+        return;
+      }
+
+      alert("Το αίτημα πρόσβασης στάλθηκε επιτυχώς!");
+      closeRequestModal();
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setSubmittingRequest(false);
+    }
+  };
 
   const renderPatientCard = ({ item }: { item: Patient }) => (
     <View style={[styles.card, { backgroundColor: COLORS.lightest }]}>
@@ -46,7 +104,7 @@ export default function DoctorAccessScreen() {
 
       <TouchableOpacity
         style={doctorStyles.requestAccessButton}
-        onPress={() => Alert.alert('Αίτημα Πρόσβασης', 'Η λειτουργία έρχεται σύντομα.')}
+        onPress={() => setIsRequestModalVisible(true)}
       >
         <Ionicons name="add" size={20} color={COLORS.white} />
         <Text style={doctorStyles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
@@ -67,6 +125,58 @@ export default function DoctorAccessScreen() {
       {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
         <FlatList style={{ flex: 1 }} data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
       )}
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isRequestModalVisible}
+        onRequestClose={closeRequestModal}
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Αίτημα{'\n'}Πρόσβασης</Text>
+              <TouchableOpacity onPress={closeRequestModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={loginStyles.inputLabel}>ΑΜΚΑ Ασθενούς</Text>
+            <TextInput
+              style={[loginStyles.loginInput, localStyles.input]}
+              keyboardType="numeric"
+              value={requestPatientAmka}
+              onChangeText={setRequestPatientAmka}
+            />
+
+            <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
+            <TouchableOpacity
+              style={[loginStyles.loginInput, localStyles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+              onPress={() => setRequestAccessType((prev) => prev === 'Πλήρης Πρόσβαση' ? 'Μόνο Ανάγνωση' : 'Πλήρης Πρόσβαση')}
+            >
+              <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{requestAccessType}</Text>
+              <Ionicons name="chevron-down" size={18} color={COLORS.primary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
+              onPress={handleSubmitAccessRequest}
+              disabled={submittingRequest}
+            >
+              {submittingRequest ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  input: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 20,
+  },
+});
