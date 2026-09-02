@@ -29,12 +29,12 @@ interface Medication {
   started?: boolean;
 }
 
-function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, onEdit, onDelete }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
+function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit, onEdit, onDelete }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; allowEdit: boolean; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
-        {item.doctorAmka === loggedInDoctorAmka && (
+        {allowEdit && item.doctorAmka === loggedInDoctorAmka && (
           <View style={{ flexDirection: 'row' }}>
             <TouchableOpacity onPress={() => onEdit(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
@@ -308,7 +308,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
           )}
 
           <TouchableOpacity
@@ -324,7 +324,7 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
+                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
               )}
             </View>
           )}
