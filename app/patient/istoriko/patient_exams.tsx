@@ -89,7 +89,7 @@ export default function PatientExamsScreen() {
   const webId = getOwnerWebId(activePatientFolderUrl);
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
 
-  const [selectedCategory, setSelectedCategory] = useState('Εκκρεμείς');
+  const [selectedCategory, setSelectedCategory] = useState('Όλες');
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
