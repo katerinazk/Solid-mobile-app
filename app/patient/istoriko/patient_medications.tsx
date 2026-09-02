@@ -168,6 +168,9 @@ export default function PatientMedicationsScreen() {
       }
     }
 
+    // Τα εκκρεμή φάρμακα (δεν έχει πατηθεί ακόμα "Έναρξη") εμφανίζονται πάντα πρώτα.
+    active.sort((a, b) => Number(isPending(b)) - Number(isPending(a)));
+
     previous.sort((a, b) => {
       const diff = new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
       return previousNewestFirst ? diff : -diff;

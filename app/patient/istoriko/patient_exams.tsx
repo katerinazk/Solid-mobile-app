@@ -35,6 +35,9 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
         <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
 
