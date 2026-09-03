@@ -28,6 +28,8 @@ export default function PatientAccessScreen() {
   const [newDoctorAmka, setNewDoctorAmka] = useState('');
   const [newAccessType, setNewAccessType] = useState('Πλήρης Πρόσβαση');
 
+  const [openTypeFor, setOpenTypeFor] = useState<string | null>(null);
+
   const [isRequestsModalVisible, setIsRequestsModalVisible] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
@@ -159,8 +161,11 @@ export default function PatientAccessScreen() {
     ]);
   };
 
-  const handleChangeAccessType = async (doctorAmka: string, currentType: string) => {
-    const newType = currentType === 'Πλήρης Πρόσβαση' ? 'Μόνο Ανάγνωση' : 'Πλήρης Πρόσβαση';
+  const handleSelectAccessType = async (doctorAmka: string, newType: string) => {
+    setOpenTypeFor(null);
+
+    const doctorEntryBefore = accessList.find(a => a.doctor_amka === doctorAmka);
+    if (doctorEntryBefore?.access_type === newType) return;
 
     const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType);
 
@@ -235,13 +240,30 @@ export default function PatientAccessScreen() {
 
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={localStyles.typeLabel}>Τύπος πρόσβασης: </Text>
-              <TouchableOpacity
-                style={localStyles.typePill}
-                onPress={() => handleChangeAccessType(item.doctor_amka, item.access_type)}
-              >
-                <Text style={localStyles.typePillText}>{item.access_type}</Text>
-                <Ionicons name="chevron-down" size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
+              <View style={{ position: 'relative' }}>
+                <TouchableOpacity
+                  style={localStyles.typePill}
+                  onPress={() => setOpenTypeFor((prev) => prev === item.doctor_amka ? null : item.doctor_amka)}
+                >
+                  <Text style={localStyles.typePillText}>{item.access_type}</Text>
+                  <Ionicons name={openTypeFor === item.doctor_amka ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+
+                {openTypeFor === item.doctor_amka && (
+                  <View style={localStyles.typeDropdown}>
+                    {['Πλήρης Πρόσβαση', 'Μόνο Ανάγνωση'].map((type, index) => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[localStyles.typeDropdownOption, index === 0 && localStyles.typeDropdownOptionBorder]}
+                        onPress={() => handleSelectAccessType(item.doctor_amka, type)}
+                      >
+                        <Text style={[localStyles.typeDropdownOptionText, type === item.access_type && localStyles.typeDropdownOptionTextSelected]} numberOfLines={1}>{type}</Text>
+                        {type === item.access_type && <Ionicons name="checkmark" size={14} color={COLORS.primary} style={{ marginLeft: 6 }} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
             </View>
 
             <TouchableOpacity style={localStyles.removeButton} onPress={() => handleDeleteAccess(item.doctor_amka)}>
@@ -359,6 +381,24 @@ const localStyles = StyleSheet.create({
   typeLabel: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
   typePill: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginLeft: 8 },
   typePillText: { color: COLORS.primary, fontWeight: '600', fontSize: TYPOGRAPHY.secondaryText },
+  typeDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 12,
+    overflow: 'hidden',
+    zIndex: 10,
+    elevation: 5,
+  },
+  typeDropdownOption: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10 },
+  typeDropdownOptionBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.lightest },
+  typeDropdownOptionText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text },
+  typeDropdownOptionTextSelected: { color: COLORS.primary, fontWeight: 'bold' },
   removeButton: { backgroundColor: COLORS.danger, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
   removeButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
   requestCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: 12 },
