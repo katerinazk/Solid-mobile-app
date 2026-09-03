@@ -34,6 +34,12 @@ export default function PatientAccessScreen() {
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
+  const [openRequestTypeFor, setOpenRequestTypeFor] = useState<string | null>(null);
+
+  const handleChangeRequestType = (requestId: string, newType: string) => {
+    setRequests((prev) => prev.map((r) => r.id === requestId ? { ...r, access_type: newType } : r));
+    setOpenRequestTypeFor(null);
+  };
 
   const openRequestsModal = async () => {
     setIsRequestsModalVisible(true);
@@ -339,7 +345,32 @@ export default function PatientAccessScreen() {
                       Δρ. {item.doctors?.last_name} {item.doctors?.first_name}
                     </Text>
                     {!!item.doctors?.specialty && <Text style={localStyles.specialty}>{item.doctors.specialty}</Text>}
-                    <Text style={localStyles.typeLabel}>Τύπος πρόσβασης: <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{item.access_type}</Text></Text>
+
+                    <Text style={[localStyles.typeLabel, { marginBottom: 6 }]}>Τύπος πρόσβασης:</Text>
+                    <View style={{ position: 'relative', alignSelf: 'flex-start' }}>
+                      <TouchableOpacity
+                        style={localStyles.typePill}
+                        onPress={() => setOpenRequestTypeFor((prev) => prev === item.id ? null : item.id)}
+                      >
+                        <Text style={localStyles.typePillText}>{item.access_type}</Text>
+                        <Ionicons name={openRequestTypeFor === item.id ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
+                      </TouchableOpacity>
+
+                      {openRequestTypeFor === item.id && (
+                        <View style={localStyles.typeDropdown}>
+                          {['Πλήρης Πρόσβαση', 'Μόνο Ανάγνωση'].map((type, index) => (
+                            <TouchableOpacity
+                              key={type}
+                              style={[localStyles.typeDropdownOption, index === 0 && localStyles.typeDropdownOptionBorder]}
+                              onPress={() => handleChangeRequestType(item.id, type)}
+                            >
+                              <Text style={[localStyles.typeDropdownOptionText, type === item.access_type && localStyles.typeDropdownOptionTextSelected]} numberOfLines={1}>{type}</Text>
+                              {type === item.access_type && <Ionicons name="checkmark" size={14} color={COLORS.primary} style={{ marginLeft: 6 }} />}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
 
                     <View style={{ flexDirection: 'row', marginTop: 10 }}>
                       <TouchableOpacity
