@@ -41,12 +41,33 @@ export async function fetchPatientByAmka(amka: string) {
 // Επιστρέφουμε μόνο ονοματεπώνυμο + ΑΜΚΑ: όσα χρειάζεται η καρτέλα αποτελέσματος. Τα
 // υπόλοιπα στοιχεία (WebID, ημ. γέννησης κ.λπ.) τα παίρνει ο γιατρός μόνο για ασθενείς που
 // του έχουν ήδη δώσει πρόσβαση, μέσα από τη λίστα προσβάσεών του.
-export async function searchPatientsByAmka(amkaQuery: string) {
-  return supabase
+//
+// Ψάχνει σε όνομα, επίθετο ή ΑΜΚΑ. Το κείμενο σπάει σε λέξεις, ώστε να δουλεύει και ολόκληρο
+// το ονοματεπώνυμο ("Νίκος Παπαδόπουλος"): η βάση φέρνει όσους ταιριάζουν με την 1η λέξη και
+// μετά κρατάμε μόνο όσους ταιριάζουν σε ΚΑΘΕ λέξη (η καθεμία σε όποιο πεδίο θέλει).
+export async function searchPatients(searchQuery: string) {
+  // Τα κόμματα και οι παρενθέσεις έχουν ειδική σημασία στο φίλτρο .or() του PostgREST.
+  const terms = searchQuery.trim().split(/\s+/).map((t) => t.replace(/[,()]/g, '')).filter(Boolean);
+  if (terms.length === 0) return { data: [], error: null };
+
+  const first = terms[0];
+  const { data, error } = await supabase
     .from('patients')
     .select('first_name, last_name, amka')
-    .ilike('amka', `%${amkaQuery}%`)
-    .limit(20);
+    .or(`first_name.ilike.%${first}%,last_name.ilike.%${first}%,amka.ilike.%${first}%`)
+    .limit(50);
+
+  if (error) return { data: null, error };
+
+  const matchesAllTerms = (row: any) =>
+    terms.every((term) => {
+      const t = term.toLowerCase();
+      return (row.first_name || '').toLowerCase().includes(t)
+        || (row.last_name || '').toLowerCase().includes(t)
+        || (row.amka || '').includes(t);
+    });
+
+  return { data: (data || []).filter(matchesAllTerms).slice(0, 20), error: null };
 }
 
 export interface PatientRegistrationForm {

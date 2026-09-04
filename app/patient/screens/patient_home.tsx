@@ -84,7 +84,7 @@ export default function PatientHomeScreen() {
       <PatientHeader />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
-        <Text style={localStyles.welcome}>Καλωσωρίσατε {salutation} {patient?.last_name || ''}</Text>
+        <Text style={localStyles.welcome}>Καλωσορίσατε {salutation} {patient?.last_name || ''}</Text>
 
         <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => router.push(ROUTES.PATIENT_ACCESS)}>
           <Text style={styles.addButtonText}>Διαχείριση Προσβάσεων</Text>

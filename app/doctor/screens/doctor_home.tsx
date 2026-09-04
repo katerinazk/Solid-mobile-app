@@ -12,7 +12,7 @@ import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { fetchDoctorByAmka } from '../../../services/doctors';
-import { searchPatientsByAmka } from '../../../services/patients';
+import { searchPatients } from '../../../services/patients';
 
 interface SearchResult {
   first_name: string;
@@ -20,8 +20,8 @@ interface SearchResult {
   amka: string;
 }
 
-// Ψάχνουμε μόνο από 3 ψηφία και πάνω - με 1-2 ψηφία το ΑΜΚΑ ταιριάζει σχεδόν με τα πάντα και
-// το αποτέλεσμα δεν λέει τίποτα στον γιατρό.
+// Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
+// τα πάντα και το αποτέλεσμα δεν λέει τίποτα στον γιατρό.
 const MIN_SEARCH_LENGTH = 3;
 
 export default function DoctorHomeScreen() {
@@ -55,12 +55,12 @@ export default function DoctorHomeScreen() {
       return;
     }
 
-    // Μικρή καθυστέρηση ώστε να μη στέλνουμε ένα query σε κάθε ψηφίο που πληκτρολογείται.
+    // Μικρή καθυστέρηση ώστε να μη στέλνουμε ένα query σε κάθε χαρακτήρα που πληκτρολογείται.
     let canceled = false;
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const { data, error } = await searchPatientsByAmka(query);
+        const { data, error } = await searchPatients(query);
         if (canceled) return;
         setResults(error ? [] : ((data || []) as SearchResult[]));
       } finally {
@@ -128,18 +128,18 @@ export default function DoctorHomeScreen() {
       <DoctorHeader />
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <Text style={localStyles.welcome}>Καλωσωρίσατε Δρ. {doctor?.last_name || ''}</Text>
+        <Text style={localStyles.welcome}>Καλωσορίσατε Δρ. {doctor?.last_name || ''}</Text>
       </View>
 
       <View style={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.groupGap }}>
-        <Text style={styles.dashboardLabel}>Αναζήτηση ΑΜΚΑ:</Text>
+        <Text style={styles.dashboardLabel}>Αναζήτηση Ασθενή:</Text>
         <View style={[styles.searchContainer, { marginHorizontal: 0 }]}>
           <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Αναζήτηση..."
             placeholderTextColor={COLORS.primary}
-            keyboardType="numeric"
+            autoCorrect={false}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -151,7 +151,7 @@ export default function DoctorHomeScreen() {
           searching ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : results.length === 0 ? (
-            <Text style={[sharedStyles.emptyText, { marginTop: 20 }]}>Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.</Text>
+            <Text style={[sharedStyles.emptyText, { marginTop: 20 }]}>Δεν βρέθηκε ασθενής με αυτά τα στοιχεία.</Text>
           ) : (
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
               {results.map(renderResultCard)}
