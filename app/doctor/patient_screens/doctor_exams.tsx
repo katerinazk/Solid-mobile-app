@@ -85,6 +85,7 @@ export default function DoctorExamsScreen() {
   const isReadOnly = accessType === 'Μόνο Ανάγνωση';
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -159,16 +160,25 @@ export default function DoctorExamsScreen() {
   };
 
   const { pendingExams, completedExams } = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
     const matchesCategory = (e: Exam) => {
       if (selectedCategory === 'Όλες') return true;
       return e.type === selectedCategory;
     };
-    const filtered = exams.filter(matchesCategory);
+    const matchesSearch = (e: Exam) => {
+      if (!query) return true;
+      return e.title?.toLowerCase().includes(query) || e.type?.toLowerCase().includes(query);
+    };
+    const filtered = exams.filter((e) => matchesCategory(e) && matchesSearch(e));
     return {
       pendingExams: filtered.filter((e) => e.status === 'pending'),
       completedExams: filtered.filter((e) => e.status === 'completed'),
     };
-  }, [exams, selectedCategory]);
+  }, [exams, selectedCategory, searchQuery]);
+
+  // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και τις "Ολοκληρωμένες" - αλλιώς ένα
+  // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
+  const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
 
   const openAddModal = () => {
     setEditingExam(null);
@@ -300,7 +310,13 @@ export default function DoctorExamsScreen() {
         <Text style={doctorStyles.dashboardLabel}>Αναζήτηση εξέτασης:</Text>
         <View style={[doctorStyles.searchContainer, { marginHorizontal: 0 }]}>
           <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-          <TextInput style={doctorStyles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+          <TextInput
+            style={doctorStyles.searchInput}
+            placeholder="Αναζήτηση..."
+            placeholderTextColor={COLORS.primary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
       </View>
 
@@ -348,11 +364,11 @@ export default function DoctorExamsScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
             onPress={() => setShowCompleted((prev) => !prev)}
           >
-            <Ionicons name={showCompleted ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+            <Ionicons name={completedSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
             <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ολοκληρωμένες</Text>
           </TouchableOpacity>
 
-          {showCompleted && (
+          {completedSectionOpen && (
             <View style={{ marginTop: 12 }}>
               {completedExams.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
