@@ -226,10 +226,18 @@ export default function PatientExamsScreen() {
     );
   };
 
-  const { pendingExams, completedExams } = useMemo(() => ({
-    pendingExams: exams.filter((e) => e.status === 'pending'),
-    completedExams: exams.filter((e) => e.status === 'completed'),
-  }), [exams]);
+  const { pendingExams, completedExams } = useMemo(() => {
+    const matchesCategory = (e: Exam) => {
+      if (selectedCategory === 'Όλες') return true;
+      if (selectedCategory === 'Εκκρεμείς') return e.status === 'pending';
+      return e.type === selectedCategory;
+    };
+    const filtered = exams.filter(matchesCategory);
+    return {
+      pendingExams: filtered.filter((e) => e.status === 'pending'),
+      completedExams: filtered.filter((e) => e.status === 'completed'),
+    };
+  }, [exams, selectedCategory]);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
