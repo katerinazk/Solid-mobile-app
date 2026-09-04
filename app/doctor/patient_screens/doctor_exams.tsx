@@ -15,7 +15,7 @@ import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
-const CATEGORIES = ['Όλες', 'Εκκρεμείς', 'Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
+const CATEGORIES = ['Όλες', 'Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
 const EXAM_TYPES = ['Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
 
 interface Exam {
@@ -66,6 +66,9 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
         <Text style={[doctorStyles.diagnosisCardTitle, { marginRight: 0 }]}>{item.title}</Text>
+        <Text style={doctorStyles.diagnosisCardDetail}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
+        </Text>
         <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.completedDate ? formatDate(item.completedDate) : ''}</Text>
       </View>
       {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
@@ -157,7 +160,6 @@ export default function DoctorExamsScreen() {
   const { pendingExams, completedExams } = useMemo(() => {
     const matchesCategory = (e: Exam) => {
       if (selectedCategory === 'Όλες') return true;
-      if (selectedCategory === 'Εκκρεμείς') return e.status === 'pending';
       return e.type === selectedCategory;
     };
     const filtered = exams.filter(matchesCategory);
