@@ -61,6 +61,15 @@ export async function fetchPendingAccessRequestsForDoctor(doctorAmka: string) {
     .eq('status', 'pending');
 }
 
+// Ο γιατρός ακυρώνει ένα δικό του αίτημα πριν προλάβει ο ασθενής να απαντήσει - το διαγράφουμε
+// εντελώς (δεν είναι έκβαση σαν το accepted/rejected, απλώς ποτέ δεν έφτασε σε απόφαση).
+export async function cancelAccessRequest(requestId: string) {
+  return supabase
+    .from('access_requests')
+    .delete()
+    .eq('id', requestId);
+}
+
 // Ο ασθενής αποδέχεται ή απορρίπτει ένα αίτημα - κρατάμε την εγγραφή (με νέο status) αντί να
 // τη διαγράφουμε, ώστε να μη μπορεί ο γιατρός να ξαναστείλει το ίδιο αίτημα επ' άπειρον χωρίς
 // να το προσέξει κανείς (το hasPendingAccessRequest ελέγχει μόνο status: 'pending').
