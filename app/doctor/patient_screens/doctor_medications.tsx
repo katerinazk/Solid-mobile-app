@@ -62,10 +62,11 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
 }
 
 export default function DoctorMedicationsScreen() {
-  const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { amka, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
+  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
 
   const [loading, setLoading] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -286,9 +287,11 @@ export default function DoctorMedicationsScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
-        </TouchableOpacity>
+        {!isReadOnly && (
+          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
+            <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.sectionGap }}>
           <Text style={doctorStyles.dashboardLabel}>Αναζήτηση φαρμάκου:</Text>
@@ -308,7 +311,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
           )}
 
           <TouchableOpacity

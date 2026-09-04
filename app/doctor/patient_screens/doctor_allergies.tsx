@@ -23,10 +23,11 @@ interface Allergy {
 }
 
 export default function DoctorAllergiesScreen() {
-  const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { amka, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
+  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
 
   const [loading, setLoading] = useState(false);
   const [allergies, setAllergies] = useState<Allergy[]>([]);
@@ -199,9 +200,11 @@ export default function DoctorAllergiesScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+        {!isReadOnly && (
         <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Προσθήκη Αλλεργίας</Text>
         </TouchableOpacity>
+        )}
       </View>
 
       {loading ? (

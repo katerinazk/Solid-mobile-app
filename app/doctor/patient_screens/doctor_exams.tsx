@@ -29,12 +29,12 @@ interface Exam {
   resultFile?: string;
 }
 
-function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, onEdit, onDelete }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onDelete }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
-        {item.doctorAmka === loggedInDoctorAmka && (
+        {!isReadOnly && item.doctorAmka === loggedInDoctorAmka && (
           <View style={{ flexDirection: 'row' }}>
             <TouchableOpacity onPress={() => onEdit(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
@@ -74,10 +74,11 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
 }
 
 export default function DoctorExamsScreen() {
-  const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { amka, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
+  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
   const [showCompleted, setShowCompleted] = useState(false);
@@ -313,9 +314,11 @@ export default function DoctorExamsScreen() {
       </ScrollView>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+        {!isReadOnly && (
         <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
           <Text style={styles.addButtonText}>+ Προσθήκη Εξέτασης</Text>
         </TouchableOpacity>
+        )}
       </View>
 
       {loading ? (
@@ -327,7 +330,7 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} onEdit={handleEditExam} onDelete={handleDeleteExam} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={handleEditExam} onDelete={handleDeleteExam} />)
           )}
 
           <TouchableOpacity

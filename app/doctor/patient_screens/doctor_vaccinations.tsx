@@ -27,10 +27,13 @@ interface Vaccination {
 }
 
 export default function DoctorVaccinationsScreen() {
-  const { amka, webId } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string }>();
+  const { amka, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
+  // Ο γιατρός με "Μόνο Ανάγνωση" πρόσβαση βλέπει το ιστορικό όπως ακριβώς ο ίδιος ο ασθενής -
+  // χωρίς δυνατότητα προσθήκης/επεξεργασίας/διαγραφής.
+  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
 
   const [loading, setLoading] = useState(false);
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
@@ -285,9 +288,11 @@ export default function DoctorVaccinationsScreen() {
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
-        </TouchableOpacity>
+        {!isReadOnly && (
+          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
+            <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
           <Text style={doctorStyles.diagnosisSortButtonText}>
@@ -309,7 +314,7 @@ export default function DoctorVaccinationsScreen() {
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
-                {item.doctorAmka === loggedInDoctorAmka && (
+                {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity onPress={() => handleEditVaccination(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
