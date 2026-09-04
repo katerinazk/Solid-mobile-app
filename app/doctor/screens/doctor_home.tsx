@@ -123,7 +123,7 @@ export default function DoctorHomeScreen() {
   const query = searchQuery.trim();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
       <DoctorHeader />
 
@@ -153,7 +153,9 @@ export default function DoctorHomeScreen() {
           ) : results.length === 0 ? (
             <Text style={[sharedStyles.emptyText, { marginTop: 20 }]}>Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.</Text>
           ) : (
-            results.map(renderResultCard)
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              {results.map(renderResultCard)}
+            </View>
           )
         )}
 
