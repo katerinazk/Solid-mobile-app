@@ -71,6 +71,7 @@ export default function DoctorMedicationsScreen() {
   const [loading, setLoading] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [showPrevious, setShowPrevious] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
@@ -256,11 +257,14 @@ export default function DoctorMedicationsScreen() {
   const { activeMedications, previousMedications } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const query = searchQuery.trim().toLowerCase();
 
     const active: Medication[] = [];
     const previous: Medication[] = [];
 
     for (const med of medications) {
+      if (query && !med.title?.toLowerCase().includes(query)) continue;
+
       const endDate = new Date(med.startDate);
       endDate.setDate(endDate.getDate() + (med.durationDays || 0));
       if (endDate >= today) {
@@ -271,7 +275,11 @@ export default function DoctorMedicationsScreen() {
     }
 
     return { activeMedications: active, previousMedications: previous };
-  }, [medications]);
+  }, [medications, searchQuery]);
+
+  // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και την "Προηγούμενη Αγωγή" - αλλιώς ένα
+  // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
+  const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -297,7 +305,13 @@ export default function DoctorMedicationsScreen() {
           <Text style={doctorStyles.dashboardLabel}>Αναζήτηση φαρμάκου:</Text>
           <View style={[doctorStyles.searchContainer, { marginHorizontal: 0 }]}>
             <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-            <TextInput style={doctorStyles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+            <TextInput
+              style={doctorStyles.searchInput}
+              placeholder="Αναζήτηση..."
+              placeholderTextColor={COLORS.primary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
         </View>
       </View>
@@ -318,11 +332,11 @@ export default function DoctorMedicationsScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
             onPress={() => setShowPrevious((prev) => !prev)}
           >
-            <Ionicons name={showPrevious ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+            <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
             <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
           </TouchableOpacity>
 
-          {showPrevious && (
+          {previousSectionOpen && (
             <View style={{ marginTop: 12 }}>
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
