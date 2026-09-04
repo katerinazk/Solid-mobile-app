@@ -60,18 +60,4 @@ export const doctorStyles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
 
-  /* Πλαϊνό μενού γιατρού (drawer) */
-  menuOverlay: { flex: 1, flexDirection: 'row' },
-  menuPanel: {
-    width: '75%',
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.sideMargin,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 60,
-    paddingBottom: SPACING.sectionGap,
-  },
-  menuBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
-  menuItems: { alignItems: 'center', marginTop: SPACING.sectionGap },
-  menuItemText: { color: COLORS.white, fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', marginVertical: 18 },
-  menuLogoutButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center' },
-  menuLogoutText: { color: COLORS.white, fontSize: TYPOGRAPHY.bodyText, fontWeight: '600', marginLeft: 8 },
 });

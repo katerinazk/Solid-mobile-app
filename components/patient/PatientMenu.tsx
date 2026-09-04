@@ -30,8 +30,8 @@ const MENU_ITEMS: { label: string; route?: string; isTab?: boolean }[] = [
   { label: 'Ρυθμίσεις', route: ROUTES.PATIENT_SETTINGS, isTab: true },
 ];
 
-// Το πλαϊνό μενού ασθενή μπαίνει/βγαίνει με οριζόντιο slide, με το ίδιο animation/στυλ
-// που χρησιμοποιεί ήδη το πλαϊνό μενού του γιατρού (DoctorMenu.tsx).
+// Το πλαϊνό μενού ασθενή μπαίνει/βγαίνει με οριζόντιο slide (αριστερά -> δεξιά), γι' αυτό το
+// κάνουμε με Animated αντί για το animationType="slide" του Modal, που κινείται πάντα κάθετα.
 export function PatientMenuProvider({ children }: { children: ReactNode }) {
   const { confirmLogout } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
