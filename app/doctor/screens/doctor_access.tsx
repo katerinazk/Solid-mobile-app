@@ -5,15 +5,14 @@ import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
-import { loginStyles } from '../../../constants/loginStyles';
 import { ROUTES } from '../../../constants/routes';
 import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
+import { AccessRequestModal } from '../../../components/doctor/AccessRequestModal';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { Patient } from '../../../types/Patient';
-import { fetchPatientByAmka } from '../../../services/patients';
-import { hasPendingAccessRequest, createAccessRequest, fetchPendingAccessRequestsForDoctor, cancelAccessRequest } from '../../../services/accessRequests';
+import { fetchPendingAccessRequestsForDoctor, cancelAccessRequest } from '../../../services/accessRequests';
 
 export default function DoctorAccessScreen() {
   const { loggedInDoctorAmka } = useAuth();
@@ -33,9 +32,6 @@ export default function DoctorAccessScreen() {
   }, [patients, searchQuery]);
 
   const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
-  const [requestPatientAmka, setRequestPatientAmka] = useState('');
-  const [requestAccessType, setRequestAccessType] = useState('Πλήρης Πρόσβαση');
-  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   interface SentAccessRequest {
     id: string;
@@ -91,54 +87,6 @@ export default function DoctorAccessScreen() {
         }
       ]
     );
-  };
-
-  const closeRequestModal = () => {
-    setIsRequestModalVisible(false);
-    setRequestPatientAmka('');
-    setRequestAccessType('Πλήρης Πρόσβαση');
-  };
-
-  const handleSubmitAccessRequest = async () => {
-    if (!requestPatientAmka.trim()) {
-      alert("Παρακαλώ εισάγετε το ΑΜΚΑ του ασθενή.");
-      return;
-    }
-
-    try {
-      setSubmittingRequest(true);
-
-      const { data: patientData, error: patientError } = await fetchPatientByAmka(requestPatientAmka.trim());
-      if (patientError || !patientData) {
-        alert("Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.");
-        return;
-      }
-
-      const alreadyHasAccess = patients.some((p) => p.amka === requestPatientAmka.trim());
-      if (alreadyHasAccess) {
-        alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
-        return;
-      }
-
-      const { data: pendingRequest } = await hasPendingAccessRequest(loggedInDoctorAmka, requestPatientAmka.trim());
-      if (pendingRequest) {
-        alert("Υπάρχει ήδη εκκρεμές αίτημα πρόσβασης για αυτόν τον ασθενή.");
-        return;
-      }
-
-      const { error } = await createAccessRequest(loggedInDoctorAmka, requestPatientAmka.trim(), requestAccessType);
-      if (error) {
-        alert("Σφάλμα: " + error.message);
-        return;
-      }
-
-      alert("Το αίτημα πρόσβασης στάλθηκε επιτυχώς!");
-      closeRequestModal();
-    } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
-    } finally {
-      setSubmittingRequest(false);
-    }
   };
 
   const renderPatientCard = ({ item }: { item: Patient }) => (
@@ -213,52 +161,12 @@ export default function DoctorAccessScreen() {
         <FlatList style={{ flex: 1 }} data={filteredPatients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
       )}
 
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <AccessRequestModal
         visible={isRequestModalVisible}
-        onRequestClose={closeRequestModal}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <View style={{ marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Αίτημα{'\n'}Πρόσβασης</Text>
-              <TouchableOpacity
-                onPress={closeRequestModal}
-                style={{ position: 'absolute', top: 0, right: 0 }}
-                hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
-              >
-                <Ionicons name="close" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={loginStyles.inputLabel}>ΑΜΚΑ Ασθενούς</Text>
-            <TextInput
-              style={[loginStyles.loginInput, localStyles.input]}
-              keyboardType="numeric"
-              value={requestPatientAmka}
-              onChangeText={setRequestPatientAmka}
-            />
-
-            <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
-            <TouchableOpacity
-              style={[loginStyles.loginInput, localStyles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-              onPress={() => setRequestAccessType((prev) => prev === 'Πλήρης Πρόσβαση' ? 'Μόνο Ανάγνωση' : 'Πλήρης Πρόσβαση')}
-            >
-              <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{requestAccessType}</Text>
-              <Ionicons name="chevron-down" size={18} color={COLORS.primary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
-              onPress={handleSubmitAccessRequest}
-              disabled={submittingRequest}
-            >
-              {submittingRequest ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        doctorAmka={loggedInDoctorAmka}
+        hasAccessTo={(patientAmka) => patients.some((p) => p.amka === patientAmka)}
+        onClose={() => setIsRequestModalVisible(false)}
+      />
 
       <Modal
         animationType="slide"
@@ -309,12 +217,6 @@ export default function DoctorAccessScreen() {
 }
 
 const localStyles = StyleSheet.create({
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-  },
   requestCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: 12 },
   requestPatientName: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginBottom: 4 },
   requestDetail: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, marginTop: 2 },

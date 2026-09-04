@@ -36,6 +36,19 @@ export async function fetchPatientByAmka(amka: string) {
     .single();
 }
 
+// Αναζήτηση σε ΟΛΟΥΣ τους ασθενείς της βάσης (όχι μόνο σε όσους έχει ήδη πρόσβαση ο γιατρός),
+// ώστε ο γιατρός να μπορεί να στείλει αίτημα πρόσβασης σε ασθενή που δεν έχει ακόμα.
+// Επιστρέφουμε μόνο ονοματεπώνυμο + ΑΜΚΑ: όσα χρειάζεται η καρτέλα αποτελέσματος. Τα
+// υπόλοιπα στοιχεία (WebID, ημ. γέννησης κ.λπ.) τα παίρνει ο γιατρός μόνο για ασθενείς που
+// του έχουν ήδη δώσει πρόσβαση, μέσα από τη λίστα προσβάσεών του.
+export async function searchPatientsByAmka(amkaQuery: string) {
+  return supabase
+    .from('patients')
+    .select('first_name, last_name, amka')
+    .ilike('amka', `%${amkaQuery}%`)
+    .limit(20);
+}
+
 export interface PatientRegistrationForm {
   first_name: string;
   last_name: string;
