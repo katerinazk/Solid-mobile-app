@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -18,6 +18,19 @@ import { hasPendingAccessRequest, createAccessRequest } from '../../../services/
 export default function DoctorAccessScreen() {
   const { loggedInDoctorAmka } = useAuth();
   const { patients, loading } = useDoctorPatients();
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPatients = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return patients;
+    return patients.filter((p) =>
+      p.first_name?.toLowerCase().includes(query) ||
+      p.last_name?.toLowerCase().includes(query) ||
+      `${p.first_name} ${p.last_name}`.toLowerCase().includes(query) ||
+      p.amka?.toLowerCase().includes(query)
+    );
+  }, [patients, searchQuery]);
 
   const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
   const [requestPatientAmka, setRequestPatientAmka] = useState('');
@@ -118,13 +131,23 @@ export default function DoctorAccessScreen() {
 
           <View style={[doctorStyles.searchContainer, { marginHorizontal: 0 }]}>
             <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-            <TextInput style={doctorStyles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+            <TextInput
+              style={doctorStyles.searchInput}
+              placeholder="Αναζήτηση..."
+              placeholderTextColor={COLORS.primary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
         </View>
       </View>
 
-      {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : (
-        <FlatList style={{ flex: 1 }} data={patients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
+      {loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} /> : filteredPatients.length === 0 ? (
+        <Text style={[styles.emptyText, { marginTop: 30 }]}>
+          {searchQuery.trim() ? 'Δεν βρέθηκε ασθενής με αυτά τα στοιχεία.' : 'Δεν έχετε πρόσβαση σε κανέναν ασθενή.'}
+        </Text>
+      ) : (
+        <FlatList style={{ flex: 1 }} data={filteredPatients} keyExtractor={(item) => item.id} renderItem={renderPatientCard} contentContainerStyle={styles.listContent} />
       )}
 
       <Modal
