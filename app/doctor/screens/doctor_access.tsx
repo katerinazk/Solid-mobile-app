@@ -89,6 +89,7 @@ export default function DoctorAccessScreen() {
             lastName: item.last_name,
             webId: item.webId,
             birthDate: item.birthDate,
+            accessType: item.accessType,
           },
         })}
       >

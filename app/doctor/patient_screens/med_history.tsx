@@ -8,7 +8,7 @@ import { ROUTES } from '../../../constants/routes';
 import { SPACING } from '../../../constants/designSystem';
 
 export default function DoctorHistoryScreen() {
-  const { amka, firstName, lastName, webId, birthDate } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string }>();
+  const { amka, firstName, lastName, webId, birthDate, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string; accessType: string }>();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -27,7 +27,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_EXAMS,
-            params: { amka, firstName, lastName, webId },
+            params: { amka, firstName, lastName, webId, accessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Εξετάσεις</Text>
@@ -36,7 +36,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_MEDICATIONS,
-            params: { amka, firstName, lastName, webId },
+            params: { amka, firstName, lastName, webId, accessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Φάρμακα</Text>
@@ -45,7 +45,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_ALLERGIES,
-            params: { amka, firstName, lastName, webId },
+            params: { amka, firstName, lastName, webId, accessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Αλλεργίες</Text>
@@ -54,7 +54,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_DIAGNOSEIS,
-            params: { amka, firstName, lastName, webId, birthDate },
+            params: { amka, firstName, lastName, webId, birthDate, accessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Διαγνώσεις</Text>
@@ -63,7 +63,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_HOSPITALIZATIONS,
-            params: { amka, firstName, lastName, webId },
+            params: { amka, firstName, lastName, webId, accessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Νοσηλίες</Text>
@@ -72,7 +72,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_VACCINATIONS,
-            params: { amka, firstName, lastName, webId },
+            params: { amka, firstName, lastName, webId, accessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Εμβολιασμοί</Text>

@@ -24,11 +24,14 @@ interface Diagnosis {
 }
 
 export default function DoctorDiagnoseisScreen() {
-  const { amka, firstName, lastName, webId, birthDate } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string }>();
+  const { amka, firstName, lastName, webId, birthDate, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string; accessType: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const patientName = `${firstName} ${lastName}`;
   const folderUrl = webId ? getCategoryFolderUrl(webId, 'Διαγνώσεις') : '';
+  // Ο γιατρός με "Μόνο Ανάγνωση" πρόσβαση βλέπει το ιστορικό όπως ακριβώς ο ίδιος ο ασθενής -
+  // χωρίς δυνατότητα προσθήκης/επεξεργασίας/διαγραφής.
+  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
 
   const patientCategory: Category = calculateAge(birthDate) >= 18 ? 'adult' : 'child';
   const [activeCategory, setActiveCategory] = useState<Category>(patientCategory);
@@ -98,7 +101,7 @@ export default function DoctorDiagnoseisScreen() {
     });
   }, [diagnoses, activeCategory, newestFirst]);
 
-  const canAddDiagnosis = activeCategory === patientCategory;
+  const canAddDiagnosis = activeCategory === patientCategory && !isReadOnly;
 
   const displayDoctorName = (item: Diagnosis) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -249,7 +252,7 @@ export default function DoctorDiagnoseisScreen() {
               <View style={doctorStyles.diagnosisCardHeader}>
                 <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
                 {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
-                {(item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && (
+                {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity onPress={() => handleEditDiagnosis(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
