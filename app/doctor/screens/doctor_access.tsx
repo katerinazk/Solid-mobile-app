@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Modal, StyleSheet } from 'react-native';
+import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -13,7 +13,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { Patient } from '../../../types/Patient';
 import { fetchPatientByAmka } from '../../../services/patients';
-import { hasPendingAccessRequest, createAccessRequest } from '../../../services/accessRequests';
+import { hasPendingAccessRequest, createAccessRequest, fetchPendingAccessRequestsForDoctor } from '../../../services/accessRequests';
 
 export default function DoctorAccessScreen() {
   const { loggedInDoctorAmka } = useAuth();
@@ -36,6 +36,32 @@ export default function DoctorAccessScreen() {
   const [requestPatientAmka, setRequestPatientAmka] = useState('');
   const [requestAccessType, setRequestAccessType] = useState('Πλήρης Πρόσβαση');
   const [submittingRequest, setSubmittingRequest] = useState(false);
+
+  interface SentAccessRequest {
+    id: string;
+    patient_amka: string;
+    access_type: string;
+    patients: { first_name: string; last_name: string } | null;
+  }
+
+  const [isSentRequestsModalVisible, setIsSentRequestsModalVisible] = useState(false);
+  const [loadingSentRequests, setLoadingSentRequests] = useState(false);
+  const [sentRequests, setSentRequests] = useState<SentAccessRequest[]>([]);
+
+  const openSentRequestsModal = async () => {
+    setIsSentRequestsModalVisible(true);
+    try {
+      setLoadingSentRequests(true);
+      const { data, error } = await fetchPendingAccessRequestsForDoctor(loggedInDoctorAmka);
+      if (error) {
+        alert("Σφάλμα φόρτωσης αιτημάτων: " + error.message);
+        return;
+      }
+      setSentRequests((data || []) as unknown as SentAccessRequest[]);
+    } finally {
+      setLoadingSentRequests(false);
+    }
+  };
 
   const closeRequestModal = () => {
     setIsRequestModalVisible(false);
@@ -124,6 +150,13 @@ export default function DoctorAccessScreen() {
         <Text style={doctorStyles.requestAccessButtonText}>Αίτημα Πρόσβασης</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={doctorStyles.requestAccessButton}
+        onPress={openSentRequestsModal}
+      >
+        <Text style={doctorStyles.requestAccessButtonText}>Αιτήματα</Text>
+      </TouchableOpacity>
+
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         <Text style={[doctorStyles.dashboardTitle, { marginBottom: SPACING.sectionGap }]}>Προσβάσεις</Text>
         <View style={{ width: '70%', alignSelf: 'center' }}>
@@ -196,6 +229,43 @@ export default function DoctorAccessScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isSentRequestsModalVisible}
+        onRequestClose={() => setIsSentRequestsModalVisible(false)}
+      >
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>Αιτήματα Πρόσβασης</Text>
+              <TouchableOpacity onPress={() => setIsSentRequestsModalVisible(false)} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingSentRequests ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 20 }} />
+            ) : sentRequests.length === 0 ? (
+              <Text style={[styles.emptyText, { marginTop: 0, marginBottom: 10 }]}>Δεν υπάρχουν εκκρεμή αιτήματα.</Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                {sentRequests.map((item) => (
+                  <View key={item.id} style={localStyles.requestCard}>
+                    <Text style={localStyles.requestPatientName}>
+                      {item.patients?.first_name} {item.patients?.last_name}
+                    </Text>
+                    <Text style={localStyles.requestDetail}>ΑΜΚΑ: <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{item.patient_amka}</Text></Text>
+                    <Text style={localStyles.requestDetail}>Τύπος πρόσβασης: <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{item.access_type}</Text></Text>
+                    <Text style={[localStyles.requestDetail, { color: COLORS.danger, fontWeight: 'bold', marginTop: 6 }]}>Εκκρεμεί αποδοχή από τον ασθενή</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -207,4 +277,7 @@ const localStyles = StyleSheet.create({
     borderColor: COLORS.medium,
     borderRadius: 20,
   },
+  requestCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: 12 },
+  requestPatientName: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginBottom: 4 },
+  requestDetail: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, marginTop: 2 },
 });

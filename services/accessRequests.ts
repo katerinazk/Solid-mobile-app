@@ -46,6 +46,21 @@ export async function fetchPendingAccessRequestsForPatient(patientAmka: string) 
     .eq('status', 'pending');
 }
 
+export async function fetchPendingAccessRequestsForDoctor(doctorAmka: string) {
+  return supabase
+    .from('access_requests')
+    .select(`
+      id,
+      patient_amka,
+      access_type,
+      status,
+      created_at,
+      patients (first_name, last_name)
+    `)
+    .eq('doctor_amka', doctorAmka)
+    .eq('status', 'pending');
+}
+
 // Ο ασθενής αποδέχεται ή απορρίπτει ένα αίτημα - κρατάμε την εγγραφή (με νέο status) αντί να
 // τη διαγράφουμε, ώστε να μη μπορεί ο γιατρός να ξαναστείλει το ίδιο αίτημα επ' άπειρον χωρίς
 // να το προσέξει κανείς (το hasPendingAccessRequest ελέγχει μόνο status: 'pending').
