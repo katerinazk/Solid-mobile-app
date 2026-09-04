@@ -32,7 +32,6 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
-        <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
@@ -79,7 +78,9 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
         </Text>
-        <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.completedDate ? formatDate(item.completedDate) : ''}</Text>
+        <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
+        </Text>
       </View>
       {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
     </TouchableOpacity>

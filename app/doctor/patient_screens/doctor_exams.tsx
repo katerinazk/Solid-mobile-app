@@ -51,7 +51,6 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
-      <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.danger, fontWeight: 'bold', marginTop: 10 }]}>ΕΚΚΡΕΜΕΣ</Text>
     </View>
   );
 }
@@ -69,7 +68,9 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
         </Text>
-        <Text style={[doctorStyles.diagnosisCardDetail, { color: COLORS.text, marginTop: 2 }]}>{item.completedDate ? formatDate(item.completedDate) : ''}</Text>
+        <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
+        </Text>
       </View>
       {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
     </TouchableOpacity>
