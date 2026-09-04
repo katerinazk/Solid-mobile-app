@@ -26,7 +26,7 @@ const MIN_SEARCH_LENGTH = 3;
 
 export default function DoctorHomeScreen() {
   const { loggedInDoctorAmka } = useAuth();
-  const { patients } = useDoctorPatients();
+  const { patients, loading } = useDoctorPatients();
   const [doctor, setDoctor] = useState<{ last_name: string } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,7 +147,7 @@ export default function DoctorHomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
-        {query.length >= MIN_SEARCH_LENGTH && (
+        {query.length >= MIN_SEARCH_LENGTH ? (
           searching ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : results.length === 0 ? (
@@ -157,6 +157,23 @@ export default function DoctorHomeScreen() {
               {results.map(renderResultCard)}
             </View>
           )
+        ) : (
+          /* Χωρίς αναζήτηση δείχνουμε τους ασθενείς που έχουν ήδη δώσει πρόσβαση, όπως και στην
+             οθόνη Προσβάσεις - οι ίδιες καρτέλες, ώστε ο γιατρός να μπαίνει κατευθείαν σε φάκελο. */
+          <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+            <Text style={styles.dashboardTitle}>Προσβάσεις</Text>
+            {loading ? (
+              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+            ) : patients.length === 0 ? (
+              <Text style={[sharedStyles.emptyText, { marginTop: 10, textAlign: 'left' }]}>Δεν έχετε πρόσβαση σε κανέναν ασθενή.</Text>
+            ) : (
+              patients.map((patient) => renderResultCard({
+                first_name: patient.first_name,
+                last_name: patient.last_name,
+                amka: patient.amka,
+              }))
+            )}
+          </View>
         )}
 
         <View style={{ paddingHorizontal: SPACING.sideMargin }}>
