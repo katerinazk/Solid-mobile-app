@@ -14,6 +14,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { searchPatients } from '../../../services/patients';
+import { fetchAccessEntry } from '../../../services/access';
+import { Patient } from '../../../types/Patient';
 
 interface SearchResult {
   first_name: string;
@@ -27,13 +29,14 @@ const MIN_SEARCH_LENGTH = 3;
 
 export default function DoctorHomeScreen() {
   const { loggedInDoctorAmka } = useAuth();
-  const { patients, loading, error: patientsError } = useDoctorPatients();
+  const { patients, loading, error: patientsError, refresh } = useDoctorPatients();
   const [doctor, setDoctor] = useState<{ last_name: string } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
 
+  const [openingFolderFor, setOpeningFolderFor] = useState<string | null>(null);
   const [requestAmka, setRequestAmka] = useState('');
   const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
   const [isSentRequestsModalVisible, setIsSentRequestsModalVisible] = useState(false);
@@ -88,6 +91,50 @@ export default function DoctorHomeScreen() {
     setIsRequestModalVisible(true);
   };
 
+  // Η λίστα προσβάσεων φορτώνεται μία φορά, οπότε μπορεί να έχει παλιώσει: ο ασθενής μπορεί
+  // να κατάργησε ή να άλλαξε την πρόσβαση όσο ο γιατρός κοιτούσε την οθόνη. Ξαναρωτάμε τη
+  // βάση τη στιγμή του πατήματος - η επιλογή του ασθενή υπερισχύει πάντα.
+  const openPatientFolder = async (patient: Patient) => {
+    try {
+      setOpeningFolderFor(patient.amka);
+
+      const { data: entry, error } = await fetchAccessEntry(patient.amka, loggedInDoctorAmka);
+
+      if (error) {
+        alert("Δεν ήταν δυνατός ο έλεγχος της πρόσβασης. Δοκιμάστε ξανά.");
+        return;
+      }
+
+      if (!entry || !entry.acl_synced) {
+        alert("Ο ασθενής κατάργησε την πρόσβασή σας. Δοκιμάστε ξανά αργότερα.");
+        refresh();
+        return;
+      }
+
+      if (entry.access_type !== patient.accessType) {
+        alert(`Ο ασθενής άλλαξε τον τύπο πρόσβασης σε "${entry.access_type}". Δοκιμάστε ξανά.`);
+        refresh();
+        return;
+      }
+
+      router.push({
+        pathname: ROUTES.DOCTOR_MED_HISTORY,
+        params: {
+          amka: patient.amka,
+          firstName: patient.first_name,
+          lastName: patient.last_name,
+          webId: patient.webId,
+          birthDate: patient.birthDate,
+          accessType: entry.access_type,
+        },
+      });
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setOpeningFolderFor(null);
+    }
+  };
+
   const renderResultCard = (item: SearchResult) => {
     // Αν ο γιατρός έχει ήδη πρόσβαση, χρησιμοποιούμε την εγγραφή από τη λίστα προσβάσεων -
     // εκεί υπάρχει και ο τύπος πρόσβασης που χρειάζεται η οθόνη ιστορικού.
@@ -106,19 +153,12 @@ export default function DoctorHomeScreen() {
         {accessiblePatient ? (
           <TouchableOpacity
             style={sharedStyles.cardActionButton}
-            onPress={() => router.push({
-              pathname: ROUTES.DOCTOR_MED_HISTORY,
-              params: {
-                amka: accessiblePatient.amka,
-                firstName: accessiblePatient.first_name,
-                lastName: accessiblePatient.last_name,
-                webId: accessiblePatient.webId,
-                birthDate: accessiblePatient.birthDate,
-                accessType: accessiblePatient.accessType,
-              },
-            })}
+            onPress={() => openPatientFolder(accessiblePatient)}
+            disabled={openingFolderFor === item.amka}
           >
-            <Text style={sharedStyles.cardActionButtonText}>Προβολή Φακέλου</Text>
+            {openingFolderFor === item.amka
+              ? <ActivityIndicator size="small" color={COLORS.white} />
+              : <Text style={sharedStyles.cardActionButtonText}>Προβολή Φακέλου</Text>}
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={sharedStyles.cardActionButton} onPress={() => openRequestModal(item.amka)}>
