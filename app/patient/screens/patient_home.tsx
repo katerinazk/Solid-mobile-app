@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
@@ -8,7 +7,6 @@ import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
-import { AddAccessModal } from '../../../components/patient/AddAccessModal';
 import { fetchPatientByAmka } from '../../../services/patients';
 import { listFolderFiles, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 
@@ -33,7 +31,6 @@ export default function PatientHomeScreen() {
   const { loggedInPatientAmka, accessToken, activePatientFolderUrl } = useAuth();
   const [patient, setPatient] = useState<{ last_name: string; sex: string | null } | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [isAddAccessModalVisible, setIsAddAccessModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -89,20 +86,9 @@ export default function PatientHomeScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
         <Text style={localStyles.welcome}>Καλωσορίσατε {salutation} {patient?.last_name || ''}</Text>
 
-        <View style={localStyles.accessRow}>
-          <TouchableOpacity style={[styles.addButton, { flex: 1, borderRadius: 25, marginBottom: 0 }]} onPress={() => router.push(ROUTES.PATIENT_ACCESS)}>
-            <Text style={styles.addButtonText}>Διαχείριση Προσβάσεων</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={localStyles.addAccessCircle}
-            onPress={() => setIsAddAccessModalVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Προσθήκη πρόσβασης"
-          >
-            <Ionicons name="add" size={26} color={COLORS.white} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => router.push(ROUTES.PATIENT_ACCESS)}>
+          <Text style={styles.addButtonText}>Διαχείριση Προσβάσεων</Text>
+        </TouchableOpacity>
 
         <View style={localStyles.historyContainer}>
           <Text style={[localStyles.sectionTitle, { marginTop: 0 }]}>Ιστορικό</Text>
@@ -124,8 +110,6 @@ export default function PatientHomeScreen() {
         <Text style={localStyles.sectionTitle}>Ειδοποιήσεις</Text>
         <Text style={[styles.emptyText, { marginTop: 10, textAlign: 'left' }]}>Δεν υπάρχουν ειδοποιήσεις αυτή τη στιγμή.</Text>
       </ScrollView>
-
-      <AddAccessModal visible={isAddAccessModalVisible} onClose={() => setIsAddAccessModalVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -133,18 +117,6 @@ export default function PatientHomeScreen() {
 const localStyles = StyleSheet.create({
   welcome: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.groupGap, marginBottom: SPACING.sectionGap },
   sectionTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.sectionGap, marginBottom: SPACING.groupGap },
-  accessRow: { flexDirection: 'row', alignItems: 'center', marginBottom: TOUCH.buttonGap },
-  // Στρογγυλό κουμπί στο ελάχιστο επιτρεπτό μέγεθος αφής (48), ώστε να είναι μικρό δίπλα στο
-  // κουμπί των προσβάσεων χωρίς να παραβιάζει τους κανόνες προσβασιμότητας.
-  addAccessCircle: {
-    width: TOUCH.minTargetSize,
-    height: TOUCH.minTargetSize,
-    borderRadius: TOUCH.minTargetSize / 2,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: SPACING.groupGap,
-  },
   historyContainer: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginBottom: SPACING.groupGap },
   categoryButton: { flex: 1, backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
   categoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },

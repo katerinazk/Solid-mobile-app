@@ -3,9 +3,11 @@ import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextI
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
+import { loginStyles } from '../../../constants/loginStyles';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
+import { fetchDoctorByAmka } from '../../../services/doctors';
 import { addAccess, deleteAccess, updateAccessType } from '../../../services/access';
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
@@ -20,7 +22,11 @@ interface AccessRequest {
 
 export default function PatientAccessScreen() {
   const { loggedInPatientAmka, accessToken, activePatientFolderUrl } = useAuth();
-  const { accessList, setAccessList, loading, refresh } = usePatientAccessList();
+  const { accessList, setAccessList, loading, setLoading, refresh } = usePatientAccessList();
+
+  const [isAddAccessModalVisible, setIsAddAccessModalVisible] = useState(false);
+  const [newDoctorAmka, setNewDoctorAmka] = useState('');
+  const [newAccessType, setNewAccessType] = useState('Πλήρης Πρόσβαση');
 
   const [openTypeFor, setOpenTypeFor] = useState<string | null>(null);
 
@@ -93,6 +99,46 @@ export default function PatientAccessScreen() {
     }
   };
 
+  const handleAddAccess = async () => {
+    if (!newDoctorAmka) {
+      alert("Παρακαλώ εισάγετε το ΑΜΚΑ του γιατρού.");
+      return;
+    }
+    try {
+      setLoading(true);
+
+      const { data: doctorData, error: doctorError } = await fetchDoctorByAmka(newDoctorAmka);
+
+      if (doctorError || !doctorData) {
+        alert("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
+        return;
+      }
+
+      const { error } = await addAccess(loggedInPatientAmka, newDoctorAmka, newAccessType);
+
+      if (error) {
+        alert("Σφάλμα: " + error.message);
+        return;
+      }
+
+      await updatePodAcl({
+        activePatientFolderUrl,
+        accessToken,
+        accessList,
+        newDoctorWebId: doctorData.web_id,
+        accessType: newAccessType,
+      });
+      alert(`Η πρόσβαση στον Δρ. ${doctorData.last_name} δόθηκε επιτυχώς!`);
+      setNewDoctorAmka('');
+      setIsAddAccessModalVisible(false);
+      refresh();
+    } catch (error) {
+      alert("Απρόσμενο σφάλμα.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteAccess = async (doctorAmka: string) => {
     Alert.alert("Κατάργηση", "Θέλετε να αφαιρέσετε αυτή την πρόσβαση;", [
       { text: "Ακύρωση", style: "cancel" },
@@ -159,6 +205,10 @@ export default function PatientAccessScreen() {
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddAccessModalVisible(true)}>
+                <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openRequestsModal}>
                 <Text style={styles.addButtonText}>Αιτήματα</Text>
               </TouchableOpacity>
@@ -228,6 +278,49 @@ export default function PatientAccessScreen() {
           </View>
         )}
       />
+
+      {/* Modal Προσθήκης Πρόσβασης */}
+      <Modal animationType="slide" transparent={true} visible={isAddAccessModalVisible} onRequestClose={() => setIsAddAccessModalVisible(false)}>
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <Text style={styles.addmodalTitle}>Νέα Πρόσβαση</Text>
+
+            <Text style={loginStyles.inputLabel}>ΑΜΚΑ Γιατρού</Text>
+            <TextInput
+              style={loginStyles.loginInput}
+              placeholder="11 ψηφία"
+              keyboardType="numeric"
+              value={newDoctorAmka}
+              onChangeText={setNewDoctorAmka}
+            />
+
+            <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
+            <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginRight: 5, backgroundColor: newAccessType === 'Πλήρης Πρόσβαση' ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
+                onPress={() => setNewAccessType('Πλήρης Πρόσβαση')}
+              >
+                <Text style={{ color: newAccessType === 'Πλήρης Πρόσβαση' ? COLORS.white : COLORS.text, textAlign: 'center' }}>Πλήρης</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginLeft: 5, backgroundColor: newAccessType === 'Μόνο Ανάγνωση' ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
+                onPress={() => setNewAccessType('Μόνο Ανάγνωση')}
+              >
+                <Text style={{ color: newAccessType === 'Μόνο Ανάγνωση' ? COLORS.white : COLORS.text, textAlign: 'center' }}>Μόνο Ανάγνωση</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalButtonsGroup}>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setIsAddAccessModalVisible(false)}>
+                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleAddAccess} disabled={loading}>
+                {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveButtonText}>Εντάξει</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal Αιτημάτων Πρόσβασης */}
       <Modal animationType="slide" transparent={true} visible={isRequestsModalVisible} onRequestClose={() => setIsRequestsModalVisible(false)}>
