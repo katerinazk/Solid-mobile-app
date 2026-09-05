@@ -203,19 +203,31 @@ export async function updatePodAcl({
   newDoctorWebId,
   accessType,
 }: UpdatePodAclParams): Promise<void> {
+  // Παίρνουμε ΟΛΟΥΣ τους υπάρχοντες γιατρούς + τον νέο (ή, αν υπάρχει ήδη, με τον νέο τύπο)
+  const alreadyExists = accessList.some(a => a.doctors?.web_id === newDoctorWebId);
+  const allDoctors = alreadyExists
+    ? accessList.map(a => a.doctors?.web_id === newDoctorWebId ? { ...a, access_type: accessType } : a)
+    : [...accessList, { doctors: { web_id: newDoctorWebId }, access_type: accessType }];
+
+  await syncPodAcl({ activePatientFolderUrl, accessToken, accessList: allDoctors });
+}
+
+interface SyncPodAclParams {
+  activePatientFolderUrl: string;
+  accessToken: string;
+  accessList: any[];
+}
+
+// Ξαναγράφει το ACL του φακέλου ώστε να συμφωνεί με τη λίστα προσβάσεων της βάσης. Το
+// καλούμε και μόνο του: όταν ο ασθενής δίνει πρόσβαση σε γιατρό που δεν έχει ακόμα WebID, ο
+// γιατρός δεν μπορεί να μπει στο ACL - μπαίνει μόλις κάνει το πρώτο του Solid login και ο
+// ασθενής ξανασυνδεθεί, αφού μόνο ο ίδιος ο ασθενής μπορεί να γράψει στο ACL του Pod του.
+export async function syncPodAcl({
+  activePatientFolderUrl,
+  accessToken,
+  accessList,
+}: SyncPodAclParams): Promise<void> {
   const aclUrl = `${activePatientFolderUrl}.acl`;
-
-  // Παίρνουμε ΟΛΟΥΣ τους υπάρχοντες γιατρούς + τον νέο
-  let allDoctors = [...accessList];
-
-  // Αν ο γιατρός δεν υπάρχει ήδη στη λίστα, τον προσθέτουμε προσωρινά
-  const alreadyExists = allDoctors.some(a => a.doctors?.web_id === newDoctorWebId);
-  if (!alreadyExists) {
-    allDoctors = [...allDoctors, {
-      doctors: { web_id: newDoctorWebId },
-      access_type: accessType
-    }];
-  }
 
   let aclContent = `
   @prefix acl: <http://www.w3.org/ns/auth/acl#>.
@@ -229,18 +241,17 @@ export async function updatePodAcl({
     acl:mode acl:Read, acl:Write, acl:Control.
   `;
 
-  // Προσθέτουμε ΟΛΟΥΣ τους γιατρούς
-  allDoctors.forEach((a, index) => {
+  // Οι γιατροί χωρίς WebID απλώς παραλείπονται - θα μπουν σε επόμενο συγχρονισμό.
+  accessList.forEach((a, index) => {
     const webId = a.doctors?.web_id;
     if (!webId) return;
-    const type = webId === newDoctorWebId ? accessType : a.access_type;
     aclContent += `
   <#doctor${index}>
     a acl:Authorization;
     acl:agent <${webId}>;
     acl:accessTo <${activePatientFolderUrl}>;
     acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read${type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
+    acl:mode acl:Read${a.access_type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
   `;
   });
 

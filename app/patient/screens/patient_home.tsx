@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -8,7 +8,8 @@ import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { fetchPatientByAmka } from '../../../services/patients';
-import { listFolderFiles, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, getCategoryFolderUrl, getOwnerWebId, syncPodAcl } from '../../../services/solidPod';
+import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 
 // Οι ετικέτες κατηγοριών αντιστοιχούν 1-1 στα ονόματα των φακέλων ιστορικού στο Pod του
 // ασθενή (Κατηγορίες.tsx), ώστε να μπορούμε να μετρήσουμε πόσες εγγραφές έχει η καθεμία.
@@ -31,6 +32,24 @@ export default function PatientHomeScreen() {
   const { loggedInPatientAmka, accessToken, activePatientFolderUrl } = useAuth();
   const [patient, setPatient] = useState<{ last_name: string; sex: string | null } | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const { accessList } = usePatientAccessList();
+  const aclSynced = useRef(false);
+
+  // Ο ασθενής μπορεί να έχει δώσει πρόσβαση σε γιατρό που δεν είχε ακόμα WebID (δεν είχε κάνει
+  // ποτέ Solid login), οπότε ο γιατρός δεν είχε μπει στο ACL του Pod. Μόνο ο ασθενής μπορεί να
+  // γράψει σε αυτό, γι' αυτό το ξαναγράφουμε μία φορά σε κάθε είσοδό του: όποιος γιατρός έχει
+  // αποκτήσει WebID στο μεταξύ μπαίνει τώρα, χωρίς να χρειαστεί να κάνει ο ασθενής τίποτα.
+  useEffect(() => {
+    if (aclSynced.current) return;
+    if (!activePatientFolderUrl || !accessToken) return;
+    if (!accessList.some((a) => a.doctors?.web_id)) return;
+
+    aclSynced.current = true;
+    syncPodAcl({ activePatientFolderUrl, accessToken, accessList }).catch((error) => {
+      // Δεν ενοχλούμε τον ασθενή: αν αποτύχει, ξαναδοκιμάζει στην επόμενη είσοδο.
+      console.error("Αποτυχία συγχρονισμού ACL:", error);
+    });
+  }, [accessList, activePatientFolderUrl, accessToken]);
 
   useEffect(() => {
     (async () => {

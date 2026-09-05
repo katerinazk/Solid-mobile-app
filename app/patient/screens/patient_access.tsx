@@ -70,26 +70,23 @@ export default function PatientAccessScreen() {
         return;
       }
 
-      // Χωρίς WebID δεν μπαίνει στο ACL: θα έπαιρνε πρόσβαση στη βάση χωρίς να βλέπει τίποτα.
-      // Αφήνουμε το αίτημα εκκρεμές ώστε να το αποδεχτεί ο ασθενής μετά το login του γιατρού.
-      if (!request.doctors?.web_id) {
-        alert("Ο γιατρός δεν έχει συνδεθεί ακόμα στο Pod του, οπότε δεν μπορεί να του δοθεί πρόσβαση.");
-        return;
-      }
-
       const { error } = await addAccess(loggedInPatientAmka, request.doctor_amka, request.access_type);
       if (error) {
         alert("Σφάλμα: " + error.message);
         return;
       }
 
-      await updatePodAcl({
-        activePatientFolderUrl,
-        accessToken,
-        accessList,
-        newDoctorWebId: request.doctors.web_id,
-        accessType: request.access_type,
-      });
+      // Όπως και στη χειροκίνητη προσθήκη: χωρίς WebID το αίτημα γίνεται κανονικά δεκτό και ο
+      // γιατρός μπαίνει στο ACL με τον επόμενο συγχρονισμό.
+      if (request.doctors?.web_id) {
+        await updatePodAcl({
+          activePatientFolderUrl,
+          accessToken,
+          accessList,
+          newDoctorWebId: request.doctors.web_id,
+          accessType: request.access_type,
+        });
+      }
 
       await resolveAccessRequest(request.id, 'accepted');
       setRequests((prev) => prev.filter((r) => r.id !== request.id));
@@ -137,13 +134,6 @@ export default function PatientAccessScreen() {
         return;
       }
 
-      // Χωρίς WebID ο γιατρός δεν μπορεί να μπει στο ACL του Pod: θα γραφόταν η πρόσβαση στη
-      // βάση αλλά δεν θα έβλεπε τίποτα. Το WebID συμπληρώνεται στο πρώτο του login στο Solid.
-      if (!doctorData.web_id) {
-        alert("Ο γιατρός δεν έχει συνδεθεί ακόμα στο Pod του, οπότε δεν μπορεί να του δοθεί πρόσβαση.");
-        return;
-      }
-
       const { error } = await addAccess(loggedInPatientAmka, newDoctorAmka, newAccessType);
 
       if (error) {
@@ -151,13 +141,17 @@ export default function PatientAccessScreen() {
         return;
       }
 
-      await updatePodAcl({
-        activePatientFolderUrl,
-        accessToken,
-        accessList,
-        newDoctorWebId: doctorData.web_id,
-        accessType: newAccessType,
-      });
+      // Αν ο γιατρός δεν έχει ακόμα WebID (δεν έχει κάνει ποτέ Solid login), η πρόσβαση
+      // καταχωρείται κανονικά στη βάση και μπαίνει στο ACL με τον επόμενο συγχρονισμό.
+      if (doctorData.web_id) {
+        await updatePodAcl({
+          activePatientFolderUrl,
+          accessToken,
+          accessList,
+          newDoctorWebId: doctorData.web_id,
+          accessType: newAccessType,
+        });
+      }
       alert(`Η πρόσβαση στον Δρ. ${doctorData.last_name} δόθηκε επιτυχώς!`);
       setNewDoctorAmka('');
       setIsAddAccessModalVisible(false);
