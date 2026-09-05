@@ -56,6 +56,43 @@ export default function PatientAccessScreen() {
     }
   };
 
+  // Ο γιατρός έχει ήδη πρόσβαση αλλά με άλλον τύπο: αντί για σκέτη άρνηση, ρωτάμε τον ασθενή
+  // αν θέλει να την αλλάξει. Επιστρέφει true αν έγινε η αλλαγή.
+  const confirmChangeAccessType = (doctorAmka: string, doctorWebId: string | null, currentType: string, newType: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      Alert.alert(
+        "Υπάρχει ήδη πρόσβαση",
+        `Έχετε ήδη δώσει "${currentType}" σε αυτόν τον γιατρό. Θέλετε να την αλλάξετε σε "${newType}";`,
+        [
+          { text: "Όχι", style: "cancel", onPress: () => resolve(false) },
+          {
+            text: "Ναι",
+            onPress: async () => {
+              const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType);
+              if (error) {
+                alert("Σφάλμα: " + error.message);
+                resolve(false);
+                return;
+              }
+              if (doctorWebId) {
+                await updatePodAcl({
+                  activePatientFolderUrl,
+                  accessToken,
+                  accessList,
+                  newDoctorWebId: doctorWebId,
+                  accessType: newType,
+                });
+              }
+              refresh();
+              alert("Ο τύπος πρόσβασης άλλαξε επιτυχώς!");
+              resolve(true);
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    });
+
   const handleAcceptRequest = async (request: AccessRequest) => {
     try {
       setResolvingRequestId(request.id);
@@ -64,9 +101,14 @@ export default function PatientAccessScreen() {
       // ο ασθενής έδωσε ήδη πρόσβαση στον ίδιο γιατρό με το χέρι.
       const { data: existingAccess } = await fetchAccessEntry(loggedInPatientAmka, request.doctor_amka);
       if (existingAccess) {
+        if (existingAccess.access_type !== request.access_type) {
+          await confirmChangeAccessType(request.doctor_amka, request.doctors?.web_id || null, existingAccess.access_type, request.access_type);
+        } else {
+          alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
+        }
+        // Είτε άλλαξε ο τύπος είτε όχι, ο γιατρός έχει πρόσβαση - το αίτημα δεν έχει λόγο να μείνει.
         await resolveAccessRequest(request.id, 'accepted');
         setRequests((prev) => prev.filter((r) => r.id !== request.id));
-        alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
         return;
       }
 
@@ -130,7 +172,12 @@ export default function PatientAccessScreen() {
       // έλεγχος θα περνούσε λάθος και θα γραφόταν διπλή εγγραφή πρόσβασης.
       const { data: existingAccess } = await fetchAccessEntry(loggedInPatientAmka, newDoctorAmka);
       if (existingAccess) {
-        alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
+        if (existingAccess.access_type === newAccessType) {
+          alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
+        } else if (await confirmChangeAccessType(newDoctorAmka, doctorData.web_id, existingAccess.access_type, newAccessType)) {
+          setNewDoctorAmka('');
+          setIsAddAccessModalVisible(false);
+        }
         return;
       }
 
