@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -27,7 +28,7 @@ export default function DoctorAllergiesScreen() {
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
-  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
+  const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const [loading, setLoading] = useState(false);
   const [allergies, setAllergies] = useState<Allergy[]>([]);
@@ -114,6 +115,10 @@ export default function DoctorAllergiesScreen() {
   };
 
   const handleSaveAllergy = async () => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     if (!formTitle.trim() || !formReaction.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
@@ -160,7 +165,11 @@ export default function DoctorAllergiesScreen() {
     }
   };
 
-  const handleDeleteAllergy = (item: Allergy) => {
+  const handleDeleteAllergy = async (item: Allergy) => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     Alert.alert(
       "Διαγραφή",
       "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την αλλεργία;",

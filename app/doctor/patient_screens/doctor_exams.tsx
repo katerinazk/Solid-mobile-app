@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
@@ -82,7 +83,7 @@ export default function DoctorExamsScreen() {
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
-  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
+  const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
   const [searchQuery, setSearchQuery] = useState('');
@@ -207,7 +208,11 @@ export default function DoctorExamsScreen() {
     setIsTypeListVisible(false);
   };
 
-  const handleDeleteExam = (item: Exam) => {
+  const handleDeleteExam = async (item: Exam) => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     Alert.alert(
       "Διαγραφή",
       "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
@@ -243,6 +248,10 @@ export default function DoctorExamsScreen() {
   };
 
   const handleSaveExam = async () => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     if (!formName.trim() || !formType.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;

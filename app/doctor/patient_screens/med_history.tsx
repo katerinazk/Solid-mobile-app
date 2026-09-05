@@ -6,9 +6,14 @@ import { COLORS } from '../../../constants/colors';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { SPACING } from '../../../constants/designSystem';
+import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 
 export default function DoctorHistoryScreen() {
   const { amka, firstName, lastName, webId, birthDate, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; birthDate: string; accessType: string }>();
+
+  // Ο φύλακας πετάει έξω τον γιατρό αν καταργηθεί η πρόσβαση και δίνει τον ενημερωμένο τύπο,
+  // ώστε οι κατηγορίες να ανοίγουν πάντα με το δικαίωμα που ισχύει τώρα.
+  const { accessType: liveAccessType } = useDoctorAccessGuard(amka, accessType);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -27,7 +32,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_EXAMS,
-            params: { amka, firstName, lastName, webId, accessType },
+            params: { amka, firstName, lastName, webId, accessType: liveAccessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Εξετάσεις</Text>
@@ -36,7 +41,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_MEDICATIONS,
-            params: { amka, firstName, lastName, webId, accessType },
+            params: { amka, firstName, lastName, webId, accessType: liveAccessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Φάρμακα</Text>
@@ -45,7 +50,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_ALLERGIES,
-            params: { amka, firstName, lastName, webId, accessType },
+            params: { amka, firstName, lastName, webId, accessType: liveAccessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Αλλεργίες</Text>
@@ -54,7 +59,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_DIAGNOSEIS,
-            params: { amka, firstName, lastName, webId, birthDate, accessType },
+            params: { amka, firstName, lastName, webId, birthDate, accessType: liveAccessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Διαγνώσεις</Text>
@@ -63,7 +68,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_HOSPITALIZATIONS,
-            params: { amka, firstName, lastName, webId, accessType },
+            params: { amka, firstName, lastName, webId, accessType: liveAccessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Νοσηλίες</Text>
@@ -72,7 +77,7 @@ export default function DoctorHistoryScreen() {
           style={styles.historyCategoryButton}
           onPress={() => router.push({
             pathname: ROUTES.DOCTOR_VACCINATIONS,
-            params: { amka, firstName, lastName, webId, accessType },
+            params: { amka, firstName, lastName, webId, accessType: liveAccessType },
           })}
         >
           <Text style={styles.historyCategoryButtonText}>Εμβολιασμοί</Text>

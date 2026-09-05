@@ -9,6 +9,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
@@ -81,7 +82,7 @@ export default function DoctorHospitalizationsScreen() {
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
-  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
+  const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const [loading, setLoading] = useState(false);
   const [hospitalizations, setHospitalizations] = useState<Hospitalization[]>([]);
@@ -220,7 +221,11 @@ export default function DoctorHospitalizationsScreen() {
     setIsAddModalVisible(true);
   };
 
-  const handleDeleteHospitalization = (item: Hospitalization) => {
+  const handleDeleteHospitalization = async (item: Hospitalization) => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     Alert.alert(
       "Διαγραφή",
       "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη νοσηλία;",
@@ -255,6 +260,10 @@ export default function DoctorHospitalizationsScreen() {
   };
 
   const handleSaveHospitalization = async () => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     if (!formTitle.trim() || !formHospitalClinic.trim() || !formAdmissionDate.trim() || !formDischargeDate.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;

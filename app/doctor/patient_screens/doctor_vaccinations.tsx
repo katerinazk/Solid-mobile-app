@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
@@ -33,7 +34,7 @@ export default function DoctorVaccinationsScreen() {
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
   // Ο γιατρός με "Μόνο Ανάγνωση" πρόσβαση βλέπει το ιστορικό όπως ακριβώς ο ίδιος ο ασθενής -
   // χωρίς δυνατότητα προσθήκης/επεξεργασίας/διαγραφής.
-  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
+  const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const [loading, setLoading] = useState(false);
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
@@ -178,6 +179,10 @@ export default function DoctorVaccinationsScreen() {
   };
 
   const handleSaveVaccination = async () => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     if (!formTitle.trim() || !formCommercialName.trim() || !formBatchNumber.trim() || !formDoseNumber.trim() || !formAdministeredDate.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
@@ -252,7 +257,11 @@ export default function DoctorVaccinationsScreen() {
     setIsAddModalVisible(true);
   };
 
-  const handleDeleteVaccination = (item: Vaccination) => {
+  const handleDeleteVaccination = async (item: Vaccination) => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     Alert.alert(
       "Διαγραφή",
       "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον εμβολιασμό;",

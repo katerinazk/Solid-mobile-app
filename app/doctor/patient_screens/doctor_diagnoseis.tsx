@@ -6,6 +6,7 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { useAuth } from '../../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { calculateAge, formatDate } from '../../../utils/age';
@@ -31,7 +32,7 @@ export default function DoctorDiagnoseisScreen() {
   const folderUrl = webId ? getCategoryFolderUrl(webId, 'Διαγνώσεις') : '';
   // Ο γιατρός με "Μόνο Ανάγνωση" πρόσβαση βλέπει το ιστορικό όπως ακριβώς ο ίδιος ο ασθενής -
   // χωρίς δυνατότητα προσθήκης/επεξεργασίας/διαγραφής.
-  const isReadOnly = accessType === 'Μόνο Ανάγνωση';
+  const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const patientCategory: Category = calculateAge(birthDate) >= 18 ? 'adult' : 'child';
   const [activeCategory, setActiveCategory] = useState<Category>(patientCategory);
@@ -109,6 +110,10 @@ export default function DoctorDiagnoseisScreen() {
   };
 
   const handleSaveDiagnosis = async () => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     if (newDiagnosisTitle.trim() === '') {
       alert("Παρακαλώ γράψτε τη διάγνωση!");
       return;
@@ -154,6 +159,10 @@ export default function DoctorDiagnoseisScreen() {
   };
 
   const handleSaveEdit = async () => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     if (!editDiagnosis || editTitle.trim() === '') {
       alert("Παρακαλώ γράψτε τη διάγνωση!");
       return;
@@ -174,7 +183,11 @@ export default function DoctorDiagnoseisScreen() {
     }
   };
 
-  const handleDeleteDiagnosis = (item: Diagnosis) => {
+  const handleDeleteDiagnosis = async (item: Diagnosis) => {
+    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
+    // η ενέργεια ακυρώνεται.
+    if (!(await checkAccess())) return;
+
     Alert.alert(
       "Διαγραφή",
       "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη διάγνωση;",
