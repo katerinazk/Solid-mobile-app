@@ -8,7 +8,7 @@ import { doctorStyles as styles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
 import { AccessRequestModal } from '../../../components/doctor/AccessRequestModal';
-import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
+import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { fetchDoctorByAmka } from '../../../services/doctors';
@@ -161,7 +161,17 @@ export default function DoctorHomeScreen() {
           /* Χωρίς αναζήτηση δείχνουμε τους ασθενείς που έχουν ήδη δώσει πρόσβαση, όπως και στην
              οθόνη Προσβάσεις - οι ίδιες καρτέλες, ώστε ο γιατρός να μπαίνει κατευθείαν σε φάκελο. */
           <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-            <Text style={styles.dashboardTitle}>Προσβάσεις</Text>
+            <View style={localStyles.accessTitleRow}>
+              <Text style={styles.dashboardTitle}>Προσβάσεις</Text>
+              <TouchableOpacity
+                style={localStyles.requestAccessCircle}
+                onPress={() => openRequestModal('')}
+                accessibilityRole="button"
+                accessibilityLabel="Αίτημα πρόσβασης"
+              >
+                <Ionicons name="add" size={26} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
             {loading ? (
               <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
             ) : patients.length === 0 ? (
@@ -194,5 +204,18 @@ export default function DoctorHomeScreen() {
 }
 
 const localStyles = StyleSheet.create({
+  // Το ίδιο κενό που έχει ο τίτλος "Προσβάσεις" και στην οθόνη Προσβάσεων του γιατρού.
+  accessTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sectionGap },
+  // Στρογγυλό κουμπί στο ελάχιστο επιτρεπτό μέγεθος αφής (48): μικρό δίπλα στον τίτλο, αλλά
+  // μέσα στα όρια προσβασιμότητας των κανόνων σχεδίασης.
+  requestAccessCircle: {
+    width: TOUCH.minTargetSize,
+    height: TOUCH.minTargetSize,
+    borderRadius: TOUCH.minTargetSize / 2,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SPACING.groupGap,
+  },
   welcome: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.groupGap, marginBottom: SPACING.sectionGap },
 });
