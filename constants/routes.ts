@@ -19,7 +19,6 @@ export const ROUTES = {
   DOCTOR_REGISTER: '/doctor/doctor_register',
   DOCTOR_PROFILE: '/doctor/doctor_profile',
   DOCTOR_HOME: '/doctor/screens/doctor_home',
-  DOCTOR_ACCESS: '/doctor/screens/doctor_access',
   DOCTOR_SETTINGS: '/doctor/screens/doctor_settings',
   DOCTOR_MED_HISTORY: '/doctor/patient_screens/med_history',
   DOCTOR_DIAGNOSEIS: '/doctor/patient_screens/doctor_diagnoseis',
