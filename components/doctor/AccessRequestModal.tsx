@@ -36,6 +36,21 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
     }
   }, [visible, initialAmka]);
 
+  // Το Alert.alert δεν επιστρέφει την απάντηση, οπότε το τυλίγουμε σε Promise ώστε η ροή να
+  // μπορεί να την περιμένει.
+  const confirmDialog = (title: string, message: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      Alert.alert(
+        title,
+        message,
+        [
+          { text: "Όχι", style: "cancel", onPress: () => resolve(false) },
+          { text: "Ναι", onPress: () => resolve(true) },
+        ],
+        { cancelable: false }
+      );
+    });
+
   // Ο ασθενής δεν έχει λογαριασμό: αντί για σκέτο "δεν βρέθηκε", προτείνουμε στον γιατρό να
   // τον καλέσει να εγγραφεί. Κλείνουμε πρώτα αυτό το παράθυρο για να ανοίξει το επόμενο.
   const promptInvite = (amka: string) => {
@@ -70,18 +85,35 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
         return;
       }
 
-      // Πρώτα η λίστα της οθόνης (άμεση απάντηση) και μετά η βάση, που είναι η αυθεντία: αν η
-      // λίστα δεν είχε προλάβει να φορτώσει, ο έλεγχος από μόνος του θα περνούσε λάθος.
-      const { data: existingAccess } = await fetchAccessEntry(patientAmka.trim(), doctorAmka);
+      // Η βάση είναι η αυθεντία - η λίστα της οθόνης μπορεί να έχει παλιώσει. Αν το ερώτημα
+      // αποτύχει, πέφτουμε πίσω σε αυτήν για να μη σταλεί αίτημα σε ασθενή που ήδη μας έχει.
+      const { data: existingAccess, error: accessError } = await fetchAccessEntry(patientAmka.trim(), doctorAmka);
+
+      if (accessError && hasAccessTo(patientAmka.trim())) {
+        alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
+        return;
+      }
+
       if (existingAccess && !existingAccess.acl_synced) {
         // Η πρόσβαση υπάρχει στη βάση αλλά ο γιατρός δεν έχει μπει ακόμα στο ACL του Pod, οπότε
         // ο φάκελος δεν του εμφανίζεται - χωρίς εξήγηση θα έμοιαζε με σφάλμα.
         alert("Ο ασθενής σας έχει ήδη δώσει πρόσβαση. Ο φάκελός του θα εμφανιστεί μόλις συνδεθεί ξανά στην εφαρμογή.");
         return;
       }
-      if (hasAccessTo(patientAmka.trim()) || existingAccess) {
-        alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
-        return;
+
+      if (existingAccess) {
+        // Με ίδιο δικαίωμα το αίτημα δεν έχει νόημα. Με διαφορετικό (τυπικά: έχει "Μόνο
+        // Ανάγνωση" και θέλει "Πλήρης Πρόσβαση") επιτρέπεται, αφού το επιβεβαιώσει ο γιατρός.
+        if (existingAccess.access_type === accessType) {
+          alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
+          return;
+        }
+
+        const proceed = await confirmDialog(
+          "Υπάρχει ήδη πρόσβαση",
+          `Έχετε ήδη πρόσβαση "${existingAccess.access_type}" στον φάκελο αυτού του ασθενή. Θέλετε να ζητήσετε "${accessType}";`,
+        );
+        if (!proceed) return;
       }
 
       const { data: pendingRequest } = await hasPendingAccessRequest(doctorAmka, patientAmka.trim());
