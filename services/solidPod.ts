@@ -11,6 +11,24 @@ export function getPublicFolderUrl(webId: string): string {
   return webId.replace('profile/card#me', 'public/');
 }
 
+// Το Pod απαντά 401/403 όταν ο συνδεδεμένος χρήστης δεν είναι (πια) μέσα στο ACL του φακέλου.
+// Το ξεχωρίζουμε από τα υπόλοιπα σφάλματα - "δεν υπάρχει ο φάκελος", πρόβλημα δικτύου κ.λπ. -
+// γιατί σημαίνει κάτι εντελώς διαφορετικό: ο ασθενής κατάργησε την πρόσβαση.
+export class PodAccessDeniedError extends Error {
+  constructor() {
+    super("Δεν έχετε πλέον πρόσβαση στον φάκελο αυτού του ασθενή.");
+    this.name = 'PodAccessDeniedError';
+  }
+}
+
+export function isPodAccessDenied(error: any): boolean {
+  return error?.name === 'PodAccessDeniedError';
+}
+
+function throwIfAccessDenied(status: number): void {
+  if (status === 401 || status === 403) throw new PodAccessDeniedError();
+}
+
 const MEDPOD_FOLDER_NAME = 'MedPod';
 
 // Οι 6 κατηγορίες ιατρικού ιστορικού - κάθε μία έχει δικό της φάκελο μέσα στο MedPod/.
@@ -37,6 +55,7 @@ export async function listFolderFiles(folderUrl: string, accessToken: string): P
   });
 
   if (!response.ok) {
+    throwIfAccessDenied(response.status);
     throw new Error('Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.');
   }
 
@@ -82,6 +101,27 @@ export async function listFolderFiles(folderUrl: string, accessToken: string): P
   return fileUrls;
 }
 
+// Το μοτίβο "δοκίμασε, ξαναδοκίμασε, αλλιώς άδεια λίστα" που χρειάζονται όλες οι οθόνες
+// ιστορικού: ο φάκελος μπορεί να μην έχει δημιουργηθεί ακόμα. Εξαίρεση το 403 - εκεί το
+// σφάλμα περνάει προς τα πάνω, γιατί δεν σημαίνει "άδειος φάκελος" αλλά "χωρίς πρόσβαση".
+export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: string): Promise<string[]> {
+  try {
+    return await listFolderFiles(folderUrl, accessToken);
+  } catch (error) {
+    if (isPodAccessDenied(error)) throw error;
+  }
+
+  try {
+    // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return await listFolderFiles(folderUrl, accessToken);
+  } catch (error) {
+    if (isPodAccessDenied(error)) throw error;
+    // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - δημιουργείται με την πρώτη καταχώρηση.
+    return [];
+  }
+}
+
 export async function fetchFileContent(url: string, accessToken: string): Promise<string> {
   const dpopToken = await createDpopToken('GET', url);
   const response = await fetch(url, {
@@ -93,6 +133,7 @@ export async function fetchFileContent(url: string, accessToken: string): Promis
   });
 
   if (!response.ok) {
+    throwIfAccessDenied(response.status);
     throw new Error('Δεν ήταν δυνατή η ανάγνωση του αρχείου.');
   }
 
@@ -110,6 +151,7 @@ export async function deleteFile(url: string, accessToken: string): Promise<void
   });
 
   if (!response.ok) {
+    throwIfAccessDenied(response.status);
     throw new Error('Σφάλμα διαγραφής: ' + response.status);
   }
 }
@@ -128,6 +170,7 @@ export async function saveFileContent(url: string, accessToken: string, content:
   });
 
   if (!response.ok) {
+    throwIfAccessDenied(response.status);
     const errorText = await response.text();
     throw new Error(`ΚΩΔΙΚΟΣ: ${response.status}\n\nΛΟΓΟΣ:\n${errorText.substring(0, 150)}`);
   }
@@ -160,6 +203,7 @@ export async function uploadAttachment(
   });
 
   if (result.status < 200 || result.status >= 300) {
+    throwIfAccessDenied(result.status);
     throw new Error(`Αποτυχία μεταφόρτωσης του αρχείου "${fileName}" (κωδικός ${result.status}).`);
   }
 }
@@ -182,6 +226,7 @@ export async function downloadAttachment(
   });
 
   if (result.status < 200 || result.status >= 300) {
+    throwIfAccessDenied(result.status);
     throw new Error(`Αποτυχία λήψης του αρχείου "${fileName}".`);
   }
 

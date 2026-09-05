@@ -7,7 +7,7 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
@@ -53,20 +53,7 @@ export default function DoctorDiagnoseisScreen() {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
-      let files: string[];
-      try {
-        files = await listFolderFiles(folderUrl, accessToken);
-      } catch {
-        try {
-          // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
-          // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - θα δημιουργηθεί αυτόματα με την πρώτη
-          // διάγνωση που θα προστεθεί. Μέχρι τότε δείχνουμε απλώς άδεια λίστα.
-          files = [];
-        }
-      }
+      const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
       const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
 
       const loaded = await Promise.all(diagnosisFiles.map(async (url) => {
@@ -84,6 +71,12 @@ export default function DoctorDiagnoseisScreen() {
       setDiagnoses(valid);
       ensureDoctorInfo(valid.map((d) => d.doctorAmka));
     } catch (error: any) {
+      // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
+      // ο φύλακας, που βγάζει το σωστό μήνυμα και τον επιστρέφει στην αρχική του.
+      if (isPodAccessDenied(error)) {
+        checkAccess();
+        return;
+      }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       setLoading(false);

@@ -10,7 +10,7 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, uploadAttachment, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
@@ -113,22 +113,7 @@ export default function DoctorHospitalizationsScreen() {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
-      let files: string[];
-      try {
-        files = await listFolderFiles(folderUrl, accessToken);
-      } catch (error: any) {
-        console.warn('⚠️ Πρώτη προσπάθεια listFolderFiles (Νοσηλίες) απέτυχε:', error?.message || error);
-        try {
-          // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          files = await listFolderFiles(folderUrl, accessToken);
-        } catch (retryError: any) {
-          // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - θα δημιουργηθεί αυτόματα με την πρώτη
-          // νοσηλία που θα προστεθεί. Μέχρι τότε δείχνουμε απλώς άδεια λίστα.
-          console.warn('⚠️ Δεύτερη προσπάθεια listFolderFiles (Νοσηλίες) απέτυχε επίσης:', retryError?.message || retryError);
-          files = [];
-        }
-      }
+      const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       console.log('📁 Αρχεία στον φάκελο Νοσηλίες:', files);
 
@@ -158,6 +143,12 @@ export default function DoctorHospitalizationsScreen() {
       setHospitalizations(valid);
       ensureDoctorInfo(valid.map((h) => h.doctorAmka));
     } catch (error: any) {
+      // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
+      // ο φύλακας, που βγάζει το σωστό μήνυμα και τον επιστρέφει στην αρχική του.
+      if (isPodAccessDenied(error)) {
+        checkAccess();
+        return;
+      }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       setLoading(false);

@@ -9,7 +9,7 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
@@ -43,20 +43,7 @@ export default function DoctorAllergiesScreen() {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
-      let files: string[];
-      try {
-        files = await listFolderFiles(folderUrl, accessToken);
-      } catch {
-        try {
-          // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
-          // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - θα δημιουργηθεί αυτόματα με την πρώτη
-          // αλλεργία που θα προστεθεί. Μέχρι τότε δείχνουμε απλώς άδεια λίστα.
-          files = [];
-        }
-      }
+      const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const allergyFiles = files.filter((url) => url.endsWith('.json'));
 
@@ -80,6 +67,12 @@ export default function DoctorAllergiesScreen() {
       setAllergies(valid);
       ensureDoctorInfo(valid.map((a) => a.doctorAmka));
     } catch (error: any) {
+      // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
+      // ο φύλακας, που βγάζει το σωστό μήνυμα και τον επιστρέφει στην αρχική του.
+      if (isPodAccessDenied(error)) {
+        checkAccess();
+        return;
+      }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       setLoading(false);
