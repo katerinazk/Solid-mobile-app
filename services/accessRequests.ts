@@ -15,7 +15,7 @@ export interface AccessRequestRecord {
 export async function hasPendingAccessRequest(doctorAmka: string, patientAmka: string) {
   return supabase
     .from('access_requests')
-    .select('id')
+    .select('id, access_type')
     .eq('doctor_amka', doctorAmka)
     .eq('patient_amka', patientAmka)
     .eq('status', 'pending')
