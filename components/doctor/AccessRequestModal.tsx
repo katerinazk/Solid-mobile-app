@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, TouchableOpacity, TextInput, ActivityIndicator, Modal, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 import { sharedStyles as styles } from '../../constants/sharedStyles';
@@ -8,6 +8,7 @@ import { TYPOGRAPHY } from '../../constants/designSystem';
 import { fetchPatientByAmka } from '../../services/patients';
 import { hasPendingAccessRequest, createAccessRequest } from '../../services/accessRequests';
 import { fetchAccessEntry } from '../../services/access';
+import { InvitePatientModal } from './InvitePatientModal';
 
 interface Props {
   visible: boolean;
@@ -26,6 +27,7 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
   const [patientAmka, setPatientAmka] = useState(initialAmka || '');
   const [accessType, setAccessType] = useState('Πλήρης Πρόσβαση');
   const [submitting, setSubmitting] = useState(false);
+  const [inviteAmka, setInviteAmka] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -33,6 +35,25 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
       setAccessType('Πλήρης Πρόσβαση');
     }
   }, [visible, initialAmka]);
+
+  // Ο ασθενής δεν έχει λογαριασμό: αντί για σκέτο "δεν βρέθηκε", προτείνουμε στον γιατρό να
+  // τον καλέσει να εγγραφεί. Κλείνουμε πρώτα αυτό το παράθυρο για να ανοίξει το επόμενο.
+  const promptInvite = (amka: string) => {
+    Alert.alert(
+      "Δεν χρησιμοποιεί την εφαρμογή",
+      "Ο ασθενής με αυτό το ΑΜΚΑ δεν χρησιμοποιεί την εφαρμογή. Θέλετε να του στείλετε πρόσκληση να τη χρησιμοποιήσει;",
+      [
+        { text: "Όχι", style: "cancel" },
+        {
+          text: "Ναι",
+          onPress: () => {
+            onClose();
+            setInviteAmka(amka);
+          },
+        },
+      ]
+    );
+  };
 
   const handleSubmit = async () => {
     if (!patientAmka.trim()) {
@@ -45,7 +66,7 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
 
       const { data: patientData, error: patientError } = await fetchPatientByAmka(patientAmka.trim());
       if (patientError || !patientData) {
-        alert("Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.");
+        promptInvite(patientAmka.trim());
         return;
       }
 
@@ -86,6 +107,7 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
   };
 
   return (
+    <>
     <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={onClose}>
       <View style={styles.addmodalOverlay}>
         <View style={styles.addmodalContent}>
@@ -127,6 +149,13 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
         </View>
       </View>
     </Modal>
+
+    <InvitePatientModal
+      visible={inviteAmka !== null}
+      patientAmka={inviteAmka || ''}
+      onClose={() => setInviteAmka(null)}
+    />
+    </>
   );
 }
 
