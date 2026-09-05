@@ -8,6 +8,7 @@ import { doctorStyles as styles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
 import { AccessRequestModal } from '../../../components/doctor/AccessRequestModal';
+import { SentRequestsModal } from '../../../components/doctor/SentRequestsModal';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
@@ -35,6 +36,7 @@ export default function DoctorHomeScreen() {
 
   const [requestAmka, setRequestAmka] = useState('');
   const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
+  const [isSentRequestsModalVisible, setIsSentRequestsModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -164,12 +166,21 @@ export default function DoctorHomeScreen() {
             <View style={localStyles.accessTitleRow}>
               <Text style={styles.dashboardTitle}>Προσβάσεις</Text>
               <TouchableOpacity
-                style={localStyles.requestAccessCircle}
+                style={localStyles.circleButton}
                 onPress={() => openRequestModal('')}
                 accessibilityRole="button"
                 accessibilityLabel="Αίτημα πρόσβασης"
               >
                 <Ionicons name="add" size={26} color={COLORS.white} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={localStyles.circleButton}
+                onPress={() => setIsSentRequestsModalVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Απεσταλμένα αιτήματα"
+              >
+                <Ionicons name="paper-plane-outline" size={22} color={COLORS.white} />
               </TouchableOpacity>
             </View>
             {loading ? (
@@ -192,6 +203,12 @@ export default function DoctorHomeScreen() {
         </View>
       </ScrollView>
 
+      <SentRequestsModal
+        visible={isSentRequestsModalVisible}
+        doctorAmka={loggedInDoctorAmka}
+        onClose={() => setIsSentRequestsModalVisible(false)}
+      />
+
       <AccessRequestModal
         visible={isRequestModalVisible}
         doctorAmka={loggedInDoctorAmka}
@@ -208,7 +225,7 @@ const localStyles = StyleSheet.create({
   accessTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sectionGap },
   // Στρογγυλό κουμπί στο ελάχιστο επιτρεπτό μέγεθος αφής (48): μικρό δίπλα στον τίτλο, αλλά
   // μέσα στα όρια προσβασιμότητας των κανόνων σχεδίασης.
-  requestAccessCircle: {
+  circleButton: {
     width: TOUCH.minTargetSize,
     height: TOUCH.minTargetSize,
     borderRadius: TOUCH.minTargetSize / 2,
