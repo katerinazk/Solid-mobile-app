@@ -6,6 +6,7 @@ export async function fetchAccessListForPatient(patientAmka: string) {
     .select(`
       doctor_amka,
       access_type,
+      acl_synced,
       doctors (first_name, last_name, specialty, web_id)
     `)
     .eq('patient_amka', patientAmka);
@@ -17,20 +18,33 @@ export async function fetchAccessListForPatient(patientAmka: string) {
 export async function fetchAccessEntry(patientAmka: string, doctorAmka: string) {
   return supabase
     .from('access')
-    .select('doctor_amka, access_type')
+    .select('doctor_amka, access_type, acl_synced')
     .eq('patient_amka', patientAmka)
     .eq('doctor_amka', doctorAmka)
     .maybeSingle();
 }
 
-export async function addAccess(patientAmka: string, doctorAmka: string, accessType: string) {
+// aclSynced = μπήκε ο γιατρός στο ACL του Pod; Είναι false όταν δεν έχει ακόμα WebID (δεν έχει
+// κάνει ποτέ Solid login) - ο φάκελος του ασθενή δεν του εμφανίζεται μέχρι να συγχρονιστεί.
+export async function addAccess(patientAmka: string, doctorAmka: string, accessType: string, aclSynced: boolean) {
   return supabase
     .from('access')
     .insert([{
       patient_amka: patientAmka,
       doctor_amka: doctorAmka,
       access_type: accessType,
+      acl_synced: aclSynced,
     }]);
+}
+
+// Καλείται μόλις ο ασθενής ξαναγράψει το ACL του Pod του, για τους γιατρούς που μπήκαν τελικά.
+export async function markAccessAclSynced(patientAmka: string, doctorAmkas: string[]) {
+  if (doctorAmkas.length === 0) return { error: null };
+  return supabase
+    .from('access')
+    .update({ acl_synced: true })
+    .eq('patient_amka', patientAmka)
+    .in('doctor_amka', doctorAmkas);
 }
 
 export async function deleteAccess(patientAmka: string, doctorAmka: string) {

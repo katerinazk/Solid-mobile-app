@@ -52,6 +52,12 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
       // Πρώτα η λίστα της οθόνης (άμεση απάντηση) και μετά η βάση, που είναι η αυθεντία: αν η
       // λίστα δεν είχε προλάβει να φορτώσει, ο έλεγχος από μόνος του θα περνούσε λάθος.
       const { data: existingAccess } = await fetchAccessEntry(patientAmka.trim(), doctorAmka);
+      if (existingAccess && !existingAccess.acl_synced) {
+        // Η πρόσβαση υπάρχει στη βάση αλλά ο γιατρός δεν έχει μπει ακόμα στο ACL του Pod, οπότε
+        // ο φάκελος δεν του εμφανίζεται - χωρίς εξήγηση θα έμοιαζε με σφάλμα.
+        alert("Ο ασθενής σας έχει ήδη δώσει πρόσβαση. Ο φάκελός του θα εμφανιστεί μόλις συνδεθεί ξανά στην εφαρμογή.");
+        return;
+      }
       if (hasAccessTo(patientAmka.trim()) || existingAccess) {
         alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
         return;

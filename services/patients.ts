@@ -3,14 +3,17 @@ import { Patient } from '../types/Patient';
 
 export async function fetchPatientsForDoctor(doctorAmka: string): Promise<Patient[]> {
   // Φέρνουμε μόνο τους ασθενείς που έχουν δώσει πρόσβαση σε αυτόν τον γιατρό,
-  // μαζί με τον τύπο πρόσβασης που έχουν ορίσει.
+  // μαζί με τον τύπο πρόσβασης που έχουν ορίσει. Το acl_synced κόβει όσους δεν έχουν ακόμα
+  // γραφτεί στο ACL του Pod: ο φάκελός τους θα έβγαινε άδειος, οπότε δεν τους δείχνουμε
+  // καθόλου μέχρι ο ασθενής να ξαναμπεί στην εφαρμογή και να ολοκληρωθεί ο συγχρονισμός.
   const { data, error } = await supabase
     .from('access')
     .select(`
       access_type,
       patients (first_name, last_name, amka, web_id, birth_date)
     `)
-    .eq('doctor_amka', doctorAmka);
+    .eq('doctor_amka', doctorAmka)
+    .eq('acl_synced', true);
 
   if (error) throw error;
 

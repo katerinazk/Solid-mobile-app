@@ -10,6 +10,7 @@ import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { fetchPatientByAmka } from '../../../services/patients';
 import { listFolderFiles, getCategoryFolderUrl, getOwnerWebId, syncPodAcl } from '../../../services/solidPod';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
+import { markAccessAclSynced } from '../../../services/access';
 
 // Οι ετικέτες κατηγοριών αντιστοιχούν 1-1 στα ονόματα των φακέλων ιστορικού στο Pod του
 // ασθενή (Κατηγορίες.tsx), ώστε να μπορούμε να μετρήσουμε πόσες εγγραφές έχει η καθεμία.
@@ -45,10 +46,20 @@ export default function PatientHomeScreen() {
     if (!accessList.some((a) => a.doctors?.web_id)) return;
 
     aclSynced.current = true;
-    syncPodAcl({ activePatientFolderUrl, accessToken, accessList }).catch((error) => {
-      // Δεν ενοχλούμε τον ασθενή: αν αποτύχει, ξαναδοκιμάζει στην επόμενη είσοδο.
-      console.error("Αποτυχία συγχρονισμού ACL:", error);
-    });
+    (async () => {
+      try {
+        await syncPodAcl({ activePatientFolderUrl, accessToken, accessList });
+        // Όσοι γιατροί μπήκαν όντως στο ACL σημειώνονται ως συγχρονισμένοι, ώστε να αρχίσει
+        // να τους εμφανίζεται ο φάκελος του ασθενή.
+        await markAccessAclSynced(
+          loggedInPatientAmka,
+          accessList.filter((a) => a.doctors?.web_id).map((a) => a.doctor_amka),
+        );
+      } catch (error) {
+        // Δεν ενοχλούμε τον ασθενή: αν αποτύχει, ξαναδοκιμάζει στην επόμενη είσοδο.
+        console.error("Αποτυχία συγχρονισμού ACL:", error);
+      }
+    })();
   }, [accessList, activePatientFolderUrl, accessToken]);
 
   useEffect(() => {

@@ -70,7 +70,7 @@ export default function PatientAccessScreen() {
         return;
       }
 
-      const { error } = await addAccess(loggedInPatientAmka, request.doctor_amka, request.access_type);
+      const { error } = await addAccess(loggedInPatientAmka, request.doctor_amka, request.access_type, !!request.doctors?.web_id);
       if (error) {
         alert("Σφάλμα: " + error.message);
         return;
@@ -134,7 +134,7 @@ export default function PatientAccessScreen() {
         return;
       }
 
-      const { error } = await addAccess(loggedInPatientAmka, newDoctorAmka, newAccessType);
+      const { error } = await addAccess(loggedInPatientAmka, newDoctorAmka, newAccessType, !!doctorData.web_id);
 
       if (error) {
         alert("Σφάλμα: " + error.message);
