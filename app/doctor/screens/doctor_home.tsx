@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -76,6 +76,13 @@ export default function DoctorHomeScreen() {
     };
   }, [searchQuery]);
 
+  // Πρώτα οι ασθενείς που έχουν ήδη δώσει πρόσβαση (μπαίνεις κατευθείαν στον φάκελο) και μετά
+  // οι υπόλοιποι της βάσης, που θέλουν αίτημα. Μέσα σε κάθε ομάδα κρατάμε τη σειρά της βάσης.
+  const sortedResults = useMemo(() => {
+    const hasAccess = (item: SearchResult) => patients.some((p) => p.amka === item.amka);
+    return [...results.filter(hasAccess), ...results.filter((item) => !hasAccess(item))];
+  }, [results, patients]);
+
   const openRequestModal = (amka: string) => {
     setRequestAmka(amka);
     setIsRequestModalVisible(true);
@@ -139,7 +146,7 @@ export default function DoctorHomeScreen() {
           <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Αναζήτηση..."
+            placeholder="Εισάγετε τουλ. 3 χαρακτήρες..."
             placeholderTextColor={COLORS.primary}
             autoCorrect={false}
             value={searchQuery}
@@ -156,7 +163,7 @@ export default function DoctorHomeScreen() {
             <Text style={[sharedStyles.emptyText, { marginTop: 20 }]}>Δεν βρέθηκε ασθενής με αυτά τα στοιχεία.</Text>
           ) : (
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-              {results.map(renderResultCard)}
+              {sortedResults.map(renderResultCard)}
             </View>
           )
         ) : (
