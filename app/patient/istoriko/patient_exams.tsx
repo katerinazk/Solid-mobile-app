@@ -95,6 +95,7 @@ export default function PatientExamsScreen() {
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCompleted, setShowCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
@@ -250,6 +251,10 @@ export default function PatientExamsScreen() {
     };
   }, [exams, selectedCategory, searchQuery]);
 
+  // Ίδια λογική με την οθόνη του γιατρού: όσο υπάρχει αναζήτηση ανοίγουμε αυτόματα και τις
+  // "Ολοκληρωμένες", αλλιώς ένα αποτέλεσμα εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
+  const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -318,16 +323,26 @@ export default function PatientExamsScreen() {
             ))
           )}
 
-          <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Ολοκληρωμένες</Text>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
+            onPress={() => setShowCompleted((prev) => !prev)}
+          >
+            <Ionicons name={completedSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+            <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ολοκληρωμένες</Text>
+          </TouchableOpacity>
 
-          {completedExams.length === 0 ? (
-            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
-              {searchQuery.trim() ? 'Δεν βρέθηκε ολοκληρωμένη εξέταση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν ολοκληρωμένες εξετάσεις.'}
-            </Text>
-          ) : (
-            completedExams.map((item) => (
-              <CompletedExamCard key={item.url} item={item} opening={openingResultFor === item.url} onOpen={handleOpenResult} />
-            ))
+          {completedSectionOpen && (
+            <View style={{ marginTop: 12 }}>
+              {completedExams.length === 0 ? (
+                <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
+                  {searchQuery.trim() ? 'Δεν βρέθηκε ολοκληρωμένη εξέταση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν ολοκληρωμένες εξετάσεις.'}
+                </Text>
+              ) : (
+                completedExams.map((item) => (
+                  <CompletedExamCard key={item.url} item={item} opening={openingResultFor === item.url} onOpen={handleOpenResult} />
+                ))
+              )}
+            </View>
           )}
         </ScrollView>
       )}
