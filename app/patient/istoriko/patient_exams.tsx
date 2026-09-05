@@ -94,6 +94,7 @@ export default function PatientExamsScreen() {
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
@@ -231,16 +232,23 @@ export default function PatientExamsScreen() {
   };
 
   const { pendingExams, completedExams } = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
     const matchesCategory = (e: Exam) => {
       if (selectedCategory === 'Όλες') return true;
       return e.type === selectedCategory;
     };
-    const filtered = exams.filter(matchesCategory);
+    // Η αναζήτηση πιάνει και τον τύπο, ώστε πληκτρολογώντας π.χ. "αιματολογ" να βγαίνουν όλες
+    // οι εξετάσεις αυτής της κατηγορίας - λειτουργεί μαζί με το επιλεγμένο φίλτρο, όχι αντί.
+    const matchesSearch = (e: Exam) => {
+      if (!query) return true;
+      return e.title?.toLowerCase().includes(query) || e.type?.toLowerCase().includes(query);
+    };
+    const filtered = exams.filter((e) => matchesCategory(e) && matchesSearch(e));
     return {
       pendingExams: filtered.filter((e) => e.status === 'pending'),
       completedExams: filtered.filter((e) => e.status === 'completed'),
     };
-  }, [exams, selectedCategory]);
+  }, [exams, selectedCategory, searchQuery]);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -257,7 +265,13 @@ export default function PatientExamsScreen() {
         <Text style={doctorStyles.dashboardLabel}>Αναζήτηση εξέτασης:</Text>
         <View style={[doctorStyles.searchContainer, { marginHorizontal: 0 }]}>
           <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-          <TextInput style={doctorStyles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
+          <TextInput
+            style={doctorStyles.searchInput}
+            placeholder="Αναζήτηση..."
+            placeholderTextColor={COLORS.primary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
         </View>
       </View>
 
@@ -288,7 +302,9 @@ export default function PatientExamsScreen() {
           <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Εκκρεμείς</Text>
 
           {pendingExams.length === 0 ? (
-            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
+            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
+              {searchQuery.trim() ? 'Δεν βρέθηκε εκκρεμής εξέταση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν εκκρεμείς εξετάσεις.'}
+            </Text>
           ) : (
             pendingExams.map((item) => (
               <PendingExamCard
@@ -305,7 +321,9 @@ export default function PatientExamsScreen() {
           <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Ολοκληρωμένες</Text>
 
           {completedExams.length === 0 ? (
-            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
+            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
+              {searchQuery.trim() ? 'Δεν βρέθηκε ολοκληρωμένη εξέταση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν ολοκληρωμένες εξετάσεις.'}
+            </Text>
           ) : (
             completedExams.map((item) => (
               <CompletedExamCard key={item.url} item={item} opening={openingResultFor === item.url} onOpen={handleOpenResult} />
