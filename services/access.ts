@@ -11,6 +11,18 @@ export async function fetchAccessListForPatient(patientAmka: string) {
     .eq('patient_amka', patientAmka);
 }
 
+// Έλεγχος αν ο συγκεκριμένος γιατρός έχει ήδη πρόσβαση σε αυτόν τον ασθενή. Ρωτάμε τη βάση
+// τη στιγμή του ελέγχου: η λίστα προσβάσεων που κρατάει η οθόνη στη μνήμη φορτώνεται μία
+// φορά και μπορεί να είναι παλιά - ή και άδεια, αν είχε αποτύχει η φόρτωσή της.
+export async function fetchAccessEntry(patientAmka: string, doctorAmka: string) {
+  return supabase
+    .from('access')
+    .select('doctor_amka, access_type')
+    .eq('patient_amka', patientAmka)
+    .eq('doctor_amka', doctorAmka)
+    .maybeSingle();
+}
+
 export async function addAccess(patientAmka: string, doctorAmka: string, accessType: string) {
   return supabase
     .from('access')

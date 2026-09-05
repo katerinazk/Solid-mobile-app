@@ -8,7 +8,7 @@ import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { fetchDoctorByAmka } from '../../../services/doctors';
-import { addAccess, deleteAccess, updateAccessType } from '../../../services/access';
+import { addAccess, deleteAccess, updateAccessType, fetchAccessEntry } from '../../../services/access';
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
@@ -60,21 +60,36 @@ export default function PatientAccessScreen() {
     try {
       setResolvingRequestId(request.id);
 
+      // Ίδιοι έλεγχοι με τη χειροκίνητη προσθήκη - το αίτημα μπορεί να έμεινε εκκρεμές αφότου
+      // ο ασθενής έδωσε ήδη πρόσβαση στον ίδιο γιατρό με το χέρι.
+      const { data: existingAccess } = await fetchAccessEntry(loggedInPatientAmka, request.doctor_amka);
+      if (existingAccess) {
+        await resolveAccessRequest(request.id, 'accepted');
+        setRequests((prev) => prev.filter((r) => r.id !== request.id));
+        alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
+        return;
+      }
+
+      // Χωρίς WebID δεν μπαίνει στο ACL: θα έπαιρνε πρόσβαση στη βάση χωρίς να βλέπει τίποτα.
+      // Αφήνουμε το αίτημα εκκρεμές ώστε να το αποδεχτεί ο ασθενής μετά το login του γιατρού.
+      if (!request.doctors?.web_id) {
+        alert("Ο γιατρός δεν έχει συνδεθεί ακόμα στο Pod του, οπότε δεν μπορεί να του δοθεί πρόσβαση.");
+        return;
+      }
+
       const { error } = await addAccess(loggedInPatientAmka, request.doctor_amka, request.access_type);
       if (error) {
         alert("Σφάλμα: " + error.message);
         return;
       }
 
-      if (request.doctors?.web_id) {
-        await updatePodAcl({
-          activePatientFolderUrl,
-          accessToken,
-          accessList,
-          newDoctorWebId: request.doctors.web_id,
-          accessType: request.access_type,
-        });
-      }
+      await updatePodAcl({
+        activePatientFolderUrl,
+        accessToken,
+        accessList,
+        newDoctorWebId: request.doctors.web_id,
+        accessType: request.access_type,
+      });
 
       await resolveAccessRequest(request.id, 'accepted');
       setRequests((prev) => prev.filter((r) => r.id !== request.id));
@@ -111,6 +126,21 @@ export default function PatientAccessScreen() {
 
       if (doctorError || !doctorData) {
         alert("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
+        return;
+      }
+
+      // Ρωτάμε τη βάση αντί να κοιτάξουμε το accessList: αν είχε αποτύχει η φόρτωσή του, ο
+      // έλεγχος θα περνούσε λάθος και θα γραφόταν διπλή εγγραφή πρόσβασης.
+      const { data: existingAccess } = await fetchAccessEntry(loggedInPatientAmka, newDoctorAmka);
+      if (existingAccess) {
+        alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
+        return;
+      }
+
+      // Χωρίς WebID ο γιατρός δεν μπορεί να μπει στο ACL του Pod: θα γραφόταν η πρόσβαση στη
+      // βάση αλλά δεν θα έβλεπε τίποτα. Το WebID συμπληρώνεται στο πρώτο του login στο Solid.
+      if (!doctorData.web_id) {
+        alert("Ο γιατρός δεν έχει συνδεθεί ακόμα στο Pod του, οπότε δεν μπορεί να του δοθεί πρόσβαση.");
         return;
       }
 

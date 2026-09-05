@@ -7,6 +7,7 @@ import { loginStyles } from '../../constants/loginStyles';
 import { TYPOGRAPHY } from '../../constants/designSystem';
 import { fetchPatientByAmka } from '../../services/patients';
 import { hasPendingAccessRequest, createAccessRequest } from '../../services/accessRequests';
+import { fetchAccessEntry } from '../../services/access';
 
 interface Props {
   visible: boolean;
@@ -48,7 +49,10 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
         return;
       }
 
-      if (hasAccessTo(patientAmka.trim())) {
+      // Πρώτα η λίστα της οθόνης (άμεση απάντηση) και μετά η βάση, που είναι η αυθεντία: αν η
+      // λίστα δεν είχε προλάβει να φορτώσει, ο έλεγχος από μόνος του θα περνούσε λάθος.
+      const { data: existingAccess } = await fetchAccessEntry(patientAmka.trim(), doctorAmka);
+      if (hasAccessTo(patientAmka.trim()) || existingAccess) {
         alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
         return;
       }
