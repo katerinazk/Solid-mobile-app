@@ -27,7 +27,7 @@ const MIN_SEARCH_LENGTH = 3;
 
 export default function DoctorHomeScreen() {
   const { loggedInDoctorAmka } = useAuth();
-  const { patients, loading } = useDoctorPatients();
+  const { patients, loading, error: patientsError } = useDoctorPatients();
   const [doctor, setDoctor] = useState<{ last_name: string } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -146,7 +146,7 @@ export default function DoctorHomeScreen() {
           <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Εισάγετε τουλ. 3 χαρακτήρες..."
+            placeholder="Τουλ. 3 χαρακτήρες..."
             placeholderTextColor={COLORS.primary}
             autoCorrect={false}
             value={searchQuery}
@@ -192,6 +192,10 @@ export default function DoctorHomeScreen() {
             </View>
             {loading ? (
               <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+            ) : patientsError ? (
+              <Text style={[sharedStyles.emptyText, { marginTop: 10, textAlign: 'left', color: COLORS.danger }]}>
+                Αποτυχία φόρτωσης προσβάσεων: {patientsError}
+              </Text>
             ) : patients.length === 0 ? (
               <Text style={[sharedStyles.emptyText, { marginTop: 10, textAlign: 'left' }]}>Δεν έχετε πρόσβαση σε κανέναν ασθενή.</Text>
             ) : (
