@@ -28,6 +28,18 @@ interface Exam {
   doctorAmka: string;
   completedDate?: string;
   resultFile?: string;
+  // Ημερομηνία καταχώρησης της εξέτασης (όχι ολοκλήρωσης).
+  createdDate?: string;
+}
+
+// Οι εκκρεμείς εξετάσεις δεν είχαν ημερομηνία. Τα αρχεία όμως ονομάζονται με το timestamp της
+// στιγμής που δημιουργήθηκαν (Date.now().json), οπότε οι παλιές εγγραφές - που δεν έχουν
+// createdDate μέσα τους - παίρνουν την ημερομηνία από το ίδιο το όνομα του αρχείου.
+function createdDateFromUrl(url: string): string {
+  const timestamp = Number(url.split('/').pop()?.replace('.json', ''));
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onDelete }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
@@ -49,6 +61,11 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
       </Text>
+      {!!item.createdDate && (
+        <Text style={doctorStyles.diagnosisCardDetail}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.createdDate)}
+        </Text>
+      )}
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
@@ -122,6 +139,7 @@ export default function DoctorExamsScreen() {
             doctorAmka: record.doctorAmka,
             completedDate: record.completedDate,
             resultFile: record.resultFile,
+            createdDate: record.createdDate || createdDateFromUrl(url),
           } as Exam;
         } catch {
           return null;
@@ -268,6 +286,9 @@ export default function DoctorExamsScreen() {
         doctorAmka = loggedInDoctorAmka;
       }
 
+      const today = new Date();
+      const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
       const record = {
         title: formName.trim(),
         type: formType,
@@ -276,6 +297,8 @@ export default function DoctorExamsScreen() {
         doctorAmka,
         completedDate: editingExam?.completedDate,
         resultFile: editingExam?.resultFile,
+        // Στην επεξεργασία κρατάμε την αρχική ημερομηνία καταχώρησης, δεν τη μηδενίζουμε.
+        createdDate: editingExam?.createdDate || todayIso,
       };
 
       const fileUrl = editingExam ? editingExam.url : `${folderUrl}${Date.now()}.json`;

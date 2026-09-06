@@ -25,6 +25,18 @@ interface Exam {
   doctorAmka: string;
   completedDate?: string;
   resultFile?: string;
+  // Ημερομηνία καταχώρησης της εξέτασης (όχι ολοκλήρωσης).
+  createdDate?: string;
+}
+
+// Οι εκκρεμείς εξετάσεις δεν είχαν ημερομηνία. Τα αρχεία όμως ονομάζονται με το timestamp της
+// στιγμής που δημιουργήθηκαν (Date.now().json), οπότε οι παλιές εγγραφές - που δεν έχουν
+// createdDate μέσα τους - παίρνουν την ημερομηνία από το ίδιο το όνομα του αρχείου.
+function createdDateFromUrl(url: string): string {
+  const timestamp = Number(url.split('/').pop()?.replace('.json', ''));
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelete }: { item: Exam; doctorDisplayName: string; uploading: boolean; onUpload: (item: Exam) => void; onDelete: (item: Exam) => void }) {
@@ -36,6 +48,11 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
       </Text>
+      {!!item.createdDate && (
+        <Text style={doctorStyles.diagnosisCardDetail}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.createdDate)}
+        </Text>
+      )}
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
@@ -133,6 +150,7 @@ export default function PatientExamsScreen() {
             doctorAmka: record.doctorAmka,
             completedDate: record.completedDate,
             resultFile: record.resultFile,
+            createdDate: record.createdDate || createdDateFromUrl(url),
           } as Exam;
         } catch {
           return null;
@@ -185,6 +203,8 @@ export default function PatientExamsScreen() {
         doctorAmka: item.doctorAmka,
         completedDate,
         resultFile: asset.name,
+        // Διατηρούμε την ημερομηνία καταχώρησης - το ανέβασμα ξαναγράφει όλο το αρχείο.
+        createdDate: item.createdDate,
       };
 
       await saveFileContent(item.url, accessToken, JSON.stringify(record));
