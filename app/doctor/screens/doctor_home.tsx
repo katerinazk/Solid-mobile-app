@@ -15,6 +15,7 @@ import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { searchPatients } from '../../../services/patients';
 import { fetchAccessEntry } from '../../../services/access';
+import { fetchPendingAccessRequestsForDoctor } from '../../../services/accessRequests';
 import { Patient } from '../../../types/Patient';
 
 interface SearchResult {
@@ -36,6 +37,9 @@ export default function DoctorHomeScreen() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
 
+  // Τα ΑΜΚΑ των ασθενών που έχουν ήδη λάβει αίτημα και δεν το έχουν απαντήσει ακόμα - στις
+  // καρτέλες τους δείχνουμε ενημέρωση αντί για κουμπί, ώστε να μη σταλεί δεύτερο αίτημα.
+  const [pendingRequestAmkas, setPendingRequestAmkas] = useState<string[]>([]);
   const [openingFolderFor, setOpeningFolderFor] = useState<string | null>(null);
   const [requestAmka, setRequestAmka] = useState('');
   const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
@@ -50,6 +54,20 @@ export default function DoctorHomeScreen() {
         // Αν αποτύχει, απλά δεν εμφανίζεται το επίθετο στο καλωσόρισμα.
       }
     })();
+  }, []);
+
+  const loadPendingRequests = async () => {
+    try {
+      const { data, error } = await fetchPendingAccessRequestsForDoctor(loggedInDoctorAmka);
+      if (error) return;
+      setPendingRequestAmkas(((data || []) as any[]).map((r) => r.patient_amka));
+    } catch {
+      // Αν αποτύχει, οι καρτέλες απλώς δείχνουν κανονικά το κουμπί αιτήματος.
+    }
+  };
+
+  useEffect(() => {
+    loadPendingRequests();
   }, []);
 
   useEffect(() => {
@@ -160,6 +178,8 @@ export default function DoctorHomeScreen() {
               ? <ActivityIndicator size="small" color={COLORS.white} />
               : <Text style={sharedStyles.cardActionButtonText}>Προβολή Φακέλου</Text>}
           </TouchableOpacity>
+        ) : pendingRequestAmkas.includes(item.amka) ? (
+          <Text style={localStyles.pendingRequestText}>Έχει σταλεί αίτημα πρόσβασης</Text>
         ) : (
           <TouchableOpacity style={sharedStyles.cardActionButton} onPress={() => openRequestModal(item.amka)}>
             <Text style={sharedStyles.cardActionButtonText}>Αίτημα Πρόσβασης</Text>
@@ -257,7 +277,11 @@ export default function DoctorHomeScreen() {
       <SentRequestsModal
         visible={isSentRequestsModalVisible}
         doctorAmka={loggedInDoctorAmka}
-        onClose={() => setIsSentRequestsModalVisible(false)}
+        onClose={() => {
+          setIsSentRequestsModalVisible(false);
+          // Το παράθυρο έφερε φρέσκια λίστα - την ξαναδιαβάζουμε ώστε να συμφωνούν οι καρτέλες.
+          loadPendingRequests();
+        }}
       />
 
       <AccessRequestModal
@@ -266,6 +290,7 @@ export default function DoctorHomeScreen() {
         initialAmka={requestAmka}
         hasAccessTo={(patientAmka) => patients.some((p) => p.amka === patientAmka)}
         onClose={() => setIsRequestModalVisible(false)}
+        onSubmitted={loadPendingRequests}
       />
     </SafeAreaView>
   );
@@ -285,5 +310,6 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: SPACING.groupGap,
   },
+  pendingRequestText: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary, textAlign: 'center' },
   welcome: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.groupGap, marginBottom: SPACING.sectionGap },
 });
