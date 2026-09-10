@@ -13,7 +13,7 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { createDateHandler, splitIsoDate } from '../../../utils/dateInput';
+import { createDateHandler, splitIsoDate, validatePastDate } from '../../../utils/dateInput';
 
 interface PendingFile {
   name: string;
@@ -105,22 +105,21 @@ export default function DoctorHospitalizationFormScreen() {
       return;
     }
 
-    if (admDay.length !== 2 || admMonth.length !== 2 || admYear.length !== 4) {
-      alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία εισαγωγής (ΗΗ/ΜΜ/ΕΕΕΕ).");
-      return;
-    }
-    if (disDay.length !== 2 || disMonth.length !== 2 || disYear.length !== 4) {
-      alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία εξιτηρίου (ΗΗ/ΜΜ/ΕΕΕΕ).");
+    const admissionError = validatePastDate(admDay, admMonth, admYear);
+    if (admissionError) {
+      alert(`Ημερομηνία εισαγωγής: ${admissionError}`);
       return;
     }
 
-    const currentYear = new Date().getFullYear();
-    if (Number(admYear) < currentYear - 10 || Number(admYear) > currentYear) {
-      alert(`Το έτος εισαγωγής πρέπει να είναι μεταξύ ${currentYear - 10} και ${currentYear}.`);
+    const dischargeError = validatePastDate(disDay, disMonth, disYear);
+    if (dischargeError) {
+      alert(`Ημερομηνία εξιτηρίου: ${dischargeError}`);
       return;
     }
-    if (Number(disYear) < currentYear - 10 || Number(disYear) > currentYear) {
-      alert(`Το έτος εξιτηρίου πρέπει να είναι μεταξύ ${currentYear - 10} και ${currentYear}.`);
+
+    // Το εξιτήριο δεν γίνεται να προηγείται της εισαγωγής.
+    if (`${disYear}${disMonth}${disDay}` < `${admYear}${admMonth}${admDay}`) {
+      alert("Η ημερομηνία εξιτηρίου δεν μπορεί να είναι πριν από την ημερομηνία εισαγωγής.");
       return;
     }
 
@@ -180,7 +179,7 @@ export default function DoctorHospitalizationFormScreen() {
       saving={saving}
       onSave={handleSave}
     >
-      <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
+      <Text style={loginStyles.inputLabel}>Αιτία Εισαγωγής</Text>
       <MedicalCodePicker
         category="Νοσηλίες"
         value={selectedCode}

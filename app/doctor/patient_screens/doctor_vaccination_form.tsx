@@ -9,7 +9,7 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { createDateHandler, splitIsoDate } from '../../../utils/dateInput';
+import { createDateHandler, splitIsoDate, validatePastDate } from '../../../utils/dateInput';
 
 export default function DoctorVaccinationFormScreen() {
   const params = useLocalSearchParams<{
@@ -60,14 +60,9 @@ export default function DoctorVaccinationFormScreen() {
       return;
     }
 
-    if (day.length !== 2 || month.length !== 2 || year.length !== 4) {
-      alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία (ΗΗ/ΜΜ/ΕΕΕΕ).");
-      return;
-    }
-
-    const currentYear = new Date().getFullYear();
-    if (Number(year) < currentYear - 10 || Number(year) > currentYear) {
-      alert(`Το έτος πρέπει να είναι μεταξύ ${currentYear - 10} και ${currentYear}.`);
+    const dateError = validatePastDate(day, month, year);
+    if (dateError) {
+      alert(dateError);
       return;
     }
 
