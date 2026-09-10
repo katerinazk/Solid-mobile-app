@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
+import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -61,7 +62,8 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
       </Text>
       <Text style={doctorStyles.diagnosisCardDetail}>
-        <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
+        <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>
+        {item.startDate ? formatDate(item.startDate) : 'εκκρεμεί έναρξη από τον ασθενή'}
       </Text>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{item.durationDays} μέρες
@@ -97,6 +99,8 @@ export default function DoctorMedicationsScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
+          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+          if (!isCompleteRecord('Φάρμακα', record)) return null;
           return {
             url,
             title: record.title,
@@ -203,6 +207,13 @@ export default function DoctorMedicationsScreen() {
 
     for (const med of medications) {
       if (query && !med.title?.toLowerCase().includes(query)) continue;
+
+      // Το φάρμακο που δεν έχει ξεκινήσει ακόμα είναι τρέχουσα συνταγή, όχι περασμένη αγωγή.
+      // Χωρίς αυτό θα έπεφτε στις προηγούμενες, αφού δεν έχει καθόλου ημερομηνία έναρξης.
+      if (med.started === false) {
+        active.push(med);
+        continue;
+      }
 
       const endDate = new Date(med.startDate);
       endDate.setDate(endDate.getDate() + (med.durationDays || 0));

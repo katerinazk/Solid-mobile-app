@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
+import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -58,6 +59,8 @@ export default function DoctorHospitalizationsScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
+          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+          if (!isCompleteRecord('Νοσηλίες', record)) return null;
           return {
             url,
             title: record.title,

@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -75,6 +76,8 @@ export default function PatientMedicationsScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
+          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+          if (!isCompleteRecord('Φάρμακα', record)) return null;
           return {
             url,
             title: record.title,
@@ -181,6 +184,13 @@ export default function PatientMedicationsScreen() {
       // Η αναζήτηση γίνεται στο όνομα του φαρμάκου, πριν τον διαχωρισμό σε ενεργά/προηγούμενα,
       // ώστε το φιλτράρισμα να ισχύει και στις δύο ενότητες.
       if (query && !med.title?.toLowerCase().includes(query)) continue;
+
+      // Το φάρμακο που δεν έχει ξεκινήσει ακόμα είναι τρέχουσα συνταγή, όχι περασμένη αγωγή.
+      // Χωρίς αυτό θα έπεφτε στις προηγούμενες, αφού δεν έχει καθόλου ημερομηνία έναρξης.
+      if (med.started === false) {
+        active.push(med);
+        continue;
+      }
 
       const endDate = new Date(med.startDate);
       endDate.setDate(endDate.getDate() + (med.durationDays || 0));

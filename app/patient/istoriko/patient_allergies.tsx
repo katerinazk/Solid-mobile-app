@@ -9,6 +9,7 @@ import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { fetchPatientByAmka } from '../../../services/patients';
@@ -71,6 +72,8 @@ export default function PatientAllergiesScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
+          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+          if (!isCompleteRecord('Αλλεργίες', record)) return null;
           return {
             url,
             title: record.title,

@@ -9,6 +9,7 @@ import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
+import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -66,7 +67,7 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
       </Text>
       {!!item.createdDate && (
         <Text style={doctorStyles.diagnosisCardDetail}>
-          <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.createdDate)}
+          <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
         </Text>
       )}
       <Text style={doctorStyles.diagnosisCardDetail}>
@@ -90,7 +91,7 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
           <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
         </Text>
         <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
-          <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
+          <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Αποτελέσματος: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
         </Text>
       </View>
       {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
@@ -126,6 +127,8 @@ export default function DoctorExamsScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
+          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+          if (!isCompleteRecord('Εξετάσεις', record)) return null;
           return {
             url,
             title: record.title,

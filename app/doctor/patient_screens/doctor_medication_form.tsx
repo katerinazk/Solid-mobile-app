@@ -92,9 +92,9 @@ export default function DoctorMedicationFormScreen() {
           ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
           : 'Δρ.';
         doctorAmka = loggedInDoctorAmka;
-
-        const today = new Date();
-        startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        // Η ημερομηνία έναρξης μένει κενή: τη συμπληρώνει ο ασθενής όταν πατήσει "Έναρξη"
+        // στη δική του οθόνη. Πριν από αυτό δεν έχει αρχίσει καμία αγωγή.
+        startDate = '';
       }
 
       // Νέα εγγραφή -> ξεκινάει "εκκρεμής" (started: false) μέχρι ο ασθενής να πατήσει
