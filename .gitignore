@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# παραγόμενα csv για import στο Supabase - φτιάχνονται από το build_medical_codes.mjs
+/scripts/out

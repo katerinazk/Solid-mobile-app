@@ -9,6 +9,9 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
+import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
@@ -25,6 +28,9 @@ interface Vaccination {
   batchNumber: string;
   doseNumber: string;
   administeredDate: string;
+  // Κωδικός ATC (J07). Λείπει από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 export default function DoctorVaccinationsScreen() {
@@ -43,7 +49,7 @@ export default function DoctorVaccinationsScreen() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [editingVaccination, setEditingVaccination] = useState<Vaccination | null>(null);
   const [saving, setSaving] = useState(false);
-  const [formTitle, setFormTitle] = useState('');
+  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
   const [formCommercialName, setFormCommercialName] = useState('');
   const [formBatchNumber, setFormBatchNumber] = useState('');
   const [formDoseNumber, setFormDoseNumber] = useState('');
@@ -67,6 +73,8 @@ export default function DoctorVaccinationsScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             commercialName: record.commercialName,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
@@ -151,7 +159,7 @@ export default function DoctorVaccinationsScreen() {
   };
 
   const resetForm = () => {
-    setFormTitle('');
+    setSelectedCode(null);
     setFormCommercialName('');
     setFormBatchNumber('');
     setFormDoseNumber('');
@@ -176,7 +184,7 @@ export default function DoctorVaccinationsScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!formTitle.trim() || !formCommercialName.trim() || !formBatchNumber.trim() || !formDoseNumber.trim() || !formAdministeredDate.trim()) {
+    if (!selectedCode || !formCommercialName.trim() || !formBatchNumber.trim() || !formDoseNumber.trim() || !formAdministeredDate.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
@@ -210,7 +218,9 @@ export default function DoctorVaccinationsScreen() {
       }
 
       const record = {
-        title: formTitle.trim(),
+        title: selectedCode.name,
+        code: selectedCode.code,
+        parentName: selectedCode.parent_name || undefined,
         commercialName: formCommercialName.trim(),
         doctorName,
         doctorAmka,
@@ -239,7 +249,7 @@ export default function DoctorVaccinationsScreen() {
 
   const handleEditVaccination = (item: Vaccination) => {
     setEditingVaccination(item);
-    setFormTitle(item.title);
+    setSelectedCode(codeFromRecord(item));
     setFormCommercialName(item.commercialName);
     setFormBatchNumber(item.batchNumber);
     setFormDoseNumber(item.doseNumber);
@@ -315,7 +325,7 @@ export default function DoctorVaccinationsScreen() {
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
-                <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity onPress={() => handleEditVaccination(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -368,8 +378,13 @@ export default function DoctorVaccinationsScreen() {
               {editingVaccination ? 'Επεξεργασία\nΕμβολιασμού' : 'Νέος\nΕμβολιασμός'}
             </Text>
 
-            <Text style={loginStyles.inputLabel}>Όνομα</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
+            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
+            <MedicalCodePicker
+              category="Εμβολιασμοί"
+              value={selectedCode}
+              onChange={setSelectedCode}
+              inputStyle={[loginStyles.loginInput, localStyles.input]}
+            />
 
             <Text style={loginStyles.inputLabel}>Εμπορική Ονομασία</Text>
             <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formCommercialName} onChangeText={setFormCommercialName} />

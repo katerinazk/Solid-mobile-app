@@ -9,6 +9,9 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
+import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -21,6 +24,9 @@ interface Allergy {
   reaction: string;
   doctorName: string;
   doctorAmka: string;
+  // Κωδικός ICD-10 ή ATC. Λείπει από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 export default function DoctorAllergiesScreen() {
@@ -36,7 +42,7 @@ export default function DoctorAllergiesScreen() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [editingAllergy, setEditingAllergy] = useState<Allergy | null>(null);
   const [saving, setSaving] = useState(false);
-  const [formTitle, setFormTitle] = useState('');
+  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
   const [formReaction, setFormReaction] = useState('');
 
   const loadAllergies = async () => {
@@ -54,6 +60,8 @@ export default function DoctorAllergiesScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             reaction: record.reaction,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
@@ -80,7 +88,7 @@ export default function DoctorAllergiesScreen() {
   };
 
   const resetForm = () => {
-    setFormTitle('');
+    setSelectedCode(null);
     setFormReaction('');
   };
 
@@ -102,7 +110,7 @@ export default function DoctorAllergiesScreen() {
 
   const handleEditAllergy = (item: Allergy) => {
     setEditingAllergy(item);
-    setFormTitle(item.title);
+    setSelectedCode(codeFromRecord(item));
     setFormReaction(item.reaction);
     setIsAddModalVisible(true);
   };
@@ -112,8 +120,8 @@ export default function DoctorAllergiesScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!formTitle.trim() || !formReaction.trim()) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+    if (!selectedCode || !formReaction.trim()) {
+      alert("Επιλέξτε αλλεργία από τον κατάλογο και συμπληρώστε την αντίδραση!");
       return;
     }
 
@@ -134,7 +142,9 @@ export default function DoctorAllergiesScreen() {
       }
 
       const record = {
-        title: formTitle.trim(),
+        title: selectedCode.name,
+        code: selectedCode.code,
+        parentName: selectedCode.parent_name || undefined,
         reaction: formReaction.trim(),
         doctorName,
         doctorAmka,
@@ -221,7 +231,7 @@ export default function DoctorAllergiesScreen() {
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
-                <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {!isReadOnly && item.doctorAmka === loggedInDoctorAmka && (
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity onPress={() => handleEditAllergy(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -265,8 +275,13 @@ export default function DoctorAllergiesScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={loginStyles.inputLabel}>Όνομα</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
+            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
+            <MedicalCodePicker
+              category="Αλλεργίες"
+              value={selectedCode}
+              onChange={setSelectedCode}
+              inputStyle={[loginStyles.loginInput, localStyles.input]}
+            />
 
             <Text style={loginStyles.inputLabel}>Αντίδραση</Text>
             <TextInput

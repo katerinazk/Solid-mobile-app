@@ -10,6 +10,9 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
+import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, uploadAttachment, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
@@ -27,6 +30,9 @@ interface Hospitalization {
   admissionDate: string;
   dischargeDate: string;
   attachments: string[];
+  // Κωδικός ICD-10 του λόγου νοσηλείας. Λείπει από τις παλιές εγγραφές.
+  code?: string;
+  parentName?: string;
 }
 
 interface PendingFile {
@@ -90,7 +96,7 @@ export default function DoctorHospitalizationsScreen() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [editingHospitalization, setEditingHospitalization] = useState<Hospitalization | null>(null);
   const [saving, setSaving] = useState(false);
-  const [formTitle, setFormTitle] = useState('');
+  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
   const [formHospitalClinic, setFormHospitalClinic] = useState('');
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
 
@@ -126,6 +132,8 @@ export default function DoctorHospitalizationsScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             hospitalClinic: record.hospitalClinic,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
@@ -161,7 +169,7 @@ export default function DoctorHospitalizationsScreen() {
   };
 
   const resetForm = () => {
-    setFormTitle('');
+    setSelectedCode(null);
     setFormHospitalClinic('');
     setAdmDay(''); setAdmMonth(''); setAdmYear('');
     setDisDay(''); setDisMonth(''); setDisYear('');
@@ -202,7 +210,7 @@ export default function DoctorHospitalizationsScreen() {
 
   const handleEditHospitalization = (item: Hospitalization) => {
     setEditingHospitalization(item);
-    setFormTitle(item.title);
+    setSelectedCode(codeFromRecord(item));
     setFormHospitalClinic(item.hospitalClinic);
     const [ay, am, ad] = item.admissionDate.split('-');
     setAdmYear(ay); setAdmMonth(am); setAdmDay(ad);
@@ -255,7 +263,7 @@ export default function DoctorHospitalizationsScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!formTitle.trim() || !formHospitalClinic.trim() || !formAdmissionDate.trim() || !formDischargeDate.trim()) {
+    if (!selectedCode || !formHospitalClinic.trim() || !formAdmissionDate.trim() || !formDischargeDate.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
@@ -304,7 +312,9 @@ export default function DoctorHospitalizationsScreen() {
       }
 
       const record = {
-        title: formTitle.trim(),
+        title: selectedCode.name,
+        code: selectedCode.code,
+        parentName: selectedCode.parent_name || undefined,
         hospitalClinic: formHospitalClinic.trim(),
         doctorName,
         doctorAmka,
@@ -367,7 +377,7 @@ export default function DoctorHospitalizationsScreen() {
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
-                <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity onPress={() => handleEditHospitalization(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -425,8 +435,13 @@ export default function DoctorHospitalizationsScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={loginStyles.inputLabel}>Όνομα</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
+            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
+            <MedicalCodePicker
+              category="Νοσηλίες"
+              value={selectedCode}
+              onChange={setSelectedCode}
+              inputStyle={[loginStyles.loginInput, localStyles.input]}
+            />
 
             <Text style={loginStyles.inputLabel}>Νοσοκομείο / Κλινική</Text>
             <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formHospitalClinic} onChangeText={setFormHospitalClinic} />

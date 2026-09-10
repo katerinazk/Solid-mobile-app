@@ -9,6 +9,9 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
+import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
@@ -30,6 +33,9 @@ interface Exam {
   resultFile?: string;
   // Ημερομηνία καταχώρησης της εξέτασης (όχι ολοκλήρωσης).
   createdDate?: string;
+  // Κωδικός LOINC. Λείπει από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 // Οι εκκρεμείς εξετάσεις δεν είχαν ημερομηνία. Τα αρχεία όμως ονομάζονται με το timestamp της
@@ -46,7 +52,7 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
-        <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         {!isReadOnly && item.doctorAmka === loggedInDoctorAmka && (
           <View style={{ flexDirection: 'row' }}>
             <TouchableOpacity onPress={() => onEdit(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -82,7 +88,7 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
     >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
-        <Text style={[doctorStyles.diagnosisCardTitle, { marginRight: 0 }]}>{item.title}</Text>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
         </Text>
@@ -114,7 +120,7 @@ export default function DoctorExamsScreen() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [saving, setSaving] = useState(false);
-  const [formName, setFormName] = useState('');
+  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
   const [formType, setFormType] = useState('');
   const [isTypeListVisible, setIsTypeListVisible] = useState(false);
 
@@ -133,6 +139,8 @@ export default function DoctorExamsScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             type: record.type,
             status: record.status,
             doctorName: record.doctorName,
@@ -194,7 +202,7 @@ export default function DoctorExamsScreen() {
 
   const openAddModal = () => {
     setEditingExam(null);
-    setFormName('');
+    setSelectedCode(null);
     setFormType('');
     setIsTypeListVisible(false);
     setIsAddModalVisible(true);
@@ -208,7 +216,7 @@ export default function DoctorExamsScreen() {
 
   const handleEditExam = (item: Exam) => {
     setEditingExam(item);
-    setFormName(item.title);
+    setSelectedCode(codeFromRecord(item));
     setFormType(item.type);
     setIsTypeListVisible(false);
     setIsAddModalVisible(true);
@@ -263,7 +271,7 @@ export default function DoctorExamsScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!formName.trim() || !formType.trim()) {
+    if (!selectedCode || !formType.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
@@ -290,7 +298,9 @@ export default function DoctorExamsScreen() {
       const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
       const record = {
-        title: formName.trim(),
+        title: selectedCode.name,
+        code: selectedCode.code,
+        parentName: selectedCode.parent_name || undefined,
         type: formType,
         status: editingExam?.status || ('pending' as const),
         doctorName,
@@ -422,8 +432,13 @@ export default function DoctorExamsScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={loginStyles.inputLabel}>Όνομα</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formName} onChangeText={setFormName} />
+            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
+            <MedicalCodePicker
+              category="Εξετάσεις"
+              value={selectedCode}
+              onChange={setSelectedCode}
+              inputStyle={[loginStyles.loginInput, localStyles.input]}
+            />
 
             <Text style={loginStyles.inputLabel}>Τύπος</Text>
             <TouchableOpacity

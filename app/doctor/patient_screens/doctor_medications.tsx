@@ -9,6 +9,9 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
+import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { formatDate } from '../../../utils/age';
@@ -28,13 +31,16 @@ interface Medication {
   // "εκκρεμές" εκεί). undefined = παλιά εγγραφή από πριν υπάρξει αυτή η έννοια -> θεωρείται
   // ήδη ενεργή, όχι εκκρεμής.
   started?: boolean;
+  // Κωδικός ATC της δραστικής ουσίας. Λείπει από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit, onEdit, onDelete }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; allowEdit: boolean; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
-        <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         {allowEdit && item.doctorAmka === loggedInDoctorAmka && (
           <View style={{ flexDirection: 'row' }}>
             <TouchableOpacity onPress={() => onEdit(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -77,7 +83,7 @@ export default function DoctorMedicationsScreen() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   const [saving, setSaving] = useState(false);
-  const [formTitle, setFormTitle] = useState('');
+  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
   const [formDosage, setFormDosage] = useState('');
   const [formDurationDays, setFormDurationDays] = useState('');
 
@@ -96,6 +102,8 @@ export default function DoctorMedicationsScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             dosage: record.dosage,
             startDate: record.startDate,
             durationDays: record.durationDays,
@@ -134,7 +142,7 @@ export default function DoctorMedicationsScreen() {
   };
 
   const resetForm = () => {
-    setFormTitle('');
+    setSelectedCode(null);
     setFormDosage('');
     setFormDurationDays('');
   };
@@ -152,7 +160,7 @@ export default function DoctorMedicationsScreen() {
 
   const handleEditMedication = (item: Medication) => {
     setEditingMedication(item);
-    setFormTitle(item.title);
+    setSelectedCode(codeFromRecord(item));
     setFormDosage(item.dosage);
     setFormDurationDays(String(item.durationDays));
     setIsAddModalVisible(true);
@@ -163,7 +171,7 @@ export default function DoctorMedicationsScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!formTitle.trim() || !formDosage.trim() || !formDurationDays.trim()) {
+    if (!selectedCode || !formDosage.trim() || !formDurationDays.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
@@ -203,7 +211,9 @@ export default function DoctorMedicationsScreen() {
       const started = editingMedication ? editingMedication.started : false;
 
       const record = {
-        title: formTitle.trim(),
+        title: selectedCode.name,
+        code: selectedCode.code,
+        parentName: selectedCode.parent_name || undefined,
         dosage: formDosage.trim(),
         startDate,
         durationDays,
@@ -367,8 +377,13 @@ export default function DoctorMedicationsScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={loginStyles.inputLabel}>Όνομα</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
+            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
+            <MedicalCodePicker
+              category="Φάρμακα"
+              value={selectedCode}
+              onChange={setSelectedCode}
+              inputStyle={[loginStyles.loginInput, localStyles.input]}
+            />
 
             <Text style={loginStyles.inputLabel}>Δοσολογία</Text>
             <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formDosage} onChangeText={setFormDosage} />

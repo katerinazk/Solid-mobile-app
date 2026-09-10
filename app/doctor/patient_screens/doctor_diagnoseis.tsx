@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, SafeAreaView, StatusBar } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Text, View, FlatList, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
@@ -12,6 +13,7 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
 import { useDoctorNames, formatDoctorLastNameOnly } from '../../../hooks/useDoctorNames';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
 
 type Category = 'adult' | 'child';
 
@@ -22,6 +24,10 @@ interface Diagnosis {
   doctorName: string;
   doctorAmka: string;
   category: Category;
+  // Κωδικός ICD-10. Λείπει από τις παλιές εγγραφές, που ήταν ελεύθερο κείμενο.
+  code?: string;
+  // Η κατηγορία-γονέας του κωδικού, ως συμφραζόμενο ("Κάτω γνάθος" -> κακοήθη νεοπλάσματα).
+  parentName?: string;
 }
 
 export default function DoctorDiagnoseisScreen() {
@@ -41,13 +47,6 @@ export default function DoctorDiagnoseisScreen() {
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [newestFirst, setNewestFirst] = useState(true);
 
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [newDiagnosisTitle, setNewDiagnosisTitle] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [editDiagnosis, setEditDiagnosis] = useState<Diagnosis | null>(null);
-  const [editTitle, setEditTitle] = useState('');
 
   const loadDiagnoses = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
@@ -60,7 +59,7 @@ export default function DoctorDiagnoseisScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
-          return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category } as Diagnosis;
+          return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
         } catch {
           return null;
         }
@@ -87,6 +86,19 @@ export default function DoctorDiagnoseisScreen() {
     loadDiagnoses();
   }, []);
 
+  // Η φόρμα είναι πλέον ξεχωριστή οθόνη, οπότε ξαναδιαβάζουμε τον φάκελο μόλις επιστρέψει
+  // εδώ η εστίαση - αλλιώς η νέα ή επεξεργασμένη διάγνωση δεν θα φαινόταν.
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      loadDiagnoses();
+    }, [])
+  );
+
   const visibleDiagnoses = useMemo(() => {
     const filtered = diagnoses.filter((d) => d.category === activeCategory);
     return filtered.sort((a, b) => {
@@ -102,78 +114,25 @@ export default function DoctorDiagnoseisScreen() {
     return info ? formatDoctorLastNameOnly(info) : item.doctorName;
   };
 
-  const handleSaveDiagnosis = async () => {
-    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
-    // η ενέργεια ακυρώνεται.
-    if (!(await checkAccess())) return;
-
-    if (newDiagnosisTitle.trim() === '') {
-      alert("Παρακαλώ γράψτε τη διάγνωση!");
-      return;
-    }
-
-    if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-      const doctorName = doctorData ? `Δρ. ${doctorData.last_name}` : 'Δρ.';
-
-      const record = {
-        title: newDiagnosisTitle.trim(),
-        date: new Date().toISOString(),
-        doctorName,
-        doctorAmka: loggedInDoctorAmka,
+  const openForm = (item?: Diagnosis) => {
+    router.push({
+      pathname: ROUTES.DOCTOR_DIAGNOSIS_FORM,
+      params: {
+        amka,
+        webId,
+        accessType,
         category: patientCategory,
-      };
-
-      const fileUrl = `${folderUrl}${patientCategory}_${Date.now()}.json`;
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
-
-      setDiagnoses((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      setActiveCategory(patientCategory);
-      setIsAddModalVisible(false);
-      setNewDiagnosisTitle('');
-    } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEditDiagnosis = (item: Diagnosis) => {
-    setEditDiagnosis(item);
-    setEditTitle(item.title);
-    setIsEditModalVisible(true);
-  };
-
-  const handleSaveEdit = async () => {
-    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
-    // η ενέργεια ακυρώνεται.
-    if (!(await checkAccess())) return;
-
-    if (!editDiagnosis || editTitle.trim() === '') {
-      alert("Παρακαλώ γράψτε τη διάγνωση!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const record = { title: editTitle.trim(), date: editDiagnosis.date, doctorName: editDiagnosis.doctorName, doctorAmka: editDiagnosis.doctorAmka, category: editDiagnosis.category };
-      await saveFileContent(editDiagnosis.url, accessToken, JSON.stringify(record));
-
-      setDiagnoses((prev) => prev.map((d) => d.url === editDiagnosis.url ? { ...d, title: record.title } : d));
-      setIsEditModalVisible(false);
-      setEditDiagnosis(null);
-    } catch (error: any) {
-      alert(error.message || "Σφάλμα σύνδεσης.");
-    } finally {
-      setSaving(false);
-    }
+        ...(item ? {
+          editUrl: item.url,
+          editCode: item.code,
+          editTitle: item.title,
+          editParentName: item.parentName,
+          editDate: item.date,
+          editDoctorName: item.doctorName,
+          editDoctorAmka: item.doctorAmka,
+        } : {}),
+      },
+    });
   };
 
   const handleDeleteDiagnosis = async (item: Diagnosis) => {
@@ -232,7 +191,7 @@ export default function DoctorDiagnoseisScreen() {
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         {canAddDiagnosis && (
-          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddModalVisible(true)}>
+          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
             <Text style={styles.addButtonText}>+ Προσθήκη Διάγνωσης</Text>
           </TouchableOpacity>
         )}
@@ -256,11 +215,11 @@ export default function DoctorDiagnoseisScreen() {
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
-                <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
                 {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => handleEditDiagnosis(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <TouchableOpacity onPress={() => openForm(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteDiagnosis(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -280,82 +239,6 @@ export default function DoctorDiagnoseisScreen() {
         />
       )}
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isAddModalVisible}
-        onRequestClose={() => setIsAddModalVisible(false)}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <Text style={styles.addmodalTitle}>Νέα Διάγνωση</Text>
-
-            <TextInput
-              style={styles.textArea}
-              multiline={true}
-              numberOfLines={4}
-              placeholder="Γράψτε τη διάγνωση εδώ..."
-              value={newDiagnosisTitle}
-              onChangeText={setNewDiagnosisTitle}
-            />
-
-            <View style={styles.modalButtonsGroup}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setIsAddModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSaveDiagnosis}
-                disabled={saving}
-              >
-                {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveButtonText}>Αποθήκευση</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isEditModalVisible}
-        onRequestClose={() => setIsEditModalVisible(false)}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <Text style={styles.addmodalTitle}>Επεξεργασία Διάγνωσης</Text>
-
-            <TextInput
-              style={styles.textArea}
-              multiline={true}
-              numberOfLines={4}
-              value={editTitle}
-              onChangeText={setEditTitle}
-            />
-
-            <View style={styles.modalButtonsGroup}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setIsEditModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleSaveEdit}
-                disabled={saving}
-              >
-                {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveButtonText}>Αποθήκευση</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
