@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
@@ -24,6 +25,10 @@ interface Medication {
   // false = ο γιατρός μόλις το καταχώρησε και ο ασθενής δεν έχει πατήσει ακόμα "Έναρξη".
   // undefined = παλιά εγγραφή από πριν υπάρξει αυτή η έννοια -> θεωρείται ήδη ενεργή.
   started?: boolean;
+  // Κωδικός του διεθνούς προτύπου (ICD-10 / ATC / LOINC) και η κατηγορία στην οποία ανήκει,
+  // όπως τα κατέγραψε ο γιατρός. Λείπουν από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 // Ένα φάρμακο είναι "εκκρεμές" μόνο όσο ο ασθενής δεν έχει πατήσει ακόμα "Έναρξη" - μόλις το
@@ -70,6 +75,8 @@ export default function PatientMedicationsScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             dosage: record.dosage,
             startDate: record.startDate,
             durationDays: record.durationDays,
@@ -114,6 +121,9 @@ export default function PatientMedicationsScreen() {
 
       const record = {
         title: item.title,
+        // Το "Έναρξη" ξαναγράφει όλο το αρχείο - χωρίς αυτά θα χανόταν ο κωδικός ATC.
+        code: item.code,
+        parentName: item.parentName,
         dosage: item.dosage,
         startDate,
         durationDays: item.durationDays,
@@ -229,7 +239,7 @@ export default function PatientMedicationsScreen() {
               isPending(item) ? (
                 <View key={item.url} style={doctorStyles.diagnosisCard}>
                   <View style={doctorStyles.diagnosisCardHeader}>
-                    <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                    <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                     <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
                   </View>
                   <Text style={doctorStyles.diagnosisCardDetail}>
@@ -259,7 +269,7 @@ export default function PatientMedicationsScreen() {
                 </View>
               ) : (
                 <View key={item.url} style={doctorStyles.diagnosisCard}>
-                  <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                  <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                   <Text style={doctorStyles.diagnosisCardDetail}>
                     <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                   </Text>
@@ -301,7 +311,7 @@ export default function PatientMedicationsScreen() {
                 previousMedications.map((item) => {
                   return (
                     <View key={item.url} style={doctorStyles.diagnosisCard}>
-                      <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                      <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                       <Text style={doctorStyles.diagnosisCardDetail}>
                         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                       </Text>

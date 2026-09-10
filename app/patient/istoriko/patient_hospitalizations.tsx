@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId, downloadAttachment } from '../../../services/solidPod';
@@ -23,6 +24,10 @@ interface Hospitalization {
   admissionDate: string;
   dischargeDate: string;
   attachments: string[];
+  // Κωδικός του διεθνούς προτύπου (ICD-10 / ATC / LOINC) και η κατηγορία στην οποία ανήκει,
+  // όπως τα κατέγραψε ο γιατρός. Λείπουν από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 export default function PatientHospitalizationsScreen() {
@@ -62,6 +67,8 @@ export default function PatientHospitalizationsScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             hospitalClinic: record.hospitalClinic,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
@@ -128,7 +135,7 @@ export default function PatientHospitalizationsScreen() {
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
-              <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
 
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}

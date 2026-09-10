@@ -1,19 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
-import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
+import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
@@ -80,13 +78,6 @@ export default function DoctorMedicationsScreen() {
   const [showPrevious, setShowPrevious] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
-  const [formDosage, setFormDosage] = useState('');
-  const [formDurationDays, setFormDurationDays] = useState('');
-
   const loadMedications = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
@@ -136,108 +127,35 @@ export default function DoctorMedicationsScreen() {
     loadMedications();
   }, []);
 
+  useReloadOnFocus(loadMedications);
+
   const displayDoctorName = (item: Medication) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
-  const resetForm = () => {
-    setSelectedCode(null);
-    setFormDosage('');
-    setFormDurationDays('');
-  };
-
-  const openAddModal = () => {
-    setEditingMedication(null);
-    resetForm();
-    setIsAddModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setIsAddModalVisible(false);
-    setEditingMedication(null);
-  };
-
-  const handleEditMedication = (item: Medication) => {
-    setEditingMedication(item);
-    setSelectedCode(codeFromRecord(item));
-    setFormDosage(item.dosage);
-    setFormDurationDays(String(item.durationDays));
-    setIsAddModalVisible(true);
-  };
-
-  const handleSaveMedication = async () => {
-    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
-    // η ενέργεια ακυρώνεται.
-    if (!(await checkAccess())) return;
-
-    if (!selectedCode || !formDosage.trim() || !formDurationDays.trim()) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
-      return;
-    }
-
-    const durationDays = Number(formDurationDays);
-    if (!Number.isInteger(durationDays) || durationDays <= 0) {
-      alert("Η διάρκεια χορήγησης πρέπει να είναι θετικός αριθμός ημερών.");
-      return;
-    }
-
-    if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      let doctorName = editingMedication?.doctorName || '';
-      let doctorAmka = editingMedication?.doctorAmka || '';
-      if (!editingMedication) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData
-          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-          : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
-      }
-
-      let startDate = editingMedication?.startDate || '';
-      if (!editingMedication) {
-        const today = new Date();
-        startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      }
-
-      // Νέα εγγραφή -> ξεκινάει "εκκρεμής" (started: false) μέχρι ο ασθενής να πατήσει
-      // "Έναρξη" στη δική του οθόνη. Επεξεργασία -> διατηρεί ό,τι ίσχυε ήδη.
-      const started = editingMedication ? editingMedication.started : false;
-
-      const record = {
-        title: selectedCode.name,
-        code: selectedCode.code,
-        parentName: selectedCode.parent_name || undefined,
-        dosage: formDosage.trim(),
-        startDate,
-        durationDays,
-        doctorName,
-        doctorAmka,
-        started,
-      };
-
-      const fileUrl = editingMedication ? editingMedication.url : `${folderUrl}${Date.now()}.json`;
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
-
-      if (editingMedication) {
-        setMedications((prev) => prev.map((m) => m.url === fileUrl ? { url: fileUrl, ...record } : m));
-      } else {
-        setMedications((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      }
-
-      closeModal();
-      resetForm();
-    } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
-    } finally {
-      setSaving(false);
-    }
+  const openForm = (item?: Medication) => {
+    router.push({
+      pathname: ROUTES.DOCTOR_MEDICATION_FORM,
+      params: {
+        amka,
+        webId,
+        accessType,
+        ...(item ? {
+          editUrl: item.url,
+          editCode: item.code,
+          editTitle: item.title,
+          editParentName: item.parentName,
+          editDosage: item.dosage,
+          editDurationDays: String(item.durationDays),
+          editStartDate: item.startDate,
+          // Οι παλιές εγγραφές δεν έχουν started - το αφήνουμε κενό ώστε να μείνει undefined.
+          editStarted: item.started === undefined ? '' : String(item.started),
+          editDoctorName: item.doctorName,
+          editDoctorAmka: item.doctorAmka,
+        } : {}),
+      },
+    });
   };
 
   const handleDeleteMedication = async (item: Medication) => {
@@ -308,7 +226,7 @@ export default function DoctorMedicationsScreen() {
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         {!isReadOnly && (
-          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
+          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
             <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
           </TouchableOpacity>
         )}
@@ -337,7 +255,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} />)
           )}
 
           <TouchableOpacity
@@ -353,76 +271,12 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={handleEditMedication} onDelete={handleDeleteMedication} />)
+                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} />)
               )}
             </View>
           )}
         </ScrollView>
       )}
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isAddModalVisible}
-        onRequestClose={closeModal}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
-                {editingMedication ? 'Επεξεργασία Φαρμάκου' : 'Νέο Φάρμακο'}
-              </Text>
-              <TouchableOpacity onPress={closeModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
-                <Ionicons name="close" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
-            <MedicalCodePicker
-              category="Φάρμακα"
-              value={selectedCode}
-              onChange={setSelectedCode}
-              inputStyle={[loginStyles.loginInput, localStyles.input]}
-            />
-
-            <Text style={loginStyles.inputLabel}>Δοσολογία</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formDosage} onChangeText={setFormDosage} />
-
-            <Text style={loginStyles.inputLabel}>Διάρκεια Χορήγησης</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 30 }}>
-              <TextInput
-                style={[loginStyles.loginInput, localStyles.input, localStyles.durationInput]}
-                keyboardType="numeric"
-                value={formDurationDays}
-                onChangeText={(text) => setFormDurationDays(text.replace(/[^0-9]/g, ''))}
-              />
-              <Text style={[loginStyles.inputLabel, { marginLeft: 10, marginBottom: 0 }]}>Ημέρες</Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
-              onPress={handleSaveMedication}
-              disabled={saving}
-            >
-              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
-
-const localStyles = StyleSheet.create({
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-  },
-  durationInput: {
-    width: 80,
-    marginBottom: 0,
-    textAlign: 'center',
-  },
-});

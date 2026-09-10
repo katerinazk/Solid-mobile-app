@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Text, View, FlatList, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
+import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
+import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
 import { useDoctorNames, formatDoctorLastNameOnly } from '../../../hooks/useDoctorNames';
@@ -86,18 +86,7 @@ export default function DoctorDiagnoseisScreen() {
     loadDiagnoses();
   }, []);
 
-  // Η φόρμα είναι πλέον ξεχωριστή οθόνη, οπότε ξαναδιαβάζουμε τον φάκελο μόλις επιστρέψει
-  // εδώ η εστίαση - αλλιώς η νέα ή επεξεργασμένη διάγνωση δεν θα φαινόταν.
-  const isFirstFocus = useRef(true);
-  useFocusEffect(
-    useCallback(() => {
-      if (isFirstFocus.current) {
-        isFirstFocus.current = false;
-        return;
-      }
-      loadDiagnoses();
-    }, [])
-  );
+  useReloadOnFocus(loadDiagnoses);
 
   const visibleDiagnoses = useMemo(() => {
     const filtered = diagnoses.filter((d) => d.category === activeCategory);

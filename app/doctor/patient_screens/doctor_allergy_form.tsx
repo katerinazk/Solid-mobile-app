@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Text } from 'react-native';
+import { Text, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
@@ -10,32 +11,31 @@ import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 
-export default function DoctorDiagnosisFormScreen() {
+export default function DoctorAllergyFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
     accessType: string;
-    // 'adult' | 'child' - η κατηγορία στην οποία ανήκει ο ασθενής με βάση την ηλικία του.
-    category: string;
-    // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας διάγνωσης.
+    // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας αλλεργίας.
     editUrl?: string;
     editCode?: string;
     editTitle?: string;
     editParentName?: string;
-    editDate?: string;
+    editReaction?: string;
     editDoctorName?: string;
     editDoctorAmka?: string;
   }>();
 
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
-  const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Διαγνώσεις') : '';
+  const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Αλλεργίες') : '';
 
   const isEditing = !!params.editUrl;
 
   const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
+  const [reaction, setReaction] = useState(params.editReaction || '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -43,8 +43,8 @@ export default function DoctorDiagnosisFormScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!selectedCode) {
-      alert("Παρακαλώ επιλέξτε διάγνωση από τον κατάλογο ICD-10!");
+    if (!selectedCode || !reaction.trim()) {
+      alert("Επιλέξτε αλλεργία από τον κατάλογο και συμπληρώστε την αντίδραση!");
       return;
     }
 
@@ -56,12 +56,12 @@ export default function DoctorDiagnosisFormScreen() {
     try {
       setSaving(true);
 
-      // Στην επεξεργασία κρατάμε ημερομηνία και γιατρό της αρχικής καταχώρησης.
+      // Στην επεξεργασία κρατάμε τον γιατρό της αρχικής καταχώρησης.
       let doctorName = params.editDoctorName || '';
       let doctorAmka = params.editDoctorAmka || '';
       if (!isEditing) {
         const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData ? `Δρ. ${doctorData.last_name}` : 'Δρ.';
+        doctorName = doctorData ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})` : 'Δρ.';
         doctorAmka = loggedInDoctorAmka;
       }
 
@@ -69,13 +69,12 @@ export default function DoctorDiagnosisFormScreen() {
         title: selectedCode.name,
         code: selectedCode.code,
         parentName: selectedCode.parent_name || undefined,
-        date: params.editDate || new Date().toISOString(),
+        reaction: reaction.trim(),
         doctorName,
         doctorAmka,
-        category: params.category,
       };
 
-      const fileUrl = params.editUrl || `${folderUrl}${params.category}_${Date.now()}.json`;
+      const fileUrl = params.editUrl || `${folderUrl}${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
@@ -89,18 +88,26 @@ export default function DoctorDiagnosisFormScreen() {
 
   return (
     <DoctorFormScreen
-      title={isEditing ? 'Επεξεργασία' : 'Νέα Διάγνωση'}
+      title={isEditing ? 'Επεξεργασία' : 'Νέα Αλλεργία'}
       amka={params.amka}
       saving={saving}
       onSave={handleSave}
     >
       <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
       <MedicalCodePicker
-        category="Διαγνώσεις"
+        category="Αλλεργίες"
         value={selectedCode}
         onChange={setSelectedCode}
         inputStyle={[loginStyles.loginInput, formStyles.input]}
         resultsMaxHeight={PICKER_RESULTS_HEIGHT}
+      />
+
+      <Text style={loginStyles.inputLabel}>Αντίδραση</Text>
+      <TextInput
+        style={[styles.textArea, formStyles.input, { height: 130 }]}
+        multiline
+        value={reaction}
+        onChangeText={setReaction}
       />
     </DoctorFormScreen>
   );

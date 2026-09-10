@@ -56,8 +56,12 @@ create table medical_codes (
   -- για LOINC. Σε jsonb ώστε να μη γεμίσει ο πίνακας στήλες που αφορούν ένα μόνο πρότυπο.
   extra       jsonb,
 
-  -- Πεδίο αναζήτησης: πεζά, χωρίς τόνους. Υπολογίζεται μόνο του σε κάθε εγγραφή.
-  name_search text generated always as (immutable_unaccent(lower(name))) stored,
+  -- Εναλλακτικοί όροι του προτύπου ("Σάκχαρο" για τη γλυκόζη). Μπαίνουν στην αναζήτηση
+  -- αλλά δεν εμφανίζονται πουθενά.
+  synonyms    text,
+
+  -- Πεδίο αναζήτησης: πεζά, χωρίς τόνους, ονομασία μαζί με τα συνώνυμα. Υπολογίζεται μόνο του.
+  name_search text generated always as (immutable_unaccent(lower(name || ' ' || coalesce(synonyms, '')))) stored,
 
   unique (system, code, category)
 );
@@ -86,9 +90,13 @@ as $$
       name_search like '%' || immutable_unaccent(lower(p_query)) || '%'
       or code ilike p_query || '%'
     )
-  -- Πρώτα όσα ταιριάζουν στον κωδικό, μετά τα συντομότερα ονόματα: το "Χολέρα" πριν από
-  -- το "Χολέρα που οφείλεται στο δονάκιο...".
-  order by (code ilike p_query || '%') desc, length(name), name
+  -- Πρώτα όσα ταιριάζουν στον κωδικό, μετά όσα ταιριάζουν στην ίδια την ονομασία (και όχι
+  -- μόνο σε κάποιο συνώνυμο), και τέλος τα συντομότερα ονόματα.
+  order by
+    (code ilike p_query || '%') desc,
+    (immutable_unaccent(lower(name)) like '%' || immutable_unaccent(lower(p_query)) || '%') desc,
+    length(name),
+    name
   limit p_limit;
 $$;
 

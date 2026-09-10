@@ -1,26 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
-import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
+import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
 const CATEGORIES = ['Όλες', 'Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
-const EXAM_TYPES = ['Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
 
 interface Exam {
   url: string;
@@ -117,13 +114,6 @@ export default function DoctorExamsScreen() {
 
   const [openingResultFor, setOpeningResultFor] = useState<string | null>(null);
 
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [editingExam, setEditingExam] = useState<Exam | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
-  const [formType, setFormType] = useState('');
-  const [isTypeListVisible, setIsTypeListVisible] = useState(false);
-
   const loadExams = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
@@ -174,6 +164,8 @@ export default function DoctorExamsScreen() {
     loadExams();
   }, []);
 
+  useReloadOnFocus(loadExams);
+
   const displayDoctorName = (item: Exam) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
@@ -200,31 +192,28 @@ export default function DoctorExamsScreen() {
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
   const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
 
-  const openAddModal = () => {
-    setEditingExam(null);
-    setSelectedCode(null);
-    setFormType('');
-    setIsTypeListVisible(false);
-    setIsAddModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setIsAddModalVisible(false);
-    setEditingExam(null);
-    setIsTypeListVisible(false);
-  };
-
-  const handleEditExam = (item: Exam) => {
-    setEditingExam(item);
-    setSelectedCode(codeFromRecord(item));
-    setFormType(item.type);
-    setIsTypeListVisible(false);
-    setIsAddModalVisible(true);
-  };
-
-  const handleSelectType = (type: string) => {
-    setFormType(type);
-    setIsTypeListVisible(false);
+  const openForm = (item?: Exam) => {
+    router.push({
+      pathname: ROUTES.DOCTOR_EXAM_FORM,
+      params: {
+        amka,
+        webId,
+        accessType,
+        ...(item ? {
+          editUrl: item.url,
+          editCode: item.code,
+          editTitle: item.title,
+          editParentName: item.parentName,
+          editType: item.type,
+          editStatus: item.status,
+          editCompletedDate: item.completedDate,
+          editResultFile: item.resultFile,
+          editCreatedDate: item.createdDate,
+          editDoctorName: item.doctorName,
+          editDoctorAmka: item.doctorAmka,
+        } : {}),
+      },
+    });
   };
 
   const handleDeleteExam = async (item: Exam) => {
@@ -263,68 +252,6 @@ export default function DoctorExamsScreen() {
       alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
     } finally {
       setOpeningResultFor(null);
-    }
-  };
-
-  const handleSaveExam = async () => {
-    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
-    // η ενέργεια ακυρώνεται.
-    if (!(await checkAccess())) return;
-
-    if (!selectedCode || !formType.trim()) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
-      return;
-    }
-
-    if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      let doctorName = editingExam?.doctorName || '';
-      let doctorAmka = editingExam?.doctorAmka || '';
-      if (!editingExam) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData
-          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-          : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
-      }
-
-      const today = new Date();
-      const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-      const record = {
-        title: selectedCode.name,
-        code: selectedCode.code,
-        parentName: selectedCode.parent_name || undefined,
-        type: formType,
-        status: editingExam?.status || ('pending' as const),
-        doctorName,
-        doctorAmka,
-        completedDate: editingExam?.completedDate,
-        resultFile: editingExam?.resultFile,
-        // Στην επεξεργασία κρατάμε την αρχική ημερομηνία καταχώρησης, δεν τη μηδενίζουμε.
-        createdDate: editingExam?.createdDate || todayIso,
-      };
-
-      const fileUrl = editingExam ? editingExam.url : `${folderUrl}${Date.now()}.json`;
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
-
-      if (editingExam) {
-        setExams((prev) => prev.map((e) => e.url === fileUrl ? { url: fileUrl, ...record } : e));
-      } else {
-        setExams((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      }
-
-      closeModal();
-    } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -377,7 +304,7 @@ export default function DoctorExamsScreen() {
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         {!isReadOnly && (
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
           <Text style={styles.addButtonText}>+ Προσθήκη Εξέτασης</Text>
         </TouchableOpacity>
         )}
@@ -392,7 +319,7 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={handleEditExam} onDelete={handleDeleteExam} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} />)
           )}
 
           <TouchableOpacity
@@ -414,91 +341,11 @@ export default function DoctorExamsScreen() {
           )}
         </ScrollView>
       )}
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isAddModalVisible}
-        onRequestClose={closeModal}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
-                {editingExam ? 'Επεξεργασία Εξέτασης' : 'Νέα Εξέταση'}
-              </Text>
-              <TouchableOpacity onPress={closeModal} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
-                <Ionicons name="close" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
-            <MedicalCodePicker
-              category="Εξετάσεις"
-              value={selectedCode}
-              onChange={setSelectedCode}
-              inputStyle={[loginStyles.loginInput, localStyles.input]}
-            />
-
-            <Text style={loginStyles.inputLabel}>Τύπος</Text>
-            <TouchableOpacity
-              style={[loginStyles.loginInput, localStyles.input, { justifyContent: 'center', marginBottom: isTypeListVisible ? 0 : 30 }]}
-              onPress={() => setIsTypeListVisible((prev) => !prev)}
-            >
-              <Text style={{ color: formType ? COLORS.text : COLORS.medium, fontSize: TYPOGRAPHY.bodyText }}>
-                {formType || 'Επιλέξτε τύπο'}
-              </Text>
-            </TouchableOpacity>
-
-            {isTypeListVisible && (
-              <View style={localStyles.typeList}>
-                {EXAM_TYPES.map((type, index) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[localStyles.typeOption, index === EXAM_TYPES.length - 1 && { borderBottomWidth: 0 }]}
-                    onPress={() => handleSelectType(type)}
-                  >
-                    <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{type}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
-              onPress={handleSaveExam}
-              disabled={saving}
-            >
-              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-  },
-  typeList: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-    marginBottom: 30,
-    overflow: 'hidden',
-  },
-  typeOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightest,
-  },
   categoryPill: {
     paddingHorizontal: 18,
     height: TOUCH.buttonHeight,

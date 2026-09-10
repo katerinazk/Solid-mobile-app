@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
-import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, uploadAttachment, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
+import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -35,54 +32,6 @@ interface Hospitalization {
   parentName?: string;
 }
 
-interface PendingFile {
-  name: string;
-  uri: string;
-  mimeType: string;
-}
-
-// Χτίζει μια ημερομηνία ΗΗ/ΜΜ/ΕΕΕΕ ψηφίο-ψηφίο σε ξεχωριστά κομμάτια (ημέρα/μήνας/έτος),
-// με την ίδια έξυπνη λογική που χρησιμοποιούμε και στους Εμβολιασμούς (auto-συμπλήρωση
-// μηδενικού όταν το πρώτο ψηφίο δεν αφήνει περιθώριο για δεύτερο).
-function createDateHandler(
-  day: string, setDay: (v: string) => void,
-  month: string, setMonth: (v: string) => void,
-  year: string, setYear: (v: string) => void,
-  currentValue: string
-) {
-  return (text: string) => {
-    const isDeleting = text.length < currentValue.length;
-
-    if (isDeleting) {
-      if (year) setYear(year.slice(0, -1));
-      else if (month) setMonth(month.slice(0, -1));
-      else if (day) setDay(day.slice(0, -1));
-      return;
-    }
-
-    const newDigit = text.slice(-1);
-    if (!/[0-9]/.test(newDigit)) return;
-
-    if (day.length < 2) {
-      if (day.length === 1) {
-        if (day === '3' && newDigit !== '0' && newDigit !== '1') return;
-        setDay(day + newDigit);
-        return;
-      }
-      setDay(Number(newDigit) >= 4 ? `0${newDigit}` : newDigit);
-      return;
-    }
-    if (month.length < 2) {
-      const next = month + newDigit;
-      setMonth(next.length === 1 && Number(next) >= 2 ? `0${next}` : next);
-      return;
-    }
-    if (year.length < 4) {
-      setYear(year + newDigit);
-    }
-  };
-}
-
 export default function DoctorHospitalizationsScreen() {
   const { amka, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
   const { accessToken, loggedInDoctorAmka } = useAuth();
@@ -93,35 +42,14 @@ export default function DoctorHospitalizationsScreen() {
   const [loading, setLoading] = useState(false);
   const [hospitalizations, setHospitalizations] = useState<Hospitalization[]>([]);
 
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [editingHospitalization, setEditingHospitalization] = useState<Hospitalization | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
-  const [formHospitalClinic, setFormHospitalClinic] = useState('');
-  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
-
   const [viewingAttachmentsFor, setViewingAttachmentsFor] = useState<Hospitalization | null>(null);
   const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
-
-  const [admDay, setAdmDay] = useState('');
-  const [admMonth, setAdmMonth] = useState('');
-  const [admYear, setAdmYear] = useState('');
-  const formAdmissionDate = admDay + (admMonth ? `/${admMonth}` : '') + (admYear ? `/${admYear}` : '');
-  const handleAdmissionDateChange = createDateHandler(admDay, setAdmDay, admMonth, setAdmMonth, admYear, setAdmYear, formAdmissionDate);
-
-  const [disDay, setDisDay] = useState('');
-  const [disMonth, setDisMonth] = useState('');
-  const [disYear, setDisYear] = useState('');
-  const formDischargeDate = disDay + (disMonth ? `/${disMonth}` : '') + (disYear ? `/${disYear}` : '');
-  const handleDischargeDateChange = createDateHandler(disDay, setDisDay, disMonth, setDisMonth, disYear, setDisYear, formDischargeDate);
 
   const loadHospitalizations = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
       setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
-
-      console.log('📁 Αρχεία στον φάκελο Νοσηλίες:', files);
 
       const hospitalizationFiles = files.filter((url) => url.endsWith('.json'));
 
@@ -163,61 +91,38 @@ export default function DoctorHospitalizationsScreen() {
     }
   };
 
+  useEffect(() => {
+    loadHospitalizations();
+  }, []);
+
+  useReloadOnFocus(loadHospitalizations);
+
   const displayDoctorName = (item: Hospitalization) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
-  const resetForm = () => {
-    setSelectedCode(null);
-    setFormHospitalClinic('');
-    setAdmDay(''); setAdmMonth(''); setAdmYear('');
-    setDisDay(''); setDisMonth(''); setDisYear('');
-    setPendingFiles([]);
-  };
-
-  const handlePickFiles = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
-      if (result.canceled || !result.assets) return;
-      setPendingFiles((prev) => [
-        ...prev,
-        ...result.assets.map((asset) => ({
-          name: asset.name,
-          uri: asset.uri,
-          mimeType: asset.mimeType || 'application/octet-stream',
-        })),
-      ]);
-    } catch (error: any) {
-      alert(error.message || 'Αποτυχία επιλογής αρχείου.');
-    }
-  };
-
-  const handleRemovePendingFile = (name: string) => {
-    setPendingFiles((prev) => prev.filter((file) => file.name !== name));
-  };
-
-  const openAddModal = () => {
-    setEditingHospitalization(null);
-    resetForm();
-    setIsAddModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setIsAddModalVisible(false);
-    setEditingHospitalization(null);
-  };
-
-  const handleEditHospitalization = (item: Hospitalization) => {
-    setEditingHospitalization(item);
-    setSelectedCode(codeFromRecord(item));
-    setFormHospitalClinic(item.hospitalClinic);
-    const [ay, am, ad] = item.admissionDate.split('-');
-    setAdmYear(ay); setAdmMonth(am); setAdmDay(ad);
-    const [dy, dm, dd] = item.dischargeDate.split('-');
-    setDisYear(dy); setDisMonth(dm); setDisDay(dd);
-    setPendingFiles([]);
-    setIsAddModalVisible(true);
+  const openForm = (item?: Hospitalization) => {
+    router.push({
+      pathname: ROUTES.DOCTOR_HOSPITALIZATION_FORM,
+      params: {
+        amka,
+        webId,
+        accessType,
+        ...(item ? {
+          editUrl: item.url,
+          editCode: item.code,
+          editTitle: item.title,
+          editParentName: item.parentName,
+          editHospitalClinic: item.hospitalClinic,
+          editAdmissionDate: item.admissionDate,
+          editDischargeDate: item.dischargeDate,
+          editAttachments: JSON.stringify(item.attachments || []),
+          editDoctorName: item.doctorName,
+          editDoctorAmka: item.doctorAmka,
+        } : {}),
+      },
+    });
   };
 
   const handleDeleteHospitalization = async (item: Hospitalization) => {
@@ -258,92 +163,6 @@ export default function DoctorHospitalizationsScreen() {
     }
   };
 
-  const handleSaveHospitalization = async () => {
-    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
-    // η ενέργεια ακυρώνεται.
-    if (!(await checkAccess())) return;
-
-    if (!selectedCode || !formHospitalClinic.trim() || !formAdmissionDate.trim() || !formDischargeDate.trim()) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
-      return;
-    }
-
-    if (admDay.length !== 2 || admMonth.length !== 2 || admYear.length !== 4) {
-      alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία εισαγωγής (ΗΗ/ΜΜ/ΕΕΕΕ).");
-      return;
-    }
-    if (disDay.length !== 2 || disMonth.length !== 2 || disYear.length !== 4) {
-      alert("Παρακαλώ συμπληρώστε πλήρη ημερομηνία εξιτηρίου (ΗΗ/ΜΜ/ΕΕΕΕ).");
-      return;
-    }
-
-    const currentYear = new Date().getFullYear();
-    if (Number(admYear) < currentYear - 10 || Number(admYear) > currentYear) {
-      alert(`Το έτος εισαγωγής πρέπει να είναι μεταξύ ${currentYear - 10} και ${currentYear}.`);
-      return;
-    }
-    if (Number(disYear) < currentYear - 10 || Number(disYear) > currentYear) {
-      alert(`Το έτος εξιτηρίου πρέπει να είναι μεταξύ ${currentYear - 10} και ${currentYear}.`);
-      return;
-    }
-
-    if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      let doctorName = editingHospitalization?.doctorName || '';
-      let doctorAmka = editingHospitalization?.doctorAmka || '';
-      if (!editingHospitalization) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData
-          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-          : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
-      }
-
-      const fileUrl = editingHospitalization ? editingHospitalization.url : `${folderUrl}${Date.now()}.json`;
-
-      for (const file of pendingFiles) {
-        await uploadAttachment(fileUrl, file.name, file.uri, file.mimeType, accessToken);
-      }
-
-      const record = {
-        title: selectedCode.name,
-        code: selectedCode.code,
-        parentName: selectedCode.parent_name || undefined,
-        hospitalClinic: formHospitalClinic.trim(),
-        doctorName,
-        doctorAmka,
-        admissionDate: `${admYear}-${admMonth}-${admDay}`,
-        dischargeDate: `${disYear}-${disMonth}-${disDay}`,
-        attachments: [...(editingHospitalization?.attachments || []), ...pendingFiles.map((file) => file.name)],
-      };
-
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
-
-      if (editingHospitalization) {
-        setHospitalizations((prev) => prev.map((h) => h.url === fileUrl ? { url: fileUrl, ...record } : h));
-      } else {
-        setHospitalizations((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      }
-
-      closeModal();
-      resetForm();
-    } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  useEffect(() => {
-    loadHospitalizations();
-  }, []);
-
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -359,7 +178,7 @@ export default function DoctorHospitalizationsScreen() {
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         {!isReadOnly && (
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
           <Text style={styles.addButtonText}>+ Προσθήκη Νοσηλίας</Text>
         </TouchableOpacity>
         )}
@@ -380,7 +199,7 @@ export default function DoctorHospitalizationsScreen() {
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
                   <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => handleEditHospitalization(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <TouchableOpacity onPress={() => openForm(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteHospitalization(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -414,90 +233,6 @@ export default function DoctorHospitalizationsScreen() {
           )}
         />
       )}
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isAddModalVisible}
-        onRequestClose={closeModal}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
-                {editingHospitalization ? 'Επεξεργασία Νοσηλίας' : 'Νέα Νοσηλία'}
-              </Text>
-              <TouchableOpacity
-                onPress={closeModal}
-                hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
-              >
-                <Ionicons name="close" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
-            <MedicalCodePicker
-              category="Νοσηλίες"
-              value={selectedCode}
-              onChange={setSelectedCode}
-              inputStyle={[loginStyles.loginInput, localStyles.input]}
-            />
-
-            <Text style={loginStyles.inputLabel}>Νοσοκομείο / Κλινική</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formHospitalClinic} onChangeText={setFormHospitalClinic} />
-
-            <Text style={loginStyles.inputLabel}>Ημερομηνία Εισαγωγής</Text>
-            <TextInput
-              style={[loginStyles.loginInput, localStyles.input]}
-              placeholder="ΗΗ/ΜΜ/ΕΕΕΕ"
-              keyboardType="numeric"
-              maxLength={10}
-              value={formAdmissionDate}
-              onChangeText={handleAdmissionDateChange}
-            />
-
-            <Text style={loginStyles.inputLabel}>Ημερομηνία Εξιτηρίου</Text>
-            <TextInput
-              style={[loginStyles.loginInput, localStyles.input]}
-              placeholder="ΗΗ/ΜΜ/ΕΕΕΕ"
-              keyboardType="numeric"
-              maxLength={10}
-              value={formDischargeDate}
-              onChangeText={handleDischargeDateChange}
-            />
-
-            <TouchableOpacity
-              style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0 }]}
-              onPress={handlePickFiles}
-            >
-              <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
-              <Text style={doctorStyles.diagnosisSortButtonText}>Επισύναψη αρχείων</Text>
-            </TouchableOpacity>
-
-            {pendingFiles.length > 0 && (
-              <View style={{ marginTop: 10, marginBottom: 4 }}>
-                {pendingFiles.map((file) => (
-                  <View key={file.name} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
-                    <Ionicons name="document-outline" size={18} color={COLORS.text} style={{ marginRight: 8 }} />
-                    <Text style={{ flex: 1 }} numberOfLines={1}>{file.name}</Text>
-                    <TouchableOpacity onPress={() => handleRemovePendingFile(file.name)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="close-circle-outline" size={20} color={COLORS.text} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
-              onPress={handleSaveHospitalization}
-              disabled={saving}
-            >
-              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         animationType="slide"
@@ -539,12 +274,3 @@ export default function DoctorHospitalizationsScreen() {
     </SafeAreaView>
   );
 }
-
-const localStyles = StyleSheet.create({
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-  },
-});

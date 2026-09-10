@@ -6,6 +6,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
@@ -27,6 +28,10 @@ interface Exam {
   resultFile?: string;
   // Ημερομηνία καταχώρησης της εξέτασης (όχι ολοκλήρωσης).
   createdDate?: string;
+  // Κωδικός του διεθνούς προτύπου (ICD-10 / ATC / LOINC) και η κατηγορία στην οποία ανήκει,
+  // όπως τα κατέγραψε ο γιατρός. Λείπουν από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 // Οι εκκρεμείς εξετάσεις δεν είχαν ημερομηνία. Τα αρχεία όμως ονομάζονται με το timestamp της
@@ -43,7 +48,7 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
   return (
     <View style={doctorStyles.diagnosisCard}>
       <View style={doctorStyles.diagnosisCardHeader}>
-        <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
@@ -91,7 +96,7 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
     >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
-        <Text style={[doctorStyles.diagnosisCardTitle, { marginRight: 0 }]}>{item.title}</Text>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
         </Text>
@@ -144,6 +149,8 @@ export default function PatientExamsScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             type: record.type,
             status: record.status,
             doctorName: record.doctorName,
@@ -203,8 +210,10 @@ export default function PatientExamsScreen() {
         doctorAmka: item.doctorAmka,
         completedDate,
         resultFile: asset.name,
-        // Διατηρούμε την ημερομηνία καταχώρησης - το ανέβασμα ξαναγράφει όλο το αρχείο.
+        // Διατηρούμε ημερομηνία και κωδικό LOINC - το ανέβασμα ξαναγράφει όλο το αρχείο.
         createdDate: item.createdDate,
+        code: item.code,
+        parentName: item.parentName,
       };
 
       await saveFileContent(item.url, accessToken, JSON.stringify(record));

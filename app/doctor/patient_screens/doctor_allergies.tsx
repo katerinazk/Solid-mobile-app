@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
-import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
+import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { listFolderFilesOrEmpty, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
+import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Αλλεργίες';
@@ -38,12 +36,6 @@ export default function DoctorAllergiesScreen() {
 
   const [loading, setLoading] = useState(false);
   const [allergies, setAllergies] = useState<Allergy[]>([]);
-
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [editingAllergy, setEditingAllergy] = useState<Allergy | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(null);
-  const [formReaction, setFormReaction] = useState('');
 
   const loadAllergies = async () => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
@@ -87,85 +79,35 @@ export default function DoctorAllergiesScreen() {
     }
   };
 
-  const resetForm = () => {
-    setSelectedCode(null);
-    setFormReaction('');
-  };
+  useEffect(() => {
+    loadAllergies();
+  }, []);
+
+  useReloadOnFocus(loadAllergies);
 
   const displayDoctorName = (item: Allergy) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
-  const openAddModal = () => {
-    setEditingAllergy(null);
-    resetForm();
-    setIsAddModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setIsAddModalVisible(false);
-    setEditingAllergy(null);
-  };
-
-  const handleEditAllergy = (item: Allergy) => {
-    setEditingAllergy(item);
-    setSelectedCode(codeFromRecord(item));
-    setFormReaction(item.reaction);
-    setIsAddModalVisible(true);
-  };
-
-  const handleSaveAllergy = async () => {
-    // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
-    // η ενέργεια ακυρώνεται.
-    if (!(await checkAccess())) return;
-
-    if (!selectedCode || !formReaction.trim()) {
-      alert("Επιλέξτε αλλεργία από τον κατάλογο και συμπληρώστε την αντίδραση!");
-      return;
-    }
-
-    if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      let doctorName = editingAllergy?.doctorName || '';
-      let doctorAmka = editingAllergy?.doctorAmka || '';
-      if (!editingAllergy) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})` : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
-      }
-
-      const record = {
-        title: selectedCode.name,
-        code: selectedCode.code,
-        parentName: selectedCode.parent_name || undefined,
-        reaction: formReaction.trim(),
-        doctorName,
-        doctorAmka,
-      };
-
-      const fileUrl = editingAllergy ? editingAllergy.url : `${folderUrl}${Date.now()}.json`;
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
-
-      if (editingAllergy) {
-        setAllergies((prev) => prev.map((a) => a.url === fileUrl ? { url: fileUrl, ...record } : a));
-      } else {
-        setAllergies((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      }
-
-      closeModal();
-      resetForm();
-    } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
-    } finally {
-      setSaving(false);
-    }
+  const openForm = (item?: Allergy) => {
+    router.push({
+      pathname: ROUTES.DOCTOR_ALLERGY_FORM,
+      params: {
+        amka,
+        webId,
+        accessType,
+        ...(item ? {
+          editUrl: item.url,
+          editCode: item.code,
+          editTitle: item.title,
+          editParentName: item.parentName,
+          editReaction: item.reaction,
+          editDoctorName: item.doctorName,
+          editDoctorAmka: item.doctorAmka,
+        } : {}),
+      },
+    });
   };
 
   const handleDeleteAllergy = async (item: Allergy) => {
@@ -194,10 +136,6 @@ export default function DoctorAllergiesScreen() {
     );
   };
 
-  useEffect(() => {
-    loadAllergies();
-  }, []);
-
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -213,7 +151,7 @@ export default function DoctorAllergiesScreen() {
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         {!isReadOnly && (
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
           <Text style={styles.addButtonText}>+ Προσθήκη Αλλεργίας</Text>
         </TouchableOpacity>
         )}
@@ -234,7 +172,7 @@ export default function DoctorAllergiesScreen() {
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {!isReadOnly && item.doctorAmka === loggedInDoctorAmka && (
                   <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => handleEditAllergy(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <TouchableOpacity onPress={() => openForm(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteAllergy(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -254,62 +192,6 @@ export default function DoctorAllergiesScreen() {
           )}
         />
       )}
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isAddModalVisible}
-        onRequestClose={closeModal}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
-                {editingAllergy ? 'Επεξεργασία Αλλεργίας' : 'Νέα Αλλεργία'}
-              </Text>
-              <TouchableOpacity
-                onPress={closeModal}
-                hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
-              >
-                <Ionicons name="close" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
-            <MedicalCodePicker
-              category="Αλλεργίες"
-              value={selectedCode}
-              onChange={setSelectedCode}
-              inputStyle={[loginStyles.loginInput, localStyles.input]}
-            />
-
-            <Text style={loginStyles.inputLabel}>Αντίδραση</Text>
-            <TextInput
-              style={[styles.textArea, localStyles.input, { height: 130 }]}
-              multiline
-              value={formReaction}
-              onChangeText={setFormReaction}
-            />
-
-            <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
-              onPress={handleSaveAllergy}
-              disabled={saving}
-            >
-              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
-
-const localStyles = StyleSheet.create({
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-  },
-});

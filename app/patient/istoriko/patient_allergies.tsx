@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
@@ -20,6 +21,10 @@ interface Allergy {
   reaction: string;
   doctorName: string;
   doctorAmka: string;
+  // Κωδικός του διεθνούς προτύπου (ICD-10 / ATC / LOINC) και η κατηγορία στην οποία ανήκει,
+  // όπως τα κατέγραψε ο γιατρός. Λείπουν από τις παλιές εγγραφές ελεύθερου κειμένου.
+  code?: string;
+  parentName?: string;
 }
 
 export default function PatientAllergiesScreen() {
@@ -68,6 +73,8 @@ export default function PatientAllergiesScreen() {
           return {
             url,
             title: record.title,
+            code: record.code,
+            parentName: record.parentName,
             reaction: record.reaction,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
@@ -214,7 +221,7 @@ export default function PatientAllergiesScreen() {
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
               <View style={doctorStyles.diagnosisCardHeader}>
-                <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {item.doctorAmka === loggedInPatientAmka && (
                   <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity onPress={() => handleEditAllergy(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>

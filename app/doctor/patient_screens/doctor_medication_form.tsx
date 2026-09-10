@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { loginStyles } from '../../../constants/loginStyles';
 import { useAuth } from '../../../hooks/useAuth';
@@ -10,32 +10,36 @@ import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 
-export default function DoctorDiagnosisFormScreen() {
+export default function DoctorMedicationFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
     accessType: string;
-    // 'adult' | 'child' - η κατηγορία στην οποία ανήκει ο ασθενής με βάση την ηλικία του.
-    category: string;
-    // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας διάγνωσης.
+    // Συμπληρωμένα μόνο στην επεξεργασία υπάρχοντος φαρμάκου.
     editUrl?: string;
     editCode?: string;
     editTitle?: string;
     editParentName?: string;
-    editDate?: string;
+    editDosage?: string;
+    editDurationDays?: string;
+    editStartDate?: string;
+    // 'true' | 'false' | undefined - οι παλιές εγγραφές δεν έχουν αυτή την έννοια.
+    editStarted?: string;
     editDoctorName?: string;
     editDoctorAmka?: string;
   }>();
 
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
-  const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Διαγνώσεις') : '';
+  const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Φάρμακα') : '';
 
   const isEditing = !!params.editUrl;
 
   const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
+  const [dosage, setDosage] = useState(params.editDosage || '');
+  const [durationDays, setDurationDays] = useState(params.editDurationDays || '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -43,8 +47,14 @@ export default function DoctorDiagnosisFormScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!selectedCode) {
-      alert("Παρακαλώ επιλέξτε διάγνωση από τον κατάλογο ICD-10!");
+    if (!selectedCode || !dosage.trim() || !durationDays.trim()) {
+      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      return;
+    }
+
+    const duration = Number(durationDays);
+    if (!Number.isInteger(duration) || duration <= 0) {
+      alert("Η διάρκεια χορήγησης πρέπει να είναι θετικός αριθμός ημερών.");
       return;
     }
 
@@ -56,26 +66,40 @@ export default function DoctorDiagnosisFormScreen() {
     try {
       setSaving(true);
 
-      // Στην επεξεργασία κρατάμε ημερομηνία και γιατρό της αρχικής καταχώρησης.
+      // Στην επεξεργασία κρατάμε γιατρό και ημερομηνία έναρξης της αρχικής καταχώρησης.
       let doctorName = params.editDoctorName || '';
       let doctorAmka = params.editDoctorAmka || '';
+      let startDate = params.editStartDate || '';
       if (!isEditing) {
         const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData ? `Δρ. ${doctorData.last_name}` : 'Δρ.';
+        doctorName = doctorData
+          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
+          : 'Δρ.';
         doctorAmka = loggedInDoctorAmka;
+
+        const today = new Date();
+        startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       }
+
+      // Νέα εγγραφή -> ξεκινάει "εκκρεμής" (started: false) μέχρι ο ασθενής να πατήσει
+      // "Έναρξη" στη δική του οθόνη. Επεξεργασία -> διατηρεί ό,τι ίσχυε ήδη.
+      const started = isEditing
+        ? (params.editStarted === 'true' ? true : params.editStarted === 'false' ? false : undefined)
+        : false;
 
       const record = {
         title: selectedCode.name,
         code: selectedCode.code,
         parentName: selectedCode.parent_name || undefined,
-        date: params.editDate || new Date().toISOString(),
+        dosage: dosage.trim(),
+        startDate,
+        durationDays: duration,
         doctorName,
         doctorAmka,
-        category: params.category,
+        started,
       };
 
-      const fileUrl = params.editUrl || `${folderUrl}${params.category}_${Date.now()}.json`;
+      const fileUrl = params.editUrl || `${folderUrl}${Date.now()}.json`;
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
@@ -89,19 +113,33 @@ export default function DoctorDiagnosisFormScreen() {
 
   return (
     <DoctorFormScreen
-      title={isEditing ? 'Επεξεργασία' : 'Νέα Διάγνωση'}
+      title={isEditing ? 'Επεξεργασία' : 'Νέο Φάρμακο'}
       amka={params.amka}
       saving={saving}
       onSave={handleSave}
     >
       <Text style={loginStyles.inputLabel}>Όνομα/Κωδικός</Text>
       <MedicalCodePicker
-        category="Διαγνώσεις"
+        category="Φάρμακα"
         value={selectedCode}
         onChange={setSelectedCode}
         inputStyle={[loginStyles.loginInput, formStyles.input]}
         resultsMaxHeight={PICKER_RESULTS_HEIGHT}
       />
+
+      <Text style={loginStyles.inputLabel}>Δοσολογία</Text>
+      <TextInput style={[loginStyles.loginInput, formStyles.input]} value={dosage} onChangeText={setDosage} />
+
+      <Text style={loginStyles.inputLabel}>Διάρκεια Χορήγησης</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 30 }}>
+        <TextInput
+          style={[loginStyles.loginInput, formStyles.input, { width: 80, marginBottom: 0, textAlign: 'center' }]}
+          keyboardType="numeric"
+          value={durationDays}
+          onChangeText={(text) => setDurationDays(text.replace(/[^0-9]/g, ''))}
+        />
+        <Text style={[loginStyles.inputLabel, { marginLeft: 10, marginBottom: 0 }]}>Ημέρες</Text>
+      </View>
     </DoctorFormScreen>
   );
 }

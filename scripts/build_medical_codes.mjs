@@ -14,6 +14,10 @@ import path from 'node:path';
 import os from 'node:os';
 
 const SRC = process.argv[2] || path.join(os.homedir(), 'Downloads');
+
+// Γραμμές ανά αρχείο εξόδου - ο importer του Supabase κόβεται σιωπηλά σε μεγάλα αρχεία.
+const CHUNK_SIZE = 7000;
+const NEWLINE = String.fromCharCode(10);
 const OUT_DIR = path.join(path.dirname(new URL(import.meta.url).pathname.slice(1)), 'out');
 
 const FILES = {
@@ -21,6 +25,7 @@ const FILES = {
   icdGreek: path.join(SRC, 'icd10.txt'),
   loincCore: path.join(SRC, 'Loinc_2.83', 'LoincTableCore', 'LoincTableCore.csv'),
   loincOrders: path.join(SRC, 'Loinc_2.83', 'AccessoryFiles', 'LoincUniversalLabOrdersValueSet', 'LoincUniversalLabOrdersValueSet.csv'),
+  loincGreek: path.join(SRC, 'Loinc_2.83', 'AccessoryFiles', 'LinguisticVariants', 'elGR17LinguisticVariant.csv'),
 };
 
 // Κωδικοί ICD-10 που αφορούν αλλεργικές αντιδράσεις. Το πλήρες ICD δεν έχει νόημα στην
@@ -178,29 +183,53 @@ function loadAtcSubstances() {
 
 // LOINC - από τις 62.000 εργαστηριακές εξετάσεις κρατάμε τις ~1.500 του Universal Lab
 // Orders Value Set: αυτές που πραγματικά παραγγέλνονται στην κλινική πράξη.
+//
+// Η ελληνική έκδοση του LOINC δεν δίνει έτοιμη πλήρη ονομασία, δίνει όμως τον αναλυτή
+// (COMPONENT) και το δείγμα (SYSTEM). Τα συνθέτουμε σε "Γλυκόζη (Ορός/Πλάσμα)", γιατί
+// αλλιώς ο γιατρός θα έψαχνε ελληνικά σε αγγλικό κατάλογο και δεν θα έβρισκε τίποτα.
 function loadLoincLabTests() {
   const core = new Map(readCsvObjects(FILES.loincCore).map((r) => [r.LOINC_NUM, r]));
+  const greek = new Map(readCsvObjects(FILES.loincGreek).map((r) => [r.LOINC_NUM, r]));
 
   return readCsvObjects(FILES.loincOrders)
-    .map((r) => ({ order: r, core: core.get(r.LOINC_NUM) }))
+    .map((r) => ({ order: r, core: core.get(r.LOINC_NUM), el: greek.get(r.LOINC_NUM) }))
     .filter(({ core: c }) => c && c.STATUS === 'ACTIVE')
-    .map(({ order, core: c }) => ({
-      code: order.LOINC_NUM,
-      name: order.LONG_COMMON_NAME || c.LONG_COMMON_NAME,
-      extra: { class: c.CLASS || null, shortname: c.SHORTNAME || null, order_obs: order.ORDER_OBS || null },
-    }));
+    .map(({ order, core: c, el }) => {
+      const englishName = order.LONG_COMMON_NAME || c.LONG_COMMON_NAME;
+
+      // Οι λίγες εξετάσεις χωρίς ελληνική απόδοση μένουν στα αγγλικά - καλύτερα από κενό.
+      const greekName = el && el.COMPONENT
+        ? `${el.COMPONENT}${el.SYSTEM ? ` (${el.SYSTEM})` : ''}`
+        : null;
+
+      return {
+        code: order.LOINC_NUM,
+        name: greekName || englishName,
+        // Τα ελληνικά συνώνυμα του προτύπου ("Σάκχαρο" για τη γλυκόζη) μπαίνουν στην
+        // αναζήτηση, ώστε να βρίσκεται η εξέταση και με τον όρο που λέει ο γιατρός.
+        synonyms: (el && el.RELATEDNAMES2) || null,
+        extra: {
+          class: c.CLASS || null,
+          shortname: c.SHORTNAME || null,
+          order_obs: order.ORDER_OBS || null,
+          // Κρατάμε και την αγγλική ονομασία: είναι η επίσημη του προτύπου.
+          name_en: englishName || null,
+        },
+      };
+    });
 }
 
 // ------------------------------------------------------------------ σύνθεση
 
 function build() {
   const rows = [];
-  const add = (system, code, name, category, parentCode, extra, routes, parentName) =>
+  const add = (system, code, name, category, parentCode, extra, routes, parentName, synonyms) =>
     rows.push({
       system, code, name, category,
       parent_code: parentCode || null,
       parent_name: parentName || null,
       routes: routes || null,
+      synonyms: synonyms || null,
       extra: extra || null,
     });
 
@@ -233,8 +262,8 @@ function build() {
   }
 
   // --- LOINC -> Εργαστηριακές εξετάσεις
-  for (const { code, name, extra } of loadLoincLabTests()) {
-    add('LOINC', code, name, 'Εξετάσεις', null, extra, null, null);
+  for (const { code, name, extra, synonyms } of loadLoincLabTests()) {
+    add('LOINC', code, name, 'Εξετάσεις', null, extra, null, null, synonyms);
   }
 
   return rows;
@@ -254,24 +283,39 @@ function main() {
   const rows = build();
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const outFile = path.join(OUT_DIR, 'medical_codes.csv');
 
-  const header = 'system,code,name,category,parent_code,parent_name,routes,extra\n';
+  const header = 'system,code,name,category,parent_code,parent_name,routes,synonyms,extra\n';
   const body = rows
     .map((r) => [
-      r.system, r.code, r.name, r.category, r.parent_code, r.parent_name, r.routes,
+      r.system, r.code, r.name, r.category, r.parent_code, r.parent_name, r.routes, r.synonyms,
       r.extra ? JSON.stringify(r.extra) : null,
     ].map(csvEscape).join(','))
     .join('\n');
 
-  fs.writeFileSync(outFile, header + body + '\n', 'utf8');
+  // Και σε JSON, για το upload_medical_codes.mjs που ανεβάζει κατευθείαν στη βάση.
+  fs.writeFileSync(path.join(OUT_DIR, 'medical_codes.json'), JSON.stringify(rows), 'utf8');
+
+  const lines = body.split(NEWLINE);
+  const parts = [];
+  for (let i = 0; i < lines.length; i += CHUNK_SIZE) {
+    const file = path.join(OUT_DIR, `medical_codes_${parts.length + 1}.csv`);
+    fs.writeFileSync(file, header + lines.slice(i, i + CHUNK_SIZE).join(NEWLINE) + NEWLINE, 'utf8');
+    parts.push({ file, count: Math.min(CHUNK_SIZE, lines.length - i) });
+  }
 
   const perCategory = rows.reduce((acc, r) => ({ ...acc, [r.category]: (acc[r.category] || 0) + 1 }), {});
-  console.log(`✔ ${rows.length} κωδικοί -> ${outFile}\n`);
+  console.log(`OK ${rows.length} κωδικοί`);
+  console.log('');
   for (const [category, count] of Object.entries(perCategory)) {
     console.log(`   ${category.padEnd(14)} ${count}`);
   }
-  console.log(`\nΕπόμενο βήμα: Supabase -> Table Editor -> medical_codes -> Import data from CSV`);
+  console.log('');
+  console.log(`${parts.length} αρχεία προς ανέβασμα, ΜΕ ΤΗ ΣΕΙΡΑ:`);
+  for (const { file, count } of parts) {
+    console.log(`   ${path.basename(file).padEnd(24)} ${count} γραμμές`);
+  }
+  console.log('');
+  console.log('Supabase -> Table Editor -> medical_codes -> Import data from CSV, ένα-ένα.');
 }
 
 main();

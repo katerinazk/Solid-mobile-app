@@ -11,6 +11,7 @@ export interface MedicalCode {
   // Η ονομασία του γονέα, ως συμφραζόμενο - τα υποεπίπεδα του ICD δεν στέκουν μόνα τους.
   parent_name: string | null;
   routes: string | null;
+  synonyms: string | null;
   extra: any | null;
 }
 
@@ -44,6 +45,7 @@ export function codeFromRecord(record: {
     parent_code: null,
     parent_name: record.parentName || null,
     routes: record.routes || null,
+    synonyms: null,
     extra: null,
   };
 }

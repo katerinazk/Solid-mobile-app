@@ -24,8 +24,13 @@ export const ROUTES = {
   DOCTOR_DIAGNOSEIS: '/doctor/patient_screens/doctor_diagnoseis',
   DOCTOR_DIAGNOSIS_FORM: '/doctor/patient_screens/doctor_diagnosis_form',
   DOCTOR_VACCINATIONS: '/doctor/patient_screens/doctor_vaccinations',
+  DOCTOR_VACCINATION_FORM: '/doctor/patient_screens/doctor_vaccination_form',
   DOCTOR_ALLERGIES: '/doctor/patient_screens/doctor_allergies',
+  DOCTOR_ALLERGY_FORM: '/doctor/patient_screens/doctor_allergy_form',
   DOCTOR_HOSPITALIZATIONS: '/doctor/patient_screens/doctor_hospitalizations',
+  DOCTOR_HOSPITALIZATION_FORM: '/doctor/patient_screens/doctor_hospitalization_form',
   DOCTOR_MEDICATIONS: '/doctor/patient_screens/doctor_medications',
+  DOCTOR_MEDICATION_FORM: '/doctor/patient_screens/doctor_medication_form',
   DOCTOR_EXAMS: '/doctor/patient_screens/doctor_exams',
+  DOCTOR_EXAM_FORM: '/doctor/patient_screens/doctor_exam_form',
 } as const;

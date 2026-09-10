@@ -167,6 +167,9 @@ const localStyles = StyleSheet.create({
     borderColor: COLORS.primary,
     borderRadius: 15,
     padding: 14,
+    // Ίδιο κενό με το πεδίο κειμένου, ώστε να μη μετακινείται το επόμενο πεδίο της φόρμας
+    // μόλις ο γιατρός διαλέξει κάτι.
+    marginBottom: 30,
   },
   selectedCode: { fontSize: TYPOGRAPHY.label, fontWeight: 'bold', color: COLORS.primary },
   selectedName: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, marginTop: 2 },
