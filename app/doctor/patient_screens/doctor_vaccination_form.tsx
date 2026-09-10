@@ -9,8 +9,7 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { DateField } from '../../../components/DateField';
-import { validatePastDate } from '../../../utils/dateInput';
+import { dateToIso } from '../../../utils/dateInput';
 
 export default function DoctorVaccinationFormScreen() {
   const params = useLocalSearchParams<{
@@ -40,11 +39,7 @@ export default function DoctorVaccinationFormScreen() {
   );
   const [batchNumber, setBatchNumber] = useState(params.editBatchNumber || '');
   const [doseNumber, setDoseNumber] = useState(params.editDoseNumber || '');
-  const [administeredDate, setAdministeredDate] = useState(params.editAdministeredDate || '');
   const [saving, setSaving] = useState(false);
-
-  // Το ημερολόγιο δεν αφήνει να επιλεγεί μελλοντική ημερομηνία.
-  const today = new Date();
 
   const handleSave = async () => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
@@ -53,12 +48,6 @@ export default function DoctorVaccinationFormScreen() {
 
     if (!selectedCode || !batchNumber.trim() || !doseNumber.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
-      return;
-    }
-
-    const dateError = validatePastDate(administeredDate, 'Ημερομηνία χορήγησης');
-    if (dateError) {
-      alert(dateError);
       return;
     }
 
@@ -87,7 +76,9 @@ export default function DoctorVaccinationFormScreen() {
         doctorAmka,
         batchNumber: batchNumber.trim(),
         doseNumber: doseNumber.trim(),
-        administeredDate,
+        // Ο εμβολιασμός γίνεται τη στιγμή της καταχώρησης, οπότε η ημερομηνία είναι η
+        // σημερινή. Στην επεξεργασία κρατάμε την αρχική.
+        administeredDate: params.editAdministeredDate || dateToIso(new Date()),
       };
 
       const fileUrl = params.editUrl || `${folderUrl}${Date.now()}.json`;
@@ -128,13 +119,6 @@ export default function DoctorVaccinationFormScreen() {
         maxLength={2}
         value={doseNumber}
         onChangeText={(text) => setDoseNumber(text.replace(/[^0-9]/g, '').slice(0, 2))}
-      />
-
-      <DateField
-        label="Ημερομηνία Χορήγησης"
-        value={administeredDate}
-        onChange={setAdministeredDate}
-        maximumDate={today}
       />
     </DoctorFormScreen>
   );
