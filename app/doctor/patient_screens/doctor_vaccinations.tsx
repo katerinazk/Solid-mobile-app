@@ -20,7 +20,6 @@ const CATEGORY = 'Εμβολιασμοί';
 interface Vaccination {
   url: string;
   title: string;
-  commercialName: string;
   doctorName: string;
   doctorAmka: string;
   batchNumber: string;
@@ -61,7 +60,6 @@ export default function DoctorVaccinationsScreen() {
             title: record.title,
             code: record.code,
             parentName: record.parentName,
-            commercialName: record.commercialName,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             batchNumber: record.batchNumber,
@@ -119,7 +117,6 @@ export default function DoctorVaccinationsScreen() {
           editCode: item.code,
           editTitle: item.title,
           editParentName: item.parentName,
-          editCommercialName: item.commercialName,
           editBatchNumber: item.batchNumber,
           editDoseNumber: item.doseNumber,
           editAdministeredDate: item.administeredDate,
@@ -208,9 +205,6 @@ export default function DoctorVaccinationsScreen() {
                 )}
               </View>
 
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Εμπορική Ονομασία: </Text>{item.commercialName}
-              </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
               </Text>

@@ -9,6 +9,8 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
+import { SelectField } from '../../../components/SelectField';
+import { ADMINISTRATION_ROUTES, matchAdministrationRoute } from '../../../constants/medicalOptions';
 
 export default function DoctorMedicationFormScreen() {
   const params = useLocalSearchParams<{
@@ -21,6 +23,7 @@ export default function DoctorMedicationFormScreen() {
     editTitle?: string;
     editParentName?: string;
     editDosage?: string;
+    editRoute?: string;
     editDurationDays?: string;
     editStartDate?: string;
     // 'true' | 'false' | undefined - οι παλιές εγγραφές δεν έχουν αυτή την έννοια.
@@ -39,15 +42,28 @@ export default function DoctorMedicationFormScreen() {
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
   const [dosage, setDosage] = useState(params.editDosage || '');
+  const [route, setRoute] = useState(params.editRoute || '');
   const [durationDays, setDurationDays] = useState(params.editDurationDays || '');
   const [saving, setSaving] = useState(false);
+
+  // Ο κατάλογος ATC ξέρει τους τρόπους χορήγησης για ένα μέρος των ουσιών. Όταν ορίζει
+  // ακριβώς έναν, τον προεπιλέγουμε - ο γιατρός μπορεί πάντα να τον αλλάξει.
+  const handleCodeChange = (code: MedicalCode | null) => {
+    setSelectedCode(code);
+
+    const catalogRoutes = (code?.routes || '').split(',').map((r) => r.trim()).filter(Boolean);
+    if (catalogRoutes.length !== 1) return;
+
+    const matched = matchAdministrationRoute(catalogRoutes[0]);
+    if (matched) setRoute(matched);
+  };
 
   const handleSave = async () => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!selectedCode || !dosage.trim() || !durationDays.trim()) {
+    if (!selectedCode || !route || !dosage.trim() || !durationDays.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
@@ -91,6 +107,7 @@ export default function DoctorMedicationFormScreen() {
         title: selectedCode.name,
         code: selectedCode.code,
         parentName: selectedCode.parent_name || undefined,
+        route,
         dosage: dosage.trim(),
         startDate,
         durationDays: duration,
@@ -122,9 +139,17 @@ export default function DoctorMedicationFormScreen() {
       <MedicalCodePicker
         category="Φάρμακα"
         value={selectedCode}
-        onChange={setSelectedCode}
+        onChange={handleCodeChange}
         inputStyle={[loginStyles.loginInput, formStyles.input]}
         resultsMaxHeight={PICKER_RESULTS_HEIGHT}
+      />
+
+      <SelectField
+        label="Τρόπος Χορήγησης"
+        value={route}
+        onChange={setRoute}
+        options={ADMINISTRATION_ROUTES}
+        placeholder="Επιλέξτε τρόπο"
       />
 
       <Text style={loginStyles.inputLabel}>Δοσολογία</Text>

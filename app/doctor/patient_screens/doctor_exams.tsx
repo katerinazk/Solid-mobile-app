@@ -6,6 +6,7 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
+import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
@@ -17,7 +18,6 @@ import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
-const CATEGORIES = ['Όλες', 'Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
 
 interface Exam {
   url: string;

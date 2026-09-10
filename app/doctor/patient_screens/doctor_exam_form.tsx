@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { COLORS } from '../../../constants/colors';
 import { loginStyles } from '../../../constants/loginStyles';
-import { TYPOGRAPHY } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
@@ -11,8 +9,8 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-
-const EXAM_TYPES = ['Εργαστηριακές', 'Απεικονιστικές', 'Λειτουργικές', 'Ενδοσκοπικές', 'Ιστολογικές'];
+import { SelectField } from '../../../components/SelectField';
+import { EXAM_TYPES } from '../../../constants/medicalOptions';
 
 export default function DoctorExamFormScreen() {
   const params = useLocalSearchParams<{
@@ -43,7 +41,6 @@ export default function DoctorExamFormScreen() {
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
   const [type, setType] = useState(params.editType || '');
-  const [isTypeListVisible, setIsTypeListVisible] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -122,46 +119,13 @@ export default function DoctorExamFormScreen() {
         resultsMaxHeight={PICKER_RESULTS_HEIGHT}
       />
 
-      <Text style={loginStyles.inputLabel}>Τύπος</Text>
-      <TouchableOpacity
-        style={[loginStyles.loginInput, formStyles.input, { justifyContent: 'center', marginBottom: isTypeListVisible ? 0 : 30 }]}
-        onPress={() => setIsTypeListVisible((prev) => !prev)}
-      >
-        <Text style={{ color: type ? COLORS.text : COLORS.medium, fontSize: TYPOGRAPHY.bodyText }}>
-          {type || 'Επιλέξτε τύπο'}
-        </Text>
-      </TouchableOpacity>
-
-      {isTypeListVisible && (
-        <View style={localStyles.typeList}>
-          {EXAM_TYPES.map((option, index) => (
-            <TouchableOpacity
-              key={option}
-              style={[localStyles.typeOption, index === EXAM_TYPES.length - 1 && { borderBottomWidth: 0 }]}
-              onPress={() => { setType(option); setIsTypeListVisible(false); }}
-            >
-              <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{option}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+      <SelectField
+        label="Τύπος"
+        value={type}
+        onChange={setType}
+        options={EXAM_TYPES}
+        placeholder="Επιλέξτε τύπο"
+      />
     </DoctorFormScreen>
   );
 }
-
-const localStyles = StyleSheet.create({
-  typeList: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-    marginBottom: 30,
-    overflow: 'hidden',
-  },
-  typeOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightest,
-  },
-});

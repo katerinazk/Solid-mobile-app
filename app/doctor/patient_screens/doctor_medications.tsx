@@ -21,6 +21,8 @@ interface Medication {
   url: string;
   title: string;
   dosage: string;
+  // Τρόπος χορήγησης (χάπι, ενέσιμο, ...). Λείπει από τις εγγραφές πριν υπάρξει το πεδίο.
+  route?: string;
   startDate: string;
   durationDays: number;
   doctorName: string;
@@ -50,6 +52,11 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
           </View>
         )}
       </View>
+      {!!item.route && (
+        <Text style={doctorStyles.diagnosisCardDetail}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+        </Text>
+      )}
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
       </Text>
@@ -96,6 +103,7 @@ export default function DoctorMedicationsScreen() {
             code: record.code,
             parentName: record.parentName,
             dosage: record.dosage,
+            route: record.route,
             startDate: record.startDate,
             durationDays: record.durationDays,
             doctorName: record.doctorName,
@@ -147,6 +155,7 @@ export default function DoctorMedicationsScreen() {
           editTitle: item.title,
           editParentName: item.parentName,
           editDosage: item.dosage,
+          editRoute: item.route,
           editDurationDays: String(item.durationDays),
           editStartDate: item.startDate,
           // Οι παλιές εγγραφές δεν έχουν started - το αφήνουμε κενό ώστε να μείνει undefined.

@@ -22,7 +22,6 @@ export default function DoctorVaccinationFormScreen() {
     editCode?: string;
     editTitle?: string;
     editParentName?: string;
-    editCommercialName?: string;
     editBatchNumber?: string;
     editDoseNumber?: string;
     editAdministeredDate?: string;
@@ -39,7 +38,6 @@ export default function DoctorVaccinationFormScreen() {
   const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
-  const [commercialName, setCommercialName] = useState(params.editCommercialName || '');
   const [batchNumber, setBatchNumber] = useState(params.editBatchNumber || '');
   const [doseNumber, setDoseNumber] = useState(params.editDoseNumber || '');
   const [administeredDate, setAdministeredDate] = useState(params.editAdministeredDate || '');
@@ -53,7 +51,7 @@ export default function DoctorVaccinationFormScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!selectedCode || !commercialName.trim() || !batchNumber.trim() || !doseNumber.trim()) {
+    if (!selectedCode || !batchNumber.trim() || !doseNumber.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
@@ -85,7 +83,6 @@ export default function DoctorVaccinationFormScreen() {
         title: selectedCode.name,
         code: selectedCode.code,
         parentName: selectedCode.parent_name || undefined,
-        commercialName: commercialName.trim(),
         doctorName,
         doctorAmka,
         batchNumber: batchNumber.trim(),
@@ -120,9 +117,6 @@ export default function DoctorVaccinationFormScreen() {
         inputStyle={[loginStyles.loginInput, formStyles.input]}
         resultsMaxHeight={PICKER_RESULTS_HEIGHT}
       />
-
-      <Text style={loginStyles.inputLabel}>Εμπορική Ονομασία</Text>
-      <TextInput style={[loginStyles.loginInput, formStyles.input]} value={commercialName} onChangeText={setCommercialName} />
 
       <Text style={loginStyles.inputLabel}>Αριθμός Παρτίδας</Text>
       <TextInput style={[loginStyles.loginInput, formStyles.input]} value={batchNumber} onChangeText={setBatchNumber} />

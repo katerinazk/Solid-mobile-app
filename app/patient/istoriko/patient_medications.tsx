@@ -18,6 +18,8 @@ interface Medication {
   url: string;
   title: string;
   dosage: string;
+  // Τρόπος χορήγησης (χάπι, ενέσιμο, ...). Λείπει από τις εγγραφές πριν υπάρξει το πεδίο.
+  route?: string;
   startDate: string;
   durationDays: number;
   doctorName: string;
@@ -78,6 +80,7 @@ export default function PatientMedicationsScreen() {
             code: record.code,
             parentName: record.parentName,
             dosage: record.dosage,
+            route: record.route,
             startDate: record.startDate,
             durationDays: record.durationDays,
             doctorName: record.doctorName,
@@ -124,6 +127,7 @@ export default function PatientMedicationsScreen() {
         // Το "Έναρξη" ξαναγράφει όλο το αρχείο - χωρίς αυτά θα χανόταν ο κωδικός ATC.
         code: item.code,
         parentName: item.parentName,
+        route: item.route,
         dosage: item.dosage,
         startDate,
         durationDays: item.durationDays,
@@ -242,6 +246,11 @@ export default function PatientMedicationsScreen() {
                     <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                     <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
                   </View>
+                  {!!item.route && (
+                    <Text style={doctorStyles.diagnosisCardDetail}>
+                      <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+                    </Text>
+                  )}
                   <Text style={doctorStyles.diagnosisCardDetail}>
                     <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                   </Text>
@@ -270,6 +279,11 @@ export default function PatientMedicationsScreen() {
               ) : (
                 <View key={item.url} style={doctorStyles.diagnosisCard}>
                   <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                  {!!item.route && (
+                    <Text style={doctorStyles.diagnosisCardDetail}>
+                      <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+                    </Text>
+                  )}
                   <Text style={doctorStyles.diagnosisCardDetail}>
                     <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                   </Text>
@@ -312,6 +326,11 @@ export default function PatientMedicationsScreen() {
                   return (
                     <View key={item.url} style={doctorStyles.diagnosisCard}>
                       <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                      {!!item.route && (
+                        <Text style={doctorStyles.diagnosisCardDetail}>
+                          <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+                        </Text>
+                      )}
                       <Text style={doctorStyles.diagnosisCardDetail}>
                         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                       </Text>
