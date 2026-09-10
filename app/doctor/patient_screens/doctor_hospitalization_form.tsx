@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, TextInput, TouchableOpacity } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -13,7 +13,10 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { createDateHandler, splitIsoDate, validatePastDate } from '../../../utils/dateInput';
+import { HospitalPicker } from '../../../components/HospitalPicker';
+import { Hospital, hospitalFromRecord } from '../../../services/hospitals';
+import { DateField } from '../../../components/DateField';
+import { validatePastDate, isoToDate } from '../../../utils/dateInput';
 
 interface PendingFile {
   name: string;
@@ -43,6 +46,7 @@ export default function DoctorHospitalizationFormScreen() {
     editTitle?: string;
     editParentName?: string;
     editHospitalClinic?: string;
+    editHospitalArea?: string;
     editAdmissionDate?: string;
     editDischargeDate?: string;
     editAttachments?: string;
@@ -60,23 +64,17 @@ export default function DoctorHospitalizationFormScreen() {
   const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
-  const [hospitalClinic, setHospitalClinic] = useState(params.editHospitalClinic || '');
+  const [hospital, setHospital] = useState<Hospital | null>(
+    hospitalFromRecord({ hospitalClinic: params.editHospitalClinic, hospitalArea: params.editHospitalArea })
+  );
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const admission = splitIsoDate(params.editAdmissionDate);
-  const [admDay, setAdmDay] = useState(admission.day);
-  const [admMonth, setAdmMonth] = useState(admission.month);
-  const [admYear, setAdmYear] = useState(admission.year);
-  const admissionDate = admDay + (admMonth ? `/${admMonth}` : '') + (admYear ? `/${admYear}` : '');
-  const handleAdmissionDateChange = createDateHandler(admDay, setAdmDay, admMonth, setAdmMonth, admYear, setAdmYear, admissionDate);
+  const [admissionDate, setAdmissionDate] = useState(params.editAdmissionDate || '');
+  const [dischargeDate, setDischargeDate] = useState(params.editDischargeDate || '');
 
-  const discharge = splitIsoDate(params.editDischargeDate);
-  const [disDay, setDisDay] = useState(discharge.day);
-  const [disMonth, setDisMonth] = useState(discharge.month);
-  const [disYear, setDisYear] = useState(discharge.year);
-  const dischargeDate = disDay + (disMonth ? `/${disMonth}` : '') + (disYear ? `/${disYear}` : '');
-  const handleDischargeDateChange = createDateHandler(disDay, setDisDay, disMonth, setDisMonth, disYear, setDisYear, dischargeDate);
+  // Το ημερολόγιο δεν αφήνει να επιλεγεί μελλοντική ημερομηνία.
+  const today = new Date();
 
   const handlePickFiles = async () => {
     try {
@@ -100,25 +98,25 @@ export default function DoctorHospitalizationFormScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!selectedCode || !hospitalClinic.trim() || !admissionDate.trim() || !dischargeDate.trim()) {
+    if (!selectedCode || !hospital) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
 
-    const admissionError = validatePastDate(admDay, admMonth, admYear);
+    const admissionError = validatePastDate(admissionDate, 'Ημερομηνία εισαγωγής');
     if (admissionError) {
-      alert(`Ημερομηνία εισαγωγής: ${admissionError}`);
+      alert(admissionError);
       return;
     }
 
-    const dischargeError = validatePastDate(disDay, disMonth, disYear);
+    const dischargeError = validatePastDate(dischargeDate, 'Ημερομηνία εξιτηρίου');
     if (dischargeError) {
-      alert(`Ημερομηνία εξιτηρίου: ${dischargeError}`);
+      alert(dischargeError);
       return;
     }
 
     // Το εξιτήριο δεν γίνεται να προηγείται της εισαγωγής.
-    if (`${disYear}${disMonth}${disDay}` < `${admYear}${admMonth}${admDay}`) {
+    if (dischargeDate < admissionDate) {
       alert("Η ημερομηνία εξιτηρίου δεν μπορεί να είναι πριν από την ημερομηνία εισαγωγής.");
       return;
     }
@@ -153,11 +151,12 @@ export default function DoctorHospitalizationFormScreen() {
         title: selectedCode.name,
         code: selectedCode.code,
         parentName: selectedCode.parent_name || undefined,
-        hospitalClinic: hospitalClinic.trim(),
+        hospitalClinic: hospital.name,
+        hospitalArea: hospital.area || undefined,
         doctorName,
         doctorAmka,
-        admissionDate: `${admYear}-${admMonth}-${admDay}`,
-        dischargeDate: `${disYear}-${disMonth}-${disDay}`,
+        admissionDate,
+        dischargeDate,
         attachments: [...existingAttachments, ...pendingFiles.map((file) => file.name)],
       };
 
@@ -189,26 +188,26 @@ export default function DoctorHospitalizationFormScreen() {
       />
 
       <Text style={loginStyles.inputLabel}>Νοσοκομείο / Κλινική</Text>
-      <TextInput style={[loginStyles.loginInput, formStyles.input]} value={hospitalClinic} onChangeText={setHospitalClinic} />
-
-      <Text style={loginStyles.inputLabel}>Ημερομηνία Εισαγωγής</Text>
-      <TextInput
-        style={[loginStyles.loginInput, formStyles.input]}
-        placeholder="ΗΗ/ΜΜ/ΕΕΕΕ"
-        keyboardType="numeric"
-        maxLength={10}
-        value={admissionDate}
-        onChangeText={handleAdmissionDateChange}
+      <HospitalPicker
+        value={hospital}
+        onChange={setHospital}
+        inputStyle={[loginStyles.loginInput, formStyles.input]}
+        resultsMaxHeight={PICKER_RESULTS_HEIGHT}
       />
 
-      <Text style={loginStyles.inputLabel}>Ημερομηνία Εξιτηρίου</Text>
-      <TextInput
-        style={[loginStyles.loginInput, formStyles.input]}
-        placeholder="ΗΗ/ΜΜ/ΕΕΕΕ"
-        keyboardType="numeric"
-        maxLength={10}
+      <DateField
+        label="Ημερομηνία Εισαγωγής"
+        value={admissionDate}
+        onChange={setAdmissionDate}
+        maximumDate={today}
+      />
+
+      <DateField
+        label="Ημερομηνία Εξιτηρίου"
         value={dischargeDate}
-        onChangeText={handleDischargeDateChange}
+        onChange={setDischargeDate}
+        minimumDate={isoToDate(admissionDate) || undefined}
+        maximumDate={today}
       />
 
       <TouchableOpacity

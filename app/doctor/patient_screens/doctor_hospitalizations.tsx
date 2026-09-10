@@ -24,6 +24,7 @@ interface Hospitalization {
   hospitalClinic: string;
   doctorName: string;
   doctorAmka: string;
+  hospitalArea?: string;
   admissionDate: string;
   dischargeDate: string;
   attachments: string[];
@@ -63,6 +64,7 @@ export default function DoctorHospitalizationsScreen() {
             code: record.code,
             parentName: record.parentName,
             hospitalClinic: record.hospitalClinic,
+            hospitalArea: record.hospitalArea,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             admissionDate: record.admissionDate,
@@ -115,6 +117,7 @@ export default function DoctorHospitalizationsScreen() {
           editTitle: item.title,
           editParentName: item.parentName,
           editHospitalClinic: item.hospitalClinic,
+          editHospitalArea: item.hospitalArea,
           editAdmissionDate: item.admissionDate,
           editDischargeDate: item.dischargeDate,
           editAttachments: JSON.stringify(item.attachments || []),
@@ -210,7 +213,7 @@ export default function DoctorHospitalizationsScreen() {
               </View>
 
               <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}
+                <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}{item.hospitalArea ? ` (${item.hospitalArea})` : ''}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}

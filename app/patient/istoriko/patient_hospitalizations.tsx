@@ -19,6 +19,8 @@ interface Hospitalization {
   url: string;
   title: string;
   hospitalClinic: string;
+  // Η πόλη του νοσοκομείου. Λείπει από τις παλιές εγγραφές ελεύθερου κειμένου.
+  hospitalArea?: string;
   doctorName: string;
   doctorAmka: string;
   admissionDate: string;
@@ -70,6 +72,7 @@ export default function PatientHospitalizationsScreen() {
             code: record.code,
             parentName: record.parentName,
             hospitalClinic: record.hospitalClinic,
+            hospitalArea: record.hospitalArea,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             admissionDate: record.admissionDate,
@@ -138,7 +141,7 @@ export default function PatientHospitalizationsScreen() {
               <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
 
               <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}
+                <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}{item.hospitalArea ? ` (${item.hospitalArea})` : ''}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}

@@ -1,31 +1,31 @@
 // ============================================================================
-//  Ανεβάζει τους ιατρικούς κωδικούς κατευθείαν στη βάση, παρακάμπτοντας τον importer του
-//  Supabase dashboard - που κόβεται σιωπηλά σε μεγάλα αρχεία.
+//  Ανεβάζει έναν κατάλογο αναφοράς κατευθείαν σε πίνακα της βάσης, παρακάμπτοντας τον
+//  importer του Supabase dashboard - που κόβεται σιωπηλά σε μεγάλα αρχεία.
+//
+//    node scripts/upload_table.mjs <πίνακας> <αρχείο.json>
+//
+//  Παραδείγματα:
+//    node scripts/upload_table.mjs medical_codes scripts/out/medical_codes.json
+//    node scripts/upload_table.mjs hospitals     scripts/out/hospitals.json
 //
 //  Χρειάζεται το service_role key (Supabase -> Project Settings -> API Keys). Δίνεται ως
 //  μεταβλητή περιβάλλοντος και ΔΕΝ γράφεται πουθενά στο repo:
 //
 //    Windows PowerShell:
 //      $env:SUPABASE_SERVICE_ROLE_KEY = "eyJ..."
-//      node scripts/upload_medical_codes.mjs
+//      node scripts/upload_table.mjs hospitals scripts/out/hospitals.json
 //
 //    Git Bash:
-//      SUPABASE_SERVICE_ROLE_KEY="eyJ..." node scripts/upload_medical_codes.mjs
-//
-//  Πρώτα τρέχει το build_medical_codes.mjs, που φτιάχνει το out/medical_codes.json.
+//      SUPABASE_SERVICE_ROLE_KEY="eyJ..." node scripts/upload_table.mjs hospitals scripts/out/hospitals.json
 // ============================================================================
 
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const SUPABASE_URL = 'https://xlmpzemrubhmevcnyluv.supabase.co';
-const TABLE = 'medical_codes';
 const BATCH_SIZE = 1000;
 
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'out');
-const DATA_FILE = path.join(OUT_DIR, 'medical_codes.json');
+const [table, dataFile] = process.argv.slice(2);
 
 function fail(message) {
   console.error(`\n✖ ${message}\n`);
@@ -58,7 +58,7 @@ async function request(method, url, body, extraHeaders) {
 async function countRows() {
   const response = await request(
     'GET',
-    `${SUPABASE_URL}/rest/v1/${TABLE}?select=id`,
+    `${SUPABASE_URL}/rest/v1/${table}?select=id`,
     undefined,
     { Prefer: 'count=exact', Range: '0-0' }
   );
@@ -74,7 +74,7 @@ async function reportOffendingRow(batch, offset) {
 
   for (let j = 0; j < Math.min(batch.length, 25); j++) {
     try {
-      await request('POST', `${SUPABASE_URL}/rest/v1/${TABLE}`, [batch[j]]);
+      await request('POST', `${SUPABASE_URL}/rest/v1/${table}`, [batch[j]]);
     } catch (error) {
       console.error(`\nΓραμμή ${offset + j + 1}: ${JSON.stringify(batch[j])}`);
       console.error(error.message);
@@ -83,10 +83,13 @@ async function reportOffendingRow(batch, offset) {
   }
 
   console.error('\nΟι πρώτες 25 γραμμές πέρασαν μία-μία, άρα δεν φταίνε τα δεδομένα αλλά το');
-  console.error('μέγεθος της παρτίδας. Μείωσε το BATCH_SIZE στο 200 και ξανατρέξε.');
+  console.error('μέγεθος της παρτίδας. Μείωσε το BATCH_SIZE και ξανατρέξε.');
 }
 
 async function main() {
+  if (!table || !dataFile) {
+    fail('Χρήση: node scripts/upload_table.mjs <πίνακας> <αρχείο.json>');
+  }
   if (!KEY) {
     fail(
       'Λείπει η μεταβλητή SUPABASE_SERVICE_ROLE_KEY.\n' +
@@ -94,22 +97,22 @@ async function main() {
         '    $env:SUPABASE_SERVICE_ROLE_KEY = "eyJ..."'
     );
   }
-  if (!fs.existsSync(DATA_FILE)) {
-    fail(`Δεν βρέθηκε το ${DATA_FILE}.\n  Τρέξε πρώτα: node scripts/build_medical_codes.mjs`);
+  if (!fs.existsSync(dataFile)) {
+    fail(`Δεν βρέθηκε το ${dataFile}. Τρέξε πρώτα το αντίστοιχο build script.`);
   }
 
-  const rows = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  console.log(`${rows.length} κωδικοί προς ανέβασμα.`);
+  const rows = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+  console.log(`${rows.length} εγγραφές προς ανέβασμα στον πίνακα ${table}.`);
 
   // Ο κατάλογος ξαναγράφεται ολόκληρος κάθε φορά - είναι δεδομένα αναφοράς, όχι δεδομένα
   // χρηστών, οπότε δεν χάνεται τίποτα.
   console.log('Καθαρισμός πίνακα...');
   try {
-    await request('DELETE', `${SUPABASE_URL}/rest/v1/${TABLE}?id=gt.0`);
+    await request('DELETE', `${SUPABASE_URL}/rest/v1/${table}?id=gt.0`);
   } catch (error) {
     fail(
       'Ο καθαρισμός του πίνακα απέτυχε. Συνήθως φταίει λάθος κλειδί (θέλει service_role,\n' +
-        '  όχι anon) ή ότι δεν έχει τρέξει το scripts/medical_codes_schema.sql.\n\n  ' +
+        `  όχι anon) ή ότι δεν έχει τρέξει το SQL που φτιάχνει τον πίνακα ${table}.\n\n  ` +
         error.message
     );
   }
@@ -117,7 +120,7 @@ async function main() {
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
     try {
-      await request('POST', `${SUPABASE_URL}/rest/v1/${TABLE}`, batch);
+      await request('POST', `${SUPABASE_URL}/rest/v1/${table}`, batch);
     } catch (error) {
       console.error(`\n✖ Απέτυχε στις γραμμές ${i + 1}-${i + batch.length}:`);
       console.error(error.message);

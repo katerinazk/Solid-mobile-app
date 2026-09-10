@@ -9,7 +9,8 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { createDateHandler, splitIsoDate, validatePastDate } from '../../../utils/dateInput';
+import { DateField } from '../../../components/DateField';
+import { validatePastDate } from '../../../utils/dateInput';
 
 export default function DoctorVaccinationFormScreen() {
   const params = useLocalSearchParams<{
@@ -34,7 +35,6 @@ export default function DoctorVaccinationFormScreen() {
   const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Εμβολιασμοί') : '';
 
   const isEditing = !!params.editUrl;
-  const initialDate = splitIsoDate(params.editAdministeredDate);
 
   const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
@@ -42,25 +42,23 @@ export default function DoctorVaccinationFormScreen() {
   const [commercialName, setCommercialName] = useState(params.editCommercialName || '');
   const [batchNumber, setBatchNumber] = useState(params.editBatchNumber || '');
   const [doseNumber, setDoseNumber] = useState(params.editDoseNumber || '');
+  const [administeredDate, setAdministeredDate] = useState(params.editAdministeredDate || '');
   const [saving, setSaving] = useState(false);
 
-  const [day, setDay] = useState(initialDate.day);
-  const [month, setMonth] = useState(initialDate.month);
-  const [year, setYear] = useState(initialDate.year);
-  const administeredDate = day + (month ? `/${month}` : '') + (year ? `/${year}` : '');
-  const handleDateChange = createDateHandler(day, setDay, month, setMonth, year, setYear, administeredDate);
+  // Το ημερολόγιο δεν αφήνει να επιλεγεί μελλοντική ημερομηνία.
+  const today = new Date();
 
   const handleSave = async () => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!selectedCode || !commercialName.trim() || !batchNumber.trim() || !doseNumber.trim() || !administeredDate.trim()) {
+    if (!selectedCode || !commercialName.trim() || !batchNumber.trim() || !doseNumber.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
 
-    const dateError = validatePastDate(day, month, year);
+    const dateError = validatePastDate(administeredDate, 'Ημερομηνία χορήγησης');
     if (dateError) {
       alert(dateError);
       return;
@@ -92,7 +90,7 @@ export default function DoctorVaccinationFormScreen() {
         doctorAmka,
         batchNumber: batchNumber.trim(),
         doseNumber: doseNumber.trim(),
-        administeredDate: `${year}-${month}-${day}`,
+        administeredDate,
       };
 
       const fileUrl = params.editUrl || `${folderUrl}${Date.now()}.json`;
@@ -138,14 +136,11 @@ export default function DoctorVaccinationFormScreen() {
         onChangeText={(text) => setDoseNumber(text.replace(/[^0-9]/g, '').slice(0, 2))}
       />
 
-      <Text style={loginStyles.inputLabel}>Ημερομηνία Χορήγησης</Text>
-      <TextInput
-        style={[loginStyles.loginInput, formStyles.input]}
-        placeholder="ΗΗ/ΜΜ/ΕΕΕΕ"
-        keyboardType="numeric"
-        maxLength={10}
+      <DateField
+        label="Ημερομηνία Χορήγησης"
         value={administeredDate}
-        onChangeText={handleDateChange}
+        onChange={setAdministeredDate}
+        maximumDate={today}
       />
     </DoctorFormScreen>
   );
