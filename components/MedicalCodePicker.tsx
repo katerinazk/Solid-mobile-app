@@ -173,6 +173,8 @@ const localStyles = StyleSheet.create({
 
   // Το συμφραζόμενο του γονέα: μικρότερο και ξεθωριασμένο, ώστε να μη διαβάζεται σαν
   // μέρος της ίδιας της ονομασίας.
-  parentName: { fontSize: TYPOGRAPHY.label, color: COLORS.medium, marginTop: 2 },
+  // Δευτερεύον κείμενο (14px) και όχι ετικέτα (12px): είναι περιεχόμενο που διαβάζει και
+  // ο ασθενής, όχι επιγραφή πεδίου.
+  parentName: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, marginTop: 2 },
   emptyText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text, textAlign: 'center', marginTop: 12 },
 });

@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
+import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
@@ -21,6 +22,10 @@ interface Diagnosis {
   doctorName: string;
   doctorAmka: string;
   category: Category;
+  // Κωδικός ICD-10 και η κατηγορία στην οποία ανήκει, όπως τα κατέγραψε ο γιατρός. Λείπουν
+  // από τις παλιές εγγραφές, που ήταν ελεύθερο κείμενο.
+  code?: string;
+  parentName?: string;
 }
 
 export default function PatientDiagnoseisScreen() {
@@ -67,7 +72,7 @@ export default function PatientDiagnoseisScreen() {
         try {
           const content = await fetchFileContent(url, accessToken);
           const record = JSON.parse(content);
-          return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category } as Diagnosis;
+          return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
         } catch {
           return null;
         }
@@ -144,7 +149,7 @@ export default function PatientDiagnoseisScreen() {
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
             <View style={doctorStyles.diagnosisCard}>
-              <Text style={doctorStyles.diagnosisCardTitle}>{item.title}</Text>
+              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
               </Text>

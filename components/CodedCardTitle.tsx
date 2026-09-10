@@ -27,5 +27,7 @@ export function CodedCardTitle({ code, title, parentName }: Props) {
 
 const localStyles = StyleSheet.create({
   code: { color: COLORS.primary },
-  parentName: { fontSize: TYPOGRAPHY.label, color: COLORS.medium, marginTop: 2 },
+  // Δευτερεύον κείμενο (14px) και όχι ετικέτα (12px): είναι περιεχόμενο που διαβάζει και
+  // ο ασθενής, όχι επιγραφή πεδίου.
+  parentName: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, marginTop: 2 },
 });
