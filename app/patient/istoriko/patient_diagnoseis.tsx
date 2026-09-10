@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { fetchPatientByAmka } from '../../../services/patients';
 import { calculateAge, formatDate } from '../../../utils/age';
@@ -49,9 +50,9 @@ export default function PatientDiagnoseisScreen() {
     }).catch(() => {});
   }, []);
 
-  const loadDiagnoses = async () => {
+  const loadDiagnoses = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -85,13 +86,15 @@ export default function PatientDiagnoseisScreen() {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
       setDiagnoses([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadDiagnoses();
   }, []);
+
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadDiagnoses);
 
   const displayDoctorName = (item: Diagnosis) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -144,6 +147,7 @@ export default function PatientDiagnoseisScreen() {
         <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν διαγνώσεις ακόμα.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={visibleDiagnoses}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -10,7 +10,7 @@ import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -114,10 +114,10 @@ export default function DoctorExamsScreen() {
 
   const [openingResultFor, setOpeningResultFor] = useState<string | null>(null);
 
-  const loadExams = async () => {
+  const loadExams = async (silent = false) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const examFiles = files.filter((url) => url.endsWith('.json'));
@@ -156,7 +156,7 @@ export default function DoctorExamsScreen() {
       }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -164,7 +164,7 @@ export default function DoctorExamsScreen() {
     loadExams();
   }, []);
 
-  useReloadOnFocus(loadExams);
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadExams);
 
   const displayDoctorName = (item: Exam) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -313,7 +313,10 @@ export default function DoctorExamsScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        >
           <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Εκκρεμείς</Text>
 
           {pendingExams.length === 0 ? (

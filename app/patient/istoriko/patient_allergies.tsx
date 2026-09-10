@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -9,6 +9,7 @@ import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { fetchPatientByAmka } from '../../../services/patients';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -47,9 +48,9 @@ export default function PatientAllergiesScreen() {
     fetchPatientByAmka(loggedInPatientAmka).then(({ data }) => setPatientInfo(data)).catch(() => {});
   }, []);
 
-  const loadAllergies = async () => {
+  const loadAllergies = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -91,13 +92,15 @@ export default function PatientAllergiesScreen() {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
       setAllergies([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadAllergies();
   }, []);
+
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadAllergies);
 
   const displayDoctorName = (item: Allergy) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -215,6 +218,7 @@ export default function PatientAllergiesScreen() {
         <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν αλλεργίες ακόμα.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={allergies}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}

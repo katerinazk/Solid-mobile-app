@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -38,9 +39,9 @@ export default function PatientVaccinationsScreen() {
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
   const [newestFirst, setNewestFirst] = useState(true);
 
-  const loadVaccinations = async () => {
+  const loadVaccinations = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -84,13 +85,15 @@ export default function PatientVaccinationsScreen() {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
       setVaccinations([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadVaccinations();
   }, []);
+
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadVaccinations);
 
   const displayDoctorName = (item: Vaccination) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -127,6 +130,7 @@ export default function PatientVaccinationsScreen() {
         <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν εμβολιασμοί ακόμα.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={sortedVaccinations}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}

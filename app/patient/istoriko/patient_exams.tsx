@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -10,6 +10,7 @@ import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { useAuth } from '../../../hooks/useAuth';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
@@ -123,9 +124,9 @@ export default function PatientExamsScreen() {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [openingResultFor, setOpeningResultFor] = useState<string | null>(null);
 
-  const loadExams = async () => {
+  const loadExams = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -171,13 +172,15 @@ export default function PatientExamsScreen() {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
       setExams([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadExams();
   }, []);
+
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadExams);
 
   const displayDoctorName = (item: Exam) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -332,7 +335,10 @@ export default function PatientExamsScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        >
           <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Εκκρεμείς</Text>
 
           {pendingExams.length === 0 ? (

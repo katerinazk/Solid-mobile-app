@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -9,7 +9,7 @@ import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -46,10 +46,10 @@ export default function DoctorHospitalizationsScreen() {
   const [viewingAttachmentsFor, setViewingAttachmentsFor] = useState<Hospitalization | null>(null);
   const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
 
-  const loadHospitalizations = async () => {
+  const loadHospitalizations = async (silent = false) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const hospitalizationFiles = files.filter((url) => url.endsWith('.json'));
@@ -89,7 +89,7 @@ export default function DoctorHospitalizationsScreen() {
       }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -97,7 +97,7 @@ export default function DoctorHospitalizationsScreen() {
     loadHospitalizations();
   }, []);
 
-  useReloadOnFocus(loadHospitalizations);
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadHospitalizations);
 
   const displayDoctorName = (item: Hospitalization) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -193,6 +193,7 @@ export default function DoctorHospitalizationsScreen() {
         <Text style={styles.emptyText}>Δεν υπάρχουν νοσηλίες.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={hospitalizations}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}

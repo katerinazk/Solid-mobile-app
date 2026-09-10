@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, StatusBar } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, StatusBar, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
@@ -48,10 +48,10 @@ export default function DoctorDiagnoseisScreen() {
   const [newestFirst, setNewestFirst] = useState(true);
 
 
-  const loadDiagnoses = async () => {
+  const loadDiagnoses = async (silent = false) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
       const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
 
@@ -78,7 +78,7 @@ export default function DoctorDiagnoseisScreen() {
       }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -86,7 +86,7 @@ export default function DoctorDiagnoseisScreen() {
     loadDiagnoses();
   }, []);
 
-  useReloadOnFocus(loadDiagnoses);
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadDiagnoses);
 
   const visibleDiagnoses = useMemo(() => {
     const filtered = diagnoses.filter((d) => d.category === activeCategory);
@@ -198,6 +198,7 @@ export default function DoctorDiagnoseisScreen() {
         <Text style={styles.emptyText}>Δεν υπάρχουν διαγνώσεις.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={visibleDiagnoses}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}

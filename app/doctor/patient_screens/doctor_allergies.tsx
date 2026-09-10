@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -9,7 +9,7 @@ import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -37,10 +37,10 @@ export default function DoctorAllergiesScreen() {
   const [loading, setLoading] = useState(false);
   const [allergies, setAllergies] = useState<Allergy[]>([]);
 
-  const loadAllergies = async () => {
+  const loadAllergies = async (silent = false) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const allergyFiles = files.filter((url) => url.endsWith('.json'));
@@ -75,7 +75,7 @@ export default function DoctorAllergiesScreen() {
       }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -83,7 +83,7 @@ export default function DoctorAllergiesScreen() {
     loadAllergies();
   }, []);
 
-  useReloadOnFocus(loadAllergies);
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadAllergies);
 
   const displayDoctorName = (item: Allergy) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -163,6 +163,7 @@ export default function DoctorAllergiesScreen() {
         <Text style={styles.emptyText}>Δεν υπάρχουν αλλεργίες.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={allergies}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}

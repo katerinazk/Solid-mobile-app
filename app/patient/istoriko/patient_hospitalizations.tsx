@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
@@ -43,9 +44,9 @@ export default function PatientHospitalizationsScreen() {
   const [viewingAttachmentsFor, setViewingAttachmentsFor] = useState<Hospitalization | null>(null);
   const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
 
-  const loadHospitalizations = async () => {
+  const loadHospitalizations = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -91,13 +92,15 @@ export default function PatientHospitalizationsScreen() {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
       setHospitalizations([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadHospitalizations();
   }, []);
+
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadHospitalizations);
 
   const displayDoctorName = (item: Hospitalization) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -133,6 +136,7 @@ export default function PatientHospitalizationsScreen() {
         <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν νοσηλίες ακόμα.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={hospitalizations}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}

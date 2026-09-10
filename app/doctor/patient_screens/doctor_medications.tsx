@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -9,7 +9,7 @@ import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -85,10 +85,10 @@ export default function DoctorMedicationsScreen() {
   const [showPrevious, setShowPrevious] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const loadMedications = async () => {
+  const loadMedications = async (silent = false) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const medicationFiles = files.filter((url) => url.endsWith('.json'));
@@ -127,7 +127,7 @@ export default function DoctorMedicationsScreen() {
       }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -135,7 +135,7 @@ export default function DoctorMedicationsScreen() {
     loadMedications();
   }, []);
 
-  useReloadOnFocus(loadMedications);
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadMedications);
 
   const displayDoctorName = (item: Medication) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -258,7 +258,10 @@ export default function DoctorMedicationsScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        >
           <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Ενεργή Αγωγή</Text>
 
           {activeMedications.length === 0 ? (

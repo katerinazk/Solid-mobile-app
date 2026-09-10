@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -9,7 +9,7 @@ import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { useReloadOnFocus } from '../../../hooks/useReloadOnFocus';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -43,10 +43,10 @@ export default function DoctorVaccinationsScreen() {
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
   const [newestFirst, setNewestFirst] = useState(true);
 
-  const loadVaccinations = async () => {
+  const loadVaccinations = async (silent = false) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const vaccinationFiles = files.filter((url) => url.endsWith('.json'));
@@ -83,7 +83,7 @@ export default function DoctorVaccinationsScreen() {
       }
       Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -91,7 +91,7 @@ export default function DoctorVaccinationsScreen() {
     loadVaccinations();
   }, []);
 
-  useReloadOnFocus(loadVaccinations);
+  const { refreshing, onRefresh } = usePodAutoRefresh(loadVaccinations);
 
   const displayDoctorName = (item: Vaccination) => {
     const info = getDoctorInfo(item.doctorAmka);
@@ -186,6 +186,7 @@ export default function DoctorVaccinationsScreen() {
         <Text style={styles.emptyText}>Δεν υπάρχουν εμβολιασμοί.</Text>
       ) : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
           data={sortedVaccinations}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
