@@ -156,6 +156,11 @@ export default function DoctorVaccinationsScreen() {
     );
   };
 
+  // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
+  const openDetail = (item: { url: string }) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
+  };
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -194,7 +199,7 @@ export default function DoctorVaccinationsScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <View style={doctorStyles.diagnosisCard}>
+            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
@@ -221,7 +226,7 @@ export default function DoctorVaccinationsScreen() {
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}

@@ -8,6 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
@@ -198,6 +199,11 @@ export default function PatientAllergiesScreen() {
     );
   };
 
+  // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
+  const openDetail = (item: { url: string }) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Αλλεργίες', webId } });
+  };
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -226,7 +232,7 @@ export default function PatientAllergiesScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <View style={doctorStyles.diagnosisCard}>
+            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {item.doctorAmka === loggedInPatientAmka && (
@@ -247,7 +253,7 @@ export default function PatientAllergiesScreen() {
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
               </Text>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
