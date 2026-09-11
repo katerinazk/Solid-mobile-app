@@ -12,7 +12,7 @@ import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { SelectField } from '../../../components/SelectField';
 import { ADMINISTRATION_ROUTES, matchAdministrationRoute } from '../../../constants/medicalOptions';
 import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
-import { LinkedRecord, parseLinkedRecord } from '../../../services/historyRecords';
+import { LinkedRecord, parseLinkedRecords } from '../../../services/historyRecords';
 
 export default function DoctorMedicationFormScreen() {
   const params = useLocalSearchParams<{
@@ -31,8 +31,8 @@ export default function DoctorMedicationFormScreen() {
     editStartDate?: string;
     // 'true' | 'false' | undefined - οι παλιές εγγραφές δεν έχουν αυτή την έννοια.
     editStarted?: string;
-    // Ο σύνδεσμος προς άλλη εγγραφή ιστορικού, ως JSON.
-    editLink?: string;
+    // Οι σύνδεσμοι προς άλλες εγγραφές ιστορικού, ως JSON πίνακας.
+    editLinks?: string;
     editDoctorName?: string;
     editDoctorAmka?: string;
   }>();
@@ -50,7 +50,7 @@ export default function DoctorMedicationFormScreen() {
   const [route, setRoute] = useState(params.editRoute || '');
   const [durationDays, setDurationDays] = useState(params.editDurationDays || '');
   const [durationMonths, setDurationMonths] = useState(params.editDurationMonths || '');
-  const [link, setLink] = useState<LinkedRecord | null>(parseLinkedRecord(params.editLink));
+  const [links, setLinks] = useState<LinkedRecord[]>(parseLinkedRecords(params.editLinks));
   const [saving, setSaving] = useState(false);
 
   // Ο κατάλογος ATC ξέρει τους τρόπους χορήγησης για ένα μέρος των ουσιών. Όταν ορίζει
@@ -125,7 +125,7 @@ export default function DoctorMedicationFormScreen() {
         doctorName,
         doctorAmka,
         started,
-        link: link || undefined,
+        links: links.length > 0 ? links : undefined,
       };
 
       const fileUrl = params.editUrl || `${folderUrl}${Date.now()}.json`;
@@ -192,8 +192,8 @@ export default function DoctorMedicationFormScreen() {
         webId={params.webId}
         accessToken={accessToken}
         excludeCategory="Φάρμακα"
-        value={link}
-        onChange={setLink}
+        value={links}
+        onChange={setLinks}
       />
     </DoctorFormScreen>
   );

@@ -19,13 +19,15 @@ interface Props {
   // Η κατηγορία της ίδιας της φόρμας. Δεν προσφέρεται, γιατί δεν έχει νόημα να συνδεθεί μια
   // εξέταση με άλλη εξέταση μέσα από την ίδια οθόνη.
   excludeCategory: string;
-  value: LinkedRecord | null;
-  onChange: (link: LinkedRecord | null) => void;
+  value: LinkedRecord[];
+  onChange: (links: LinkedRecord[]) => void;
 }
 
 /**
- * Συνδέει μια καταχώρηση με άλλη εγγραφή του ιστορικού - το "γιατί" πίσω από ένα φάρμακο ή
- * μια εξέταση. Ο γιατρός διαλέγει πρώτα κατηγορία και μετά τη συγκεκριμένη εγγραφή.
+ * Συνδέει μια καταχώρηση με άλλες εγγραφές του ιστορικού - το "γιατί" πίσω από ένα φάρμακο ή
+ * μια εξέταση. Ο γιατρός διαλέγει πρώτα κατηγορία και μετά τη συγκεκριμένη εγγραφή, και
+ * μπορεί να επαναλάβει όσες φορές θέλει: μια αγωγή μπορεί να αφορά ταυτόχρονα μια διάγνωση
+ * και μια νοσηλία.
  *
  * Προσφέρονται οι εγγραφές ΟΛΩΝ των γιατρών: μια αγωγή δίνεται συχνά για διάγνωση που έθεσε
  * άλλος συνάδελφος. Η σύνδεση είναι προαιρετική.
@@ -36,6 +38,9 @@ export function RecordLinkPicker({ webId, accessToken, excludeCategory, value, o
     [excludeCategory]
   );
 
+  // Με καμία σύνδεση ακόμα, ο επιλογέας είναι ήδη ανοιχτός. Μετά την πρώτη κλείνει και
+  // ξανανοίγει μόνο αν ο γιατρός πατήσει "Σύνδεση με" για δεύτερη.
+  const [isAdding, setIsAdding] = useState(value.length === 0);
   const [isCategoryListOpen, setIsCategoryListOpen] = useState(false);
   const [category, setCategory] = useState('');
   const [records, setRecords] = useState<HistoryRecordSummary[]>([]);
@@ -57,115 +62,150 @@ export function RecordLinkPicker({ webId, accessToken, excludeCategory, value, o
     return () => { canceled = true; };
   }, [category, webId, accessToken]);
 
-  // Η αναζήτηση γίνεται τοπικά: οι εγγραφές μιας κατηγορίας είναι ήδη στη μνήμη, δεν έχει
-  // νόημα να ξαναρωτάμε το Pod σε κάθε χαρακτήρα.
-  const visibleRecords = useMemo(() => {
-    const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return records;
-    return records.filter(
-      (record) =>
-        record.title?.toLowerCase().includes(trimmed) ||
-        record.code?.toLowerCase().includes(trimmed)
-    );
-  }, [records, query]);
-
-  const handleSelect = (record: HistoryRecordSummary) => {
-    onChange({
-      category: record.category,
-      url: record.url,
-      title: record.title,
-      code: record.code,
-      parentName: record.parentName,
-    });
+  const closeAdding = () => {
+    setIsAdding(false);
+    setIsCategoryListOpen(false);
     setCategory('');
     setQuery('');
     setRecords([]);
   };
 
-  if (value) {
-    return (
-      <View>
-        <Text style={loginStyles.inputLabel}>Σύνδεση με</Text>
-        <View style={localStyles.selected}>
-          <View style={{ flex: 1 }}>
-            <Text style={localStyles.selectedCategory}>{CATEGORY_SINGULAR[value.category] || value.category}</Text>
-            <Text style={localStyles.selectedTitle}>
-              {!!value.code && <Text style={localStyles.code}>{value.code}  </Text>}
-              {value.title}
-            </Text>
-            {!!value.parentName && <Text style={localStyles.parentName}>({value.parentName})</Text>}
-          </View>
-          <TouchableOpacity onPress={() => onChange(null)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="close-circle" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+  // Η αναζήτηση γίνεται τοπικά: οι εγγραφές μιας κατηγορίας είναι ήδη στη μνήμη, δεν έχει
+  // νόημα να ξαναρωτάμε το Pod σε κάθε χαρακτήρα. Όσες έχουν ήδη επιλεγεί δεν ξαναδείχνονται.
+  const visibleRecords = useMemo(() => {
+    const alreadyLinked = new Set(value.map((link) => link.url));
+    const trimmed = query.trim().toLowerCase();
+
+    return records.filter((record) => {
+      if (alreadyLinked.has(record.url)) return false;
+      if (!trimmed) return true;
+      return (
+        record.title?.toLowerCase().includes(trimmed) ||
+        record.code?.toLowerCase().includes(trimmed)
+      );
+    });
+  }, [records, query, value]);
+
+  const handleSelect = (record: HistoryRecordSummary) => {
+    onChange([
+      ...value,
+      {
+        category: record.category,
+        url: record.url,
+        title: record.title,
+        code: record.code,
+        parentName: record.parentName,
+      },
+    ]);
+    closeAdding();
+  };
+
+  const handleRemove = (url: string) => {
+    const remaining = value.filter((link) => link.url !== url);
+    onChange(remaining);
+    // Χωρίς καμία σύνδεση, ο επιλογέας ξανανοίγει μόνος του - αλλιώς θα έμενε ένα σκέτο
+    // κουμπί χωρίς περιεχόμενο.
+    if (remaining.length === 0) setIsAdding(true);
+  };
 
   return (
     <View>
       <Text style={loginStyles.inputLabel}>Σύνδεση με</Text>
 
-      <TouchableOpacity
-        style={[loginStyles.loginInput, localStyles.field, { marginBottom: isCategoryListOpen || category ? 0 : 30 }]}
-        onPress={() => setIsCategoryListOpen((prev) => !prev)}
-      >
-        <Text style={{ color: category ? COLORS.text : COLORS.medium, fontSize: TYPOGRAPHY.bodyText }}>
-          {category || 'Επιλέξτε κατηγορία (προαιρετικό)'}
-        </Text>
-        <Ionicons name={isCategoryListOpen ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.primary} />
-      </TouchableOpacity>
-
-      {isCategoryListOpen && (
-        <View style={localStyles.categoryList}>
-          {categories.map((option, index) => (
-            <TouchableOpacity
-              key={option}
-              style={[localStyles.categoryOption, index === categories.length - 1 && { borderBottomWidth: 0 }]}
-              onPress={() => { setCategory(option); setIsCategoryListOpen(false); }}
-            >
-              <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{option}</Text>
-            </TouchableOpacity>
-          ))}
+      {value.map((link) => (
+        <View key={link.url} style={localStyles.selected}>
+          <View style={{ flex: 1 }}>
+            <Text style={localStyles.selectedCategory}>{CATEGORY_SINGULAR[link.category] || link.category}</Text>
+            <Text style={localStyles.selectedTitle}>
+              {!!link.code && <Text style={localStyles.code}>{link.code}  </Text>}
+              {link.title}
+            </Text>
+            {!!link.parentName && <Text style={localStyles.parentName}>({link.parentName})</Text>}
+          </View>
+          <TouchableOpacity onPress={() => handleRemove(link.url)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="close-circle" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
         </View>
-      )}
+      ))}
 
-      {!!category && (
-        <View style={{ marginTop: SPACING.groupGap, marginBottom: 30 }}>
-          <View style={localStyles.searchBox}>
-            <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
-            <TextInput
-              style={localStyles.searchInput}
-              placeholder="Αναζήτηση..."
-              placeholderTextColor={COLORS.medium}
-              value={query}
-              onChangeText={setQuery}
-              autoCorrect={false}
-            />
+      {!isAdding ? (
+        <TouchableOpacity style={localStyles.addButton} onPress={() => setIsAdding(true)}>
+          <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+          <Text style={localStyles.addButtonText}>Σύνδεση με κάτι ακόμα</Text>
+        </TouchableOpacity>
+      ) : (
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[loginStyles.loginInput, localStyles.field, { flex: 1, marginBottom: 0 }]}
+              onPress={() => setIsCategoryListOpen((prev) => !prev)}
+            >
+              <Text style={{ color: category ? COLORS.text : COLORS.medium, fontSize: TYPOGRAPHY.bodyText }}>
+                {category || 'Επιλέξτε κατηγορία'}
+              </Text>
+              <Ionicons name={isCategoryListOpen ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.primary} />
+            </TouchableOpacity>
+
+            {/* Άκυρο: αν άλλαξε γνώμη και δεν θέλει να συνδέσει κάτι ακόμα. Δεν εμφανίζεται
+                όταν δεν υπάρχει καμία σύνδεση, γιατί τότε δεν θα έμενε τίποτα στη θέση του. */}
+            {value.length > 0 && (
+              <TouchableOpacity onPress={closeAdding} style={{ marginLeft: 12 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Ionicons name="close-circle" size={26} color={COLORS.primary} />
+              </TouchableOpacity>
+            )}
           </View>
 
-          {loading ? (
-            <ActivityIndicator color={COLORS.primary} style={{ marginTop: 12 }} />
-          ) : visibleRecords.length === 0 ? (
-            <Text style={localStyles.emptyText}>
-              {records.length === 0
-                ? `Δεν υπάρχουν καταχωρήσεις στην κατηγορία ${category}.`
-                : 'Δεν βρέθηκε καταχώρηση με αυτά τα στοιχεία.'}
-            </Text>
-          ) : (
-            <ScrollView style={localStyles.resultList} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-              {visibleRecords.map((record) => (
-                <TouchableOpacity key={record.url} style={localStyles.resultRow} onPress={() => handleSelect(record)}>
-                  <Text style={localStyles.resultTitle}>
-                    {!!record.code && <Text style={localStyles.code}>{record.code}  </Text>}
-                    {record.title}
-                  </Text>
-                  {!!record.parentName && <Text style={localStyles.parentName}>({record.parentName})</Text>}
-                  {!!record.date && <Text style={localStyles.resultDate}>{formatDate(record.date)}</Text>}
+          {isCategoryListOpen && (
+            <View style={localStyles.categoryList}>
+              {categories.map((option, index) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[localStyles.categoryOption, index === categories.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => { setCategory(option); setIsCategoryListOpen(false); }}
+                >
+                  <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{option}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
+          )}
+
+          {!!category && (
+            <View style={{ marginTop: SPACING.groupGap }}>
+              <View style={localStyles.searchBox}>
+                <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+                <TextInput
+                  style={localStyles.searchInput}
+                  placeholder="Αναζήτηση..."
+                  placeholderTextColor={COLORS.medium}
+                  value={query}
+                  onChangeText={setQuery}
+                  autoCorrect={false}
+                />
+              </View>
+
+              {loading ? (
+                <ActivityIndicator color={COLORS.primary} style={{ marginTop: 12 }} />
+              ) : visibleRecords.length === 0 ? (
+                <Text style={localStyles.emptyText}>
+                  {records.length === 0
+                    ? `Δεν υπάρχουν καταχωρήσεις στην κατηγορία ${category}.`
+                    : 'Δεν βρέθηκε καταχώρηση με αυτά τα στοιχεία.'}
+                </Text>
+              ) : (
+                <ScrollView style={localStyles.resultList} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {visibleRecords.map((record) => (
+                    <TouchableOpacity key={record.url} style={localStyles.resultRow} onPress={() => handleSelect(record)}>
+                      <Text style={localStyles.resultTitle}>
+                        {!!record.code && <Text style={localStyles.code}>{record.code}  </Text>}
+                        {record.title}
+                      </Text>
+                      {!!record.parentName && <Text style={localStyles.parentName}>({record.parentName})</Text>}
+                      {!!record.date && <Text style={localStyles.resultDate}>{formatDate(record.date)}</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
           )}
         </View>
       )}
@@ -183,6 +223,19 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: TOUCH.minTargetSize,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+  },
+  addButtonText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, fontWeight: 'bold' },
 
   categoryList: {
     backgroundColor: COLORS.white,
@@ -235,7 +288,7 @@ const localStyles = StyleSheet.create({
     borderColor: COLORS.primary,
     borderRadius: 15,
     padding: 14,
-    marginBottom: 30,
+    marginBottom: SPACING.groupGap,
   },
   selectedCategory: { fontSize: TYPOGRAPHY.label, fontWeight: 'bold', color: COLORS.primary },
   selectedTitle: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, marginTop: 2 },

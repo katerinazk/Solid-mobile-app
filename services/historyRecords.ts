@@ -92,13 +92,21 @@ export const CATEGORY_SINGULAR: Record<string, string> = {
   'Αλλεργίες': 'Αλλεργία',
 };
 
-// Ο σύνδεσμος ταξιδεύει ως JSON στα params της φόρμας επεξεργασίας.
-export function parseLinkedRecord(raw?: string): LinkedRecord | null {
-  if (!raw) return null;
+// Οι σύνδεσμοι ταξιδεύουν ως JSON πίνακας στα params της φόρμας επεξεργασίας.
+export function parseLinkedRecords(raw?: string): LinkedRecord[] {
+  if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return parsed && parsed.url && parsed.category ? (parsed as LinkedRecord) : null;
+    return Array.isArray(parsed) ? parsed.filter((l) => l && l.url && l.category) : [];
   } catch {
-    return null;
+    return [];
   }
+}
+
+// Διαβάζει τους συνδέσμους από μια εγγραφή του Pod. Οι πρώτες εγγραφές που απέκτησαν σύνδεση
+// κρατούσαν μία μόνο, στο πεδίο "link" - τη δεχόμαστε ακόμα ώστε να μη χαθεί.
+export function readLinks(record: any): LinkedRecord[] {
+  if (Array.isArray(record?.links)) return record.links;
+  if (record?.link) return [record.link];
+  return [];
 }

@@ -7,8 +7,8 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { LinkedRecordLine } from '../../../components/LinkedRecordLine';
-import { LinkedRecord } from '../../../services/historyRecords';
+import { LinkedRecordLines } from '../../../components/LinkedRecordLine';
+import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { useAuth } from '../../../hooks/useAuth';
@@ -30,7 +30,7 @@ interface Exam {
   doctorAmka: string;
   completedDate?: string;
   // Η εγγραφή ιστορικού στην οποία οφείλεται η εξέταση. Προαιρετική.
-  link?: LinkedRecord;
+  links?: LinkedRecord[];
   resultFile?: string;
   // Ημερομηνία καταχώρησης της εξέτασης (όχι ολοκλήρωσης).
   createdDate?: string;
@@ -59,7 +59,7 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
       </Text>
-      <LinkedRecordLine link={item.link} />
+      <LinkedRecordLines links={item.links} />
       {!!item.createdDate && (
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
@@ -110,7 +110,7 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
         <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Αποτελέσματος: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
         </Text>
-        <LinkedRecordLine link={item.link} />
+        <LinkedRecordLines links={item.links} />
       </View>
       {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
     </TouchableOpacity>
@@ -166,7 +166,7 @@ export default function PatientExamsScreen() {
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             completedDate: record.completedDate,
-            link: record.link,
+            links: readLinks(record),
             resultFile: record.resultFile,
             createdDate: record.createdDate || createdDateFromUrl(url),
           } as Exam;
@@ -225,7 +225,7 @@ export default function PatientExamsScreen() {
         resultFile: asset.name,
         // Διατηρούμε ημερομηνία και κωδικό LOINC - το ανέβασμα ξαναγράφει όλο το αρχείο.
         createdDate: item.createdDate,
-        link: item.link,
+        links: item.links,
         code: item.code,
         parentName: item.parentName,
       };
