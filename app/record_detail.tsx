@@ -14,6 +14,7 @@ import { isCompleteRecord } from '../utils/podRecords';
 import { fetchRelatedRecords, HistoryRecordSummary, CATEGORY_SINGULAR } from '../services/historyRecords';
 import { CodedCardTitle } from '../components/CodedCardTitle';
 import { formatDate } from '../utils/age';
+import { formatDuration } from '../utils/duration';
 import { useDoctorNames, formatDoctorName, formatDoctorLastNameOnly } from '../hooks/useDoctorNames';
 
 // "Διαγνώσεις" -> "Σχετικές Διαγνώσεις", "Εμβολιασμοί" -> "Σχετικοί Εμβολιασμοί". Το γένος
@@ -98,6 +99,52 @@ export default function RecordDetailScreen() {
     return category === 'Διαγνώσεις' ? formatDoctorLastNameOnly(info) : formatDoctorName(info);
   };
 
+  /**
+   * Τα ίδια πεδία που δείχνει η κάρτα της κατηγορίας στη λίστα. Η αναλυτική προβολή δεν
+   * πρέπει να κρύβει τίποτα από όσα έβλεπε ήδη ο χρήστης πριν την ανοίξει.
+   */
+  const detailFields = (): { label: string; value: string }[] => {
+    const fields: { label: string; value: string }[] = [];
+    const add = (label: string, value: any) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') {
+        fields.push({ label, value: String(value) });
+      }
+    };
+
+    switch (params.category) {
+      case 'Διαγνώσεις':
+        add('Ημερομηνία', record.date && formatDate(record.date));
+        break;
+      case 'Αλλεργίες':
+        add('Αντίδραση', record.reaction);
+        break;
+      case 'Νοσηλίες':
+        add('Νοσοκομείο / Κλινική', record.hospitalClinic && `${record.hospitalClinic}${record.hospitalArea ? ` (${record.hospitalArea})` : ''}`);
+        add('Ημερομηνία Εισαγωγής', record.admissionDate && formatDate(record.admissionDate));
+        add('Ημερομηνία Εξιτηρίου', record.dischargeDate && formatDate(record.dischargeDate));
+        break;
+      case 'Φάρμακα':
+        add('Τρόπος Χορήγησης', record.route);
+        add('Δοσολογία', record.dosage);
+        add('Ημ. Έναρξης', record.startDate ? formatDate(record.startDate) : 'εκκρεμεί έναρξη από τον ασθενή');
+        add('Διάρκεια Χορήγησης', formatDuration(record.durationDays, record.durationMonths));
+        break;
+      case 'Εμβολιασμοί':
+        add('Αριθμός Παρτίδας', record.batchNumber);
+        add('Αριθμός Δόσης', record.doseNumber);
+        add('Ημερομηνία Χορήγησης', record.administeredDate && formatDate(record.administeredDate));
+        break;
+      case 'Εξετάσεις':
+        add('Τύπος', record.type);
+        add('Ημ. Καταχώρησης', record.createdDate && formatDate(record.createdDate));
+        add('Ημ. Αποτελέσματος', record.completedDate && formatDate(record.completedDate));
+        break;
+    }
+
+    add('Καταχώρηση', displayDoctorName(params.category, record.doctorAmka, record.doctorName));
+    return fields;
+  };
+
   // Οι νοσηλίες κουβαλούν συνημμένα του γιατρού: εξιτήριο, γνωματεύσεις και τα σχετικά.
   const handleOpenAttachment = async (fileName: string) => {
     try {
@@ -138,12 +185,11 @@ export default function RecordDetailScreen() {
           <View style={localStyles.identity}>
             <CodedCardTitle code={record.code} title={record.title} parentName={record.parentName} />
 
-            {!!record.doctorName && (
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>
-                {displayDoctorName(params.category, record.doctorAmka, record.doctorName)}
+            {detailFields().map((field) => (
+              <Text key={field.label} style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>{field.label}: </Text>{field.value}
               </Text>
-            )}
+            ))}
           </View>
 
           {/* Μόνο οι ολοκληρωμένες εξετάσεις έχουν αρχείο αποτελέσματος. Τα φάρμακα δεν έχουν
