@@ -313,17 +313,29 @@ export default function PatientAccessScreen() {
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => setIsAddAccessModalVisible(true)}>
-                <Text style={styles.addButtonText}>+ Προσθήκη Πρόσβασης</Text>
-              </TouchableOpacity>
+              {/* Οι δύο ενέργειες της οθόνης ζουν δίπλα στον τίτλο, ως στρογγυλά εικονίδια:
+                  δίνω πρόσβαση σε γιατρό, και βλέπω ποιοι μου την έχουν ζητήσει. */}
+              <View style={localStyles.titleRow}>
+                <Text style={localStyles.sectionTitle}>Προσβάσεις</Text>
+                <TouchableOpacity
+                  style={localStyles.circleButton}
+                  onPress={() => setIsAddAccessModalVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Προσθήκη πρόσβασης σε γιατρό"
+                >
+                  <Ionicons name="add" size={26} color={COLORS.white} />
+                </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openRequestsModal}>
-                <Text style={styles.addButtonText}>Αιτήματα</Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={localStyles.circleButton}
+                  onPress={openRequestsModal}
+                  accessibilityRole="button"
+                  accessibilityLabel="Αιτήματα πρόσβασης από γιατρούς"
+                >
+                  <Ionicons name="mail-unread-outline" size={22} color={COLORS.white} />
+                </TouchableOpacity>
+              </View>
 
-            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-              <Text style={[localStyles.sectionTitle, { marginBottom: SPACING.sectionGap }]}>Προσβάσεις</Text>
               <View style={{ width: '70%', alignSelf: 'center' }}>
                 <Text style={localStyles.searchLabel}>Αναζήτηση γιατρού:</Text>
                 <View style={[localStyles.searchContainer, { marginHorizontal: 0 }]}>
@@ -508,7 +520,20 @@ export default function PatientAccessScreen() {
 }
 
 const localStyles = StyleSheet.create({
-  sectionTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: SPACING.groupGap },
+  // Ίδια στοίχιση με την αρχική του γιατρού: τα κουμπιά κάθονται ακριβώς δίπλα στον τίτλο,
+  // όχι στην άκρη της οθόνης.
+  sectionTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sectionGap },
+  // Στρογγυλό κουμπί στο ελάχιστο επιτρεπτό μέγεθος αφής (48).
+  circleButton: {
+    width: TOUCH.minTargetSize,
+    height: TOUCH.minTargetSize,
+    borderRadius: TOUCH.minTargetSize / 2,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SPACING.groupGap,
+  },
   searchLabel: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary, marginBottom: 8 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightest, borderRadius: 25, marginHorizontal: SPACING.sideMargin, paddingHorizontal: 15, marginBottom: SPACING.sectionGap, borderWidth: 1, borderColor: COLORS.medium },
   searchInput: { flex: 1, height: 40, fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
