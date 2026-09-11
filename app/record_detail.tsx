@@ -14,6 +14,7 @@ import { isCompleteRecord } from '../utils/podRecords';
 import { fetchRelatedRecords, HistoryRecordSummary, CATEGORY_SINGULAR } from '../services/historyRecords';
 import { CodedCardTitle } from '../components/CodedCardTitle';
 import { formatDate } from '../utils/age';
+import { useDoctorNames, formatDoctorName, formatDoctorLastNameOnly } from '../hooks/useDoctorNames';
 
 // "Διαγνώσεις" -> "Σχετικές Διαγνώσεις", "Εμβολιασμοί" -> "Σχετικοί Εμβολιασμοί". Το γένος
 // αλλάζει ανά κατηγορία, οπότε δεν γίνεται να κολλήσουμε μία λέξη μπροστά.
@@ -35,6 +36,7 @@ const RELATED_TITLES: Record<string, string> = {
 export default function RecordDetailScreen() {
   const params = useLocalSearchParams<{ url: string; category: string; webId: string }>();
   const { accessToken } = useAuth();
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
 
   const [loading, setLoading] = useState(true);
   const [record, setRecord] = useState<any | null>(null);
@@ -53,8 +55,11 @@ export default function RecordDetailScreen() {
 
         setRecord(isCompleteRecord(params.category, parsed) ? parsed : null);
 
-        const found = await fetchRelatedRecords(params.webId, params.url, parsed, accessToken);
-        if (!canceled) setRelated(found);
+        const found = await fetchRelatedRecords(params.webId, params.url, params.category, parsed, accessToken);
+        if (canceled) return;
+
+        setRelated(found);
+        ensureDoctorInfo([parsed.doctorAmka, ...found.map((item) => item.doctorAmka)]);
       } catch {
         if (!canceled) setRecord(null);
       } finally {
@@ -83,6 +88,14 @@ export default function RecordDetailScreen() {
     } finally {
       setOpeningResult(false);
     }
+  };
+
+  // Το αποθηκευμένο όνομα είναι στιγμιότυπο της ώρας της καταχώρησης. Αν ο γιατρός άλλαξε
+  // στοιχεία στο προφίλ του, δείχνουμε τα τρέχοντα. Οι διαγνώσεις γράφουν μόνο επίθετο.
+  const displayDoctorName = (category: string, doctorAmka?: string, fallback?: string) => {
+    const info = getDoctorInfo(doctorAmka);
+    if (!info) return fallback;
+    return category === 'Διαγνώσεις' ? formatDoctorLastNameOnly(info) : formatDoctorName(info);
   };
 
   // Οι νοσηλίες κουβαλούν συνημμένα του γιατρού: εξιτήριο, γνωματεύσεις και τα σχετικά.
@@ -124,6 +137,13 @@ export default function RecordDetailScreen() {
         <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
           <View style={localStyles.identity}>
             <CodedCardTitle code={record.code} title={record.title} parentName={record.parentName} />
+
+            {!!record.doctorName && (
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>
+                {displayDoctorName(params.category, record.doctorAmka, record.doctorName)}
+              </Text>
+            )}
           </View>
 
           {/* Μόνο οι ολοκληρωμένες εξετάσεις έχουν αρχείο αποτελέσματος. Τα φάρμακα δεν έχουν
@@ -181,6 +201,11 @@ export default function RecordDetailScreen() {
                       <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                       <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
                     </View>
+                    {!!item.doctorName && (
+                      <Text style={doctorStyles.diagnosisCardDetail}>
+                        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item.category, item.doctorAmka, item.doctorName)}
+                      </Text>
+                    )}
                     {!!item.date && (
                       <Text style={doctorStyles.diagnosisCardDetail}>
                         <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}

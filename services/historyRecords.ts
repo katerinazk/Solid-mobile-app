@@ -10,6 +10,10 @@ export interface HistoryRecordSummary {
   code?: string;
   parentName?: string;
   date?: string;
+  // Ποιος την καταχώρησε. Δύο γιατροί μπορεί να γράψουν την ίδια ακριβώς διάγνωση, οπότε
+  // χωρίς το όνομα οι δύο εγγραφές είναι αξεχώριστες.
+  doctorName?: string;
+  doctorAmka?: string;
   // Οι συνδέσεις της ίδιας της εγγραφής. Τις χρειαζόμαστε για να βρούμε και την αντίστροφη
   // κατεύθυνση: ποια φάρμακα ή εξετάσεις δείχνουν προς μια διάγνωση.
   links?: LinkedRecord[];
@@ -60,6 +64,8 @@ export async function fetchCategoryRecords(
             code: record.code,
             parentName: record.parentName,
             date: pickDate(category, record),
+            doctorName: record.doctorName,
+            doctorAmka: record.doctorAmka,
             links: readLinks(record),
           } as HistoryRecordSummary;
         } catch {
@@ -84,6 +90,8 @@ export interface LinkedRecord {
   title: string;
   code?: string;
   parentName?: string;
+  doctorName?: string;
+  doctorAmka?: string;
 }
 
 // Στον ενικό, για να διαβάζεται σωστά η κάρτα: "Σύνδεση με: Διάγνωση - ...".
@@ -136,6 +144,8 @@ export async function fetchRecordSummary(
       code: record.code,
       parentName: record.parentName,
       date: pickDate(category, record),
+      doctorName: record.doctorName,
+      doctorAmka: record.doctorAmka,
       links: readLinks(record),
     };
   } catch {
@@ -201,16 +211,19 @@ async function pruneDeletedLinks(
 }
 
 /**
- * Ό,τι σχετίζεται με μια εγγραφή, και προς τις δύο κατευθύνσεις:
+ * Ό,τι σχετίζεται με μια εγγραφή:
  *   - όσες συνέδεσε ο γιατρός μαζί της (π.χ. η διάγνωση για την οποία δόθηκε το φάρμακο)
  *   - όσες δείχνουν προς αυτήν (π.χ. τα φάρμακα που δόθηκαν για μια διάγνωση)
+ *   - όσες έχουν τον ίδιο κωδικό στην ίδια κατηγορία (η ίδια διάγνωση από άλλον γιατρό)
  *
- * Έτσι η σχέση διαβάζεται από όποια πλευρά κι αν την ανοίξει κανείς. Αν η συνδεδεμένη
- * εγγραφή έχει διαγραφεί, φεύγει και η σύνδεση.
+ * Οι δύο πρώτες κάνουν τη σχέση να διαβάζεται από όποια πλευρά κι αν την ανοίξει κανείς. Η
+ * τρίτη δείχνει τη συμφωνία ή τη διαφωνία των γιατρών: η ίδια διάγνωση από δύο συναδέλφους
+ * είναι δύο ξεχωριστές εγγραφές, που όμως έχουν νόημα μόνο η μία δίπλα στην άλλη.
  */
 export async function fetchRelatedRecords(
   webId: string,
   recordUrl: string,
+  category: string,
   record: any,
   accessToken: string
 ): Promise<HistoryRecordSummary[]> {
@@ -221,16 +234,25 @@ export async function fetchRelatedRecords(
   );
   const forward = resolved.filter((summary): summary is HistoryRecordSummary => summary !== null);
 
-  const reverseLists = await Promise.all(
-    LINKING_CATEGORIES.map((category) => fetchCategoryRecords(webId, category, accessToken).catch(() => []))
+  // Οι κατηγορίες που κρατούν συνδέσμους, συν αυτή της ίδιας της εγγραφής για τους ίδιους
+  // κωδικούς. Κάθε φάκελος διαβάζεται μία φορά.
+  const toScan = [...new Set([...LINKING_CATEGORIES, category])];
+  const scanned = await Promise.all(
+    toScan.map((name) => fetchCategoryRecords(webId, name, accessToken).catch(() => []))
   );
-  const reverse = reverseLists
+  const byCategory = new Map(toScan.map((name, index) => [name, scanned[index]]));
+
+  const reverse = [...byCategory.values()]
     .flat()
     .filter((item) => item.links?.some((link) => link.url === recordUrl));
 
-  // Η ίδια σχέση μπορεί να υπάρχει και στις δύο κατευθύνσεις - κρατάμε μία εγγραφή ανά URL.
+  const sameCode = record?.code
+    ? (byCategory.get(category) || []).filter((item) => item.code === record.code)
+    : [];
+
+  // Η ίδια σχέση μπορεί να προκύψει με πάνω από έναν τρόπο - κρατάμε μία εγγραφή ανά URL.
   const byUrl = new Map<string, HistoryRecordSummary>();
-  for (const item of [...forward, ...reverse]) {
+  for (const item of [...forward, ...reverse, ...sameCode]) {
     if (item.url !== recordUrl) byUrl.set(item.url, item);
   }
 

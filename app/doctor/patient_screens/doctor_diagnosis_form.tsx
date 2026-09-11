@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { loginStyles } from '../../../constants/loginStyles';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl } from '../../../services/solidPod';
+import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
@@ -75,7 +75,7 @@ export default function DoctorDiagnosisFormScreen() {
         category: params.category,
       };
 
-      const fileUrl = params.editUrl || `${folderUrl}${params.category}_${Date.now()}.json`;
+      const fileUrl = params.editUrl || newRecordFileName(`${folderUrl}${params.category}_`);
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.

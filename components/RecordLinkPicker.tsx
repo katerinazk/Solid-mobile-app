@@ -12,6 +12,7 @@ import {
   CATEGORY_SINGULAR,
 } from '../services/historyRecords';
 import { formatDate } from '../utils/age';
+import { useDoctorNames, formatDoctorName, formatDoctorLastNameOnly } from '../hooks/useDoctorNames';
 
 interface Props {
   webId: string;
@@ -46,6 +47,7 @@ export function RecordLinkPicker({ webId, accessToken, excludeCategory, value, o
   const [records, setRecords] = useState<HistoryRecordSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
+  const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
 
   useEffect(() => {
     if (!category || !webId || !accessToken) return;
@@ -55,12 +57,29 @@ export function RecordLinkPicker({ webId, accessToken, excludeCategory, value, o
     setQuery('');
 
     fetchCategoryRecords(webId, category, accessToken)
-      .then((data) => { if (!canceled) setRecords(data); })
+      .then((data) => {
+        if (canceled) return;
+        setRecords(data);
+        ensureDoctorInfo(data.map((record) => record.doctorAmka));
+      })
       .catch(() => { if (!canceled) setRecords([]); })
       .finally(() => { if (!canceled) setLoading(false); });
 
     return () => { canceled = true; };
   }, [category, webId, accessToken]);
+
+  // Δύο γιατροί μπορεί να έχουν γράψει την ίδια ακριβώς εγγραφή. Χωρίς το όνομα, οι δύο
+  // γραμμές είναι πανομοιότυπες και ο γιατρός δεν ξέρει ποια διαλέγει.
+  const displayDoctorName = (category: string, doctorAmka?: string, fallback?: string) => {
+    const info = getDoctorInfo(doctorAmka);
+    if (!info) return fallback;
+    return category === 'Διαγνώσεις' ? formatDoctorLastNameOnly(info) : formatDoctorName(info);
+  };
+
+  // Και για τις ήδη επιλεγμένες, ώστε να δείχνουν κι αυτές το τρέχον όνομα.
+  useEffect(() => {
+    ensureDoctorInfo(value.map((link) => link.doctorAmka));
+  }, [value, ensureDoctorInfo]);
 
   const closeAdding = () => {
     setIsAdding(false);
@@ -95,6 +114,8 @@ export function RecordLinkPicker({ webId, accessToken, excludeCategory, value, o
         title: record.title,
         code: record.code,
         parentName: record.parentName,
+        doctorName: record.doctorName,
+        doctorAmka: record.doctorAmka,
       },
     ]);
     closeAdding();
@@ -121,6 +142,11 @@ export function RecordLinkPicker({ webId, accessToken, excludeCategory, value, o
               {link.title}
             </Text>
             {!!link.parentName && <Text style={localStyles.parentName}>({link.parentName})</Text>}
+            {!!link.doctorName && (
+              <Text style={localStyles.resultDoctor}>
+                {displayDoctorName(link.category, link.doctorAmka, link.doctorName)}
+              </Text>
+            )}
           </View>
           <TouchableOpacity onPress={() => handleRemove(link.url)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <Ionicons name="close-circle" size={24} color={COLORS.primary} />
@@ -200,6 +226,11 @@ export function RecordLinkPicker({ webId, accessToken, excludeCategory, value, o
                         {record.title}
                       </Text>
                       {!!record.parentName && <Text style={localStyles.parentName}>({record.parentName})</Text>}
+                      {!!record.doctorName && (
+                        <Text style={localStyles.resultDoctor}>
+                          {displayDoctorName(record.category, record.doctorAmka, record.doctorName)}
+                        </Text>
+                      )}
                       {!!record.date && <Text style={localStyles.resultDate}>{formatDate(record.date)}</Text>}
                     </TouchableOpacity>
                   ))}
@@ -274,6 +305,7 @@ const localStyles = StyleSheet.create({
   },
   resultRow: { paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: COLORS.lightest },
   resultTitle: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text },
+  resultDoctor: { fontSize: TYPOGRAPHY.label, color: COLORS.text, marginTop: 2 },
   resultDate: { fontSize: TYPOGRAPHY.label, color: COLORS.text, marginTop: 2 },
 
   code: { fontWeight: 'bold', color: COLORS.primary },

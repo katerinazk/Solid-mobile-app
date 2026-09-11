@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { loginStyles } from '../../../constants/loginStyles';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, uploadAttachment } from '../../../services/solidPod';
+import { saveFileContent, getCategoryFolderUrl, uploadAttachment, newRecordFileName } from '../../../services/solidPod';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
@@ -159,7 +159,7 @@ export default function DoctorHospitalizationFormScreen() {
         doctorAmka = loggedInDoctorAmka;
       }
 
-      const fileUrl = params.editUrl || `${folderUrl}${Date.now()}.json`;
+      const fileUrl = params.editUrl || newRecordFileName(folderUrl);
 
       // Τα συνημμένα ανεβαίνουν δίπλα στην εγγραφή, οπότε χρειάζονται το τελικό της URL.
       for (const file of pendingFiles) {

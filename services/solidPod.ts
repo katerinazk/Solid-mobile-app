@@ -156,6 +156,18 @@ export async function deleteFile(url: string, accessToken: string): Promise<void
   }
 }
 
+/**
+ * Μοναδικό όνομα αρχείου για νέα εγγραφή ιστορικού.
+ *
+ * Μόνο τα χιλιοστά του δευτερολέπτου δεν αρκούν: δύο γιατροί που αποθηκεύουν την ίδια στιγμή
+ * στον ίδιο ασθενή θα έγραφαν στο ίδιο αρχείο και η μία καταχώρηση θα έσβηνε την άλλη, χωρίς
+ * να το πάρει είδηση κανείς. Το τυχαίο επίθεμα κάνει τη σύμπτωση πρακτικά αδύνατη.
+ */
+export function newRecordFileName(prefix = ''): string {
+  const random = Math.random().toString(36).slice(2, 10);
+  return `${prefix}${Date.now()}_${random}.json`;
+}
+
 export async function saveFileContent(url: string, accessToken: string, content: string): Promise<void> {
   const dpopToken = await createDpopToken('PUT', url);
   const response = await fetch(url, {

@@ -11,7 +11,7 @@ import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, newRecordFileName } from '../../../services/solidPod';
 import { fetchPatientByAmka } from '../../../services/patients';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
@@ -158,7 +158,7 @@ export default function PatientAllergiesScreen() {
 
       const record = { title: formTitle.trim(), reaction: formReaction.trim(), doctorName, doctorAmka };
 
-      const fileUrl = editingAllergy ? editingAllergy.url : `${folderUrl}${Date.now()}.json`;
+      const fileUrl = editingAllergy ? editingAllergy.url : newRecordFileName(folderUrl);
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
       if (editingAllergy) {
