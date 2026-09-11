@@ -12,6 +12,7 @@ import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
+import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Φάρμακα';
@@ -24,6 +25,8 @@ interface Medication {
   route?: string;
   startDate: string;
   durationDays: number;
+  // Προαιρετικοί, δίπλα στις μέρες. Λείπουν από τις εγγραφές πριν υπάρξει το πεδίο.
+  durationMonths?: number;
   doctorName: string;
   doctorAmka: string;
   // false = ο γιατρός μόλις το καταχώρησε και ο ασθενής δεν έχει πατήσει ακόμα "Έναρξη".
@@ -87,6 +90,7 @@ export default function PatientMedicationsScreen() {
             route: record.route,
             startDate: record.startDate,
             durationDays: record.durationDays,
+            durationMonths: record.durationMonths,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             started: record.started,
@@ -137,6 +141,7 @@ export default function PatientMedicationsScreen() {
         dosage: item.dosage,
         startDate,
         durationDays: item.durationDays,
+        durationMonths: item.durationMonths,
         doctorName: item.doctorName,
         doctorAmka: item.doctorAmka,
         started: true,
@@ -192,8 +197,7 @@ export default function PatientMedicationsScreen() {
         continue;
       }
 
-      const endDate = new Date(med.startDate);
-      endDate.setDate(endDate.getDate() + (med.durationDays || 0));
+      const endDate = medicationEndDate(med.startDate, med.durationDays, med.durationMonths);
       if (endDate >= today) {
         active.push(med);
       } else {
@@ -274,7 +278,7 @@ export default function PatientMedicationsScreen() {
                     <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
                   </Text>
                   <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{item.durationDays} μέρες
+                    <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
                   </Text>
 
                   <View style={{ flexDirection: 'row', marginTop: 12 }}>
@@ -307,7 +311,7 @@ export default function PatientMedicationsScreen() {
                     <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
                   </Text>
                   <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{item.durationDays} μέρες
+                    <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
                   </Text>
                   <Text style={doctorStyles.diagnosisCardDetail}>
                     <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
@@ -354,7 +358,7 @@ export default function PatientMedicationsScreen() {
                         <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
                       </Text>
                       <Text style={doctorStyles.diagnosisCardDetail}>
-                        <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{item.durationDays} μέρες
+                        <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
                       </Text>
                       <Text style={doctorStyles.diagnosisCardDetail}>
                         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}

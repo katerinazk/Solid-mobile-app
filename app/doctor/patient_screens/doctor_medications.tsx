@@ -14,6 +14,7 @@ import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
+import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Φάρμακα';
@@ -26,6 +27,8 @@ interface Medication {
   route?: string;
   startDate: string;
   durationDays: number;
+  // Προαιρετικοί, δίπλα στις μέρες. Λείπουν από τις εγγραφές πριν υπάρξει το πεδίο.
+  durationMonths?: number;
   doctorName: string;
   doctorAmka: string;
   // false = ο ασθενής δεν έχει πατήσει ακόμα "Έναρξη" στη δική του οθόνη (εμφανίζεται ως
@@ -66,7 +69,7 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
         {item.startDate ? formatDate(item.startDate) : 'εκκρεμεί έναρξη από τον ασθενή'}
       </Text>
       <Text style={doctorStyles.diagnosisCardDetail}>
-        <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{item.durationDays} μέρες
+        <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
       </Text>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
@@ -110,6 +113,7 @@ export default function DoctorMedicationsScreen() {
             route: record.route,
             startDate: record.startDate,
             durationDays: record.durationDays,
+            durationMonths: record.durationMonths,
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             started: record.started,
@@ -161,6 +165,7 @@ export default function DoctorMedicationsScreen() {
           editDosage: item.dosage,
           editRoute: item.route,
           editDurationDays: String(item.durationDays),
+          editDurationMonths: item.durationMonths ? String(item.durationMonths) : '',
           editStartDate: item.startDate,
           // Οι παλιές εγγραφές δεν έχουν started - το αφήνουμε κενό ώστε να μείνει undefined.
           editStarted: item.started === undefined ? '' : String(item.started),
@@ -215,8 +220,7 @@ export default function DoctorMedicationsScreen() {
         continue;
       }
 
-      const endDate = new Date(med.startDate);
-      endDate.setDate(endDate.getDate() + (med.durationDays || 0));
+      const endDate = medicationEndDate(med.startDate, med.durationDays, med.durationMonths);
       if (endDate >= today) {
         active.push(med);
       } else {

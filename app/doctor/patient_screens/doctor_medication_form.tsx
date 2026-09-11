@@ -25,6 +25,7 @@ export default function DoctorMedicationFormScreen() {
     editDosage?: string;
     editRoute?: string;
     editDurationDays?: string;
+    editDurationMonths?: string;
     editStartDate?: string;
     // 'true' | 'false' | undefined - οι παλιές εγγραφές δεν έχουν αυτή την έννοια.
     editStarted?: string;
@@ -44,6 +45,7 @@ export default function DoctorMedicationFormScreen() {
   const [dosage, setDosage] = useState(params.editDosage || '');
   const [route, setRoute] = useState(params.editRoute || '');
   const [durationDays, setDurationDays] = useState(params.editDurationDays || '');
+  const [durationMonths, setDurationMonths] = useState(params.editDurationMonths || '');
   const [saving, setSaving] = useState(false);
 
   // Ο κατάλογος ATC ξέρει τους τρόπους χορήγησης για ένα μέρος των ουσιών. Όταν ορίζει
@@ -63,14 +65,17 @@ export default function DoctorMedicationFormScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    if (!selectedCode || !route || !dosage.trim() || !durationDays.trim()) {
+    if (!selectedCode || !route || !dosage.trim()) {
       alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
 
-    const duration = Number(durationDays);
-    if (!Number.isInteger(duration) || duration <= 0) {
-      alert("Η διάρκεια χορήγησης πρέπει να είναι θετικός αριθμός ημερών.");
+    // Οι μήνες είναι προαιρετικοί, αλλά κάποια διάρκεια πρέπει να δοθεί - αλλιώς η αγωγή
+    // θα τελείωνε τη στιγμή που ξεκινά.
+    const days = Number(durationDays || 0);
+    const months = Number(durationMonths || 0);
+    if (days + months <= 0) {
+      alert("Συμπληρώστε τη διάρκεια χορήγησης σε μέρες ή σε μήνες.");
       return;
     }
 
@@ -110,7 +115,8 @@ export default function DoctorMedicationFormScreen() {
         route,
         dosage: dosage.trim(),
         startDate,
-        durationDays: duration,
+        durationDays: days,
+        durationMonths: months || undefined,
         doctorName,
         doctorAmka,
         started,
@@ -160,10 +166,20 @@ export default function DoctorMedicationFormScreen() {
         <TextInput
           style={[loginStyles.loginInput, formStyles.input, { width: 80, marginBottom: 0, textAlign: 'center' }]}
           keyboardType="numeric"
+          maxLength={3}
           value={durationDays}
-          onChangeText={(text) => setDurationDays(text.replace(/[^0-9]/g, ''))}
+          onChangeText={(text) => setDurationDays(text.replace(/[^0-9]/g, '').slice(0, 3))}
         />
         <Text style={[loginStyles.inputLabel, { marginLeft: 10, marginBottom: 0 }]}>Ημέρες</Text>
+
+        <TextInput
+          style={[loginStyles.loginInput, formStyles.input, { width: 80, marginBottom: 0, marginLeft: 20, textAlign: 'center' }]}
+          keyboardType="numeric"
+          maxLength={2}
+          value={durationMonths}
+          onChangeText={(text) => setDurationMonths(text.replace(/[^0-9]/g, '').slice(0, 2))}
+        />
+        <Text style={[loginStyles.inputLabel, { marginLeft: 10, marginBottom: 0 }]}>Μήνες</Text>
       </View>
     </DoctorFormScreen>
   );
