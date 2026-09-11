@@ -40,6 +40,7 @@ export default function RecordDetailScreen() {
   const [record, setRecord] = useState<any | null>(null);
   const [related, setRelated] = useState<HistoryRecordSummary[]>([]);
   const [openingResult, setOpeningResult] = useState(false);
+  const [openingAttachment, setOpeningAttachment] = useState<string | null>(null);
 
   useEffect(() => {
     let canceled = false;
@@ -81,6 +82,19 @@ export default function RecordDetailScreen() {
       alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
     } finally {
       setOpeningResult(false);
+    }
+  };
+
+  // Οι νοσηλίες κουβαλούν συνημμένα του γιατρού: εξιτήριο, γνωματεύσεις και τα σχετικά.
+  const handleOpenAttachment = async (fileName: string) => {
+    try {
+      setOpeningAttachment(fileName);
+      const localUri = await downloadAttachment(params.url, fileName, accessToken);
+      await openLocalFile(localUri, fileName);
+    } catch (error: any) {
+      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+    } finally {
+      setOpeningAttachment(null);
     }
   };
 
@@ -131,6 +145,25 @@ export default function RecordDetailScreen() {
             </TouchableOpacity>
           )}
 
+          {Array.isArray(record.attachments) && record.attachments.length > 0 && (
+            <View style={{ marginTop: SPACING.sectionGap }}>
+              <Text style={localStyles.sectionTitle}>Συνημμένα Αρχεία</Text>
+
+              {record.attachments.map((fileName: string) => (
+                <TouchableOpacity
+                  key={fileName}
+                  style={localStyles.attachmentRow}
+                  onPress={() => handleOpenAttachment(fileName)}
+                  disabled={openingAttachment === fileName}
+                >
+                  <Ionicons name="document-outline" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                  <Text style={{ flex: 1 }} numberOfLines={1}>{fileName}</Text>
+                  {openingAttachment === fileName && <ActivityIndicator size="small" color={COLORS.primary} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           {grouped.length === 0 ? (
             <Text style={styles.emptyText}>Δεν υπάρχουν σχετικές καταχωρήσεις.</Text>
           ) : (
@@ -171,5 +204,12 @@ const localStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: SPACING.groupGap,
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.medium,
   },
 });

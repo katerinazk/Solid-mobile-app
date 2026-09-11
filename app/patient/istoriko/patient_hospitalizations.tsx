@@ -7,6 +7,7 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
@@ -110,6 +111,10 @@ export default function PatientHospitalizationsScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
+  const openDetail = (item: Hospitalization) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
+  };
+
   const handleOpenAttachment = async (item: Hospitalization, fileName: string) => {
     try {
       setDownloadingAttachment(fileName);
@@ -144,7 +149,7 @@ export default function PatientHospitalizationsScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <View style={doctorStyles.diagnosisCard}>
+            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
               <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
 
               <Text style={doctorStyles.diagnosisCardDetail}>
@@ -167,7 +172,7 @@ export default function PatientHospitalizationsScreen() {
                 <Ionicons name="link-outline" size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
                 <Text style={[doctorStyles.diagnosisSortButtonText, { color: COLORS.primary }]}>Συνημμένα Αρχεία</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}

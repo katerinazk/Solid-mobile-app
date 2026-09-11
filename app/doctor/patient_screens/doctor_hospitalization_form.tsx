@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,6 +17,8 @@ import { HospitalPicker } from '../../../components/HospitalPicker';
 import { Hospital, hospitalFromRecord } from '../../../services/hospitals';
 import { DateField } from '../../../components/DateField';
 import { validatePastDate, isoToDate } from '../../../utils/dateInput';
+import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
+import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
 
 interface PendingFile {
   name: string;
@@ -52,6 +54,7 @@ export default function DoctorHospitalizationFormScreen() {
     editAttachments?: string;
     editDoctorName?: string;
     editDoctorAmka?: string;
+    editLinks?: string;
   }>();
 
   const { accessToken, loggedInDoctorAmka } = useAuth();
@@ -69,12 +72,28 @@ export default function DoctorHospitalizationFormScreen() {
   );
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [saving, setSaving] = useState(false);
+  const [links, setLinks] = useState<LinkedRecord[]>(parseLinkedRecords(params.editLinks));
 
   const [admissionDate, setAdmissionDate] = useState(params.editAdmissionDate || '');
   const [dischargeDate, setDischargeDate] = useState(params.editDischargeDate || '');
 
   // Το ημερολόγιο δεν αφήνει να επιλεγεί μελλοντική ημερομηνία.
   const today = new Date();
+
+  // Αν ο ασθενής έσβησε στο μεταξύ κάποια από τις συνδεδεμένες εγγραφές, φεύγει και η
+  // σύνδεση: δεν θέλουμε ο γιατρός να βλέπει, και να ξαναποθηκεύει, σύνδεσμο προς το κενό.
+  useEffect(() => {
+    if (links.length === 0) return;
+
+    let canceled = false;
+    (async () => {
+      const alive = await filterExistingLinks(params.webId, links, accessToken);
+      if (!canceled && alive.length !== links.length) setLinks(alive);
+    })();
+
+    return () => { canceled = true; };
+    // Μία φορά, με τους συνδέσμους που ήρθαν από την καρτέλα.
+  }, []);
 
   const handlePickFiles = async () => {
     try {
@@ -158,6 +177,7 @@ export default function DoctorHospitalizationFormScreen() {
         admissionDate,
         dischargeDate,
         attachments: [...existingAttachments, ...pendingFiles.map((file) => file.name)],
+        links: links.length > 0 ? links : undefined,
       };
 
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
@@ -234,6 +254,16 @@ export default function DoctorHospitalizationFormScreen() {
           ))}
         </View>
       )}
+
+      <View style={{ marginTop: 20 }}>
+        <RecordLinkPicker
+          webId={params.webId}
+          accessToken={accessToken}
+          excludeCategory="Νοσηλίες"
+          value={links}
+          onChange={setLinks}
+        />
+      </View>
     </DoctorFormScreen>
   );
 }

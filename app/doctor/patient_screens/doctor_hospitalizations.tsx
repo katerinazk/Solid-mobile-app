@@ -16,6 +16,7 @@ import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolder
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 
 const CATEGORY = 'Νοσηλίες';
 
@@ -32,6 +33,8 @@ interface Hospitalization {
   // Κωδικός ICD-10 του λόγου νοσηλείας. Λείπει από τις παλιές εγγραφές.
   code?: string;
   parentName?: string;
+  // Οι εγγραφές με τις οποίες ο γιατρός συνέδεσε τη νοσηλία.
+  links?: LinkedRecord[];
 }
 
 export default function DoctorHospitalizationsScreen() {
@@ -73,6 +76,7 @@ export default function DoctorHospitalizationsScreen() {
             admissionDate: record.admissionDate,
             dischargeDate: record.dischargeDate,
             attachments: record.attachments || [],
+            links: readLinks(record),
           } as Hospitalization;
         } catch (error: any) {
           console.warn('⚠️ Αποτυχία φόρτωσης νοσηλίας', url, error?.message || error);
@@ -126,9 +130,14 @@ export default function DoctorHospitalizationsScreen() {
           editAttachments: JSON.stringify(item.attachments || []),
           editDoctorName: item.doctorName,
           editDoctorAmka: item.doctorAmka,
+          editLinks: item.links?.length ? JSON.stringify(item.links) : '',
         } : {}),
       },
     });
+  };
+
+  const openDetail = (item: Hospitalization) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
   const handleDeleteHospitalization = async (item: Hospitalization) => {
@@ -201,7 +210,7 @@ export default function DoctorHospitalizationsScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <View style={doctorStyles.diagnosisCard}>
+            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
@@ -236,7 +245,7 @@ export default function DoctorHospitalizationsScreen() {
                 <Ionicons name="link-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
                 <Text style={doctorStyles.diagnosisSortButtonText}>Συνημμένα Αρχεία</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
