@@ -119,10 +119,6 @@ export default function PatientHomeScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
         <Text style={localStyles.welcome}>Καλωσορίσατε {salutation} {patient?.last_name || ''}</Text>
 
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => router.push(ROUTES.PATIENT_ACCESS)}>
-          <Text style={styles.addButtonText}>Διαχείριση Προσβάσεων</Text>
-        </TouchableOpacity>
-
         <View style={localStyles.historyContainer}>
           <Text style={[localStyles.sectionTitle, { marginTop: 0 }]}>Ιστορικό</Text>
           {rows.map((row, index) => (
