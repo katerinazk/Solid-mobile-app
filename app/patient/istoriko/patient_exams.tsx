@@ -314,7 +314,7 @@ export default function PatientExamsScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.groupGap }}
-        style={{ flexGrow: 0, marginBottom: SPACING.groupGap }}
+        style={localStyles.categoryBar}
       >
         {CATEGORIES.map((category) => {
           const isSelected = category === selectedCategory;
@@ -385,6 +385,14 @@ export default function PatientExamsScreen() {
 }
 
 const localStyles = StyleSheet.create({
+  // Σταθερό ύψος και χωρίς συρρίκνωση. Χωρίς αυτό, η λωρίδα των φίλτρων πιέζεται όταν
+  // στενεύει ο κατακόρυφος χώρος και τα κουμπιά κόβονται από μια αόρατη γραμμή.
+  categoryBar: {
+    flexGrow: 0,
+    flexShrink: 0,
+    height: TOUCH.buttonHeight + SPACING.groupGap,
+    marginBottom: SPACING.groupGap,
+  },
   categoryPill: {
     paddingHorizontal: 18,
     height: TOUCH.buttonHeight,
