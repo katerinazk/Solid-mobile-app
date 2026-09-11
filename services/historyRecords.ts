@@ -1,4 +1,4 @@
-import { getCategoryFolderUrl, listFolderFilesOrEmpty, fetchFileContent } from './solidPod';
+import { getCategoryFolderUrl, listFolderFiles, listFolderFilesOrEmpty, fetchFileContent, saveFileContent } from './solidPod';
 import { isCompleteRecord } from '../utils/podRecords';
 
 // Μια εγγραφή ιστορικού όπως χρειάζεται για να τη διαλέξει κανείς από λίστα: ονομασία,
@@ -144,37 +144,94 @@ export async function fetchRecordSummary(
 }
 
 /**
+ * Κρατά μόνο τους συνδέσμους που δείχνουν σε αρχείο το οποίο υπάρχει ακόμα στο Pod.
+ *
+ * Αν ο φάκελος δεν διαβάζεται, τους επιστρέφει όλους: μια στιγμιαία αποτυχία δικτύου δεν
+ * πρέπει να περάσει για διαγραμμένη εγγραφή.
+ */
+export async function filterExistingLinks(
+  webId: string,
+  links: LinkedRecord[],
+  accessToken: string
+): Promise<LinkedRecord[]> {
+  if (links.length === 0) return links;
+
+  const categories = [...new Set(links.map((link) => link.category))];
+  const existing = new Set<string>();
+  try {
+    const listings = await Promise.all(
+      categories.map((category) => listFolderFiles(getCategoryFolderUrl(webId, category), accessToken))
+    );
+    for (const url of listings.flat()) existing.add(url);
+  } catch {
+    return links;
+  }
+
+  return links.filter((link) => existing.has(link.url));
+}
+
+/**
+ * Σβήνει από την εγγραφή τους συνδέσμους που δείχνουν σε αρχείο το οποίο δεν υπάρχει πια,
+ * και επιστρέφει όσους απέμειναν.
+ *
+ * Η ύπαρξη κρίνεται από τη λίστα του φακέλου και όχι από αποτυχία ανάγνωσης: μια στιγμιαία
+ * αποτυχία δικτύου δεν πρέπει να σβήσει σωστές συνδέσεις.
+ */
+async function pruneDeletedLinks(
+  webId: string,
+  recordUrl: string,
+  record: any,
+  links: LinkedRecord[],
+  accessToken: string
+): Promise<LinkedRecord[]> {
+  if (links.length === 0) return links;
+
+  const alive = await filterExistingLinks(webId, links, accessToken);
+  if (alive.length === links.length) return links;
+
+  try {
+    const updated = { ...record, links: alive.length > 0 ? alive : undefined };
+    delete updated.link; // το παλιό πεδίο του ενικού
+    await saveFileContent(recordUrl, accessToken, JSON.stringify(updated));
+  } catch {
+    // Χωρίς δικαίωμα εγγραφής δεν σβήνεται το αρχείο, αλλά ο σύνδεσμος δεν εμφανίζεται.
+  }
+
+  return alive;
+}
+
+/**
  * Ό,τι σχετίζεται με μια εγγραφή, και προς τις δύο κατευθύνσεις:
  *   - όσες συνέδεσε ο γιατρός μαζί της (π.χ. η διάγνωση για την οποία δόθηκε το φάρμακο)
  *   - όσες δείχνουν προς αυτήν (π.χ. τα φάρμακα που δόθηκαν για μια διάγνωση)
  *
- * Έτσι η σχέση διαβάζεται από όποια πλευρά κι αν την ανοίξει κανείς.
+ * Έτσι η σχέση διαβάζεται από όποια πλευρά κι αν την ανοίξει κανείς. Αν η συνδεδεμένη
+ * εγγραφή έχει διαγραφεί, φεύγει και η σύνδεση.
  */
 export async function fetchRelatedRecords(
   webId: string,
   recordUrl: string,
-  links: LinkedRecord[],
+  record: any,
   accessToken: string
 ): Promise<HistoryRecordSummary[]> {
-  const forward = await Promise.all(
-    links.map(async (link) => {
-      const summary = await fetchRecordSummary(link.url, link.category, accessToken);
-      // Αν η εγγραφή διαγράφηκε στο μεταξύ, δείχνουμε ό,τι είχε κρατηθεί μαζί με τον σύνδεσμο.
-      return summary || { url: link.url, category: link.category, title: link.title, code: link.code, parentName: link.parentName };
-    })
+  const links = await pruneDeletedLinks(webId, recordUrl, record, readLinks(record), accessToken);
+
+  const resolved = await Promise.all(
+    links.map((link) => fetchRecordSummary(link.url, link.category, accessToken))
   );
+  const forward = resolved.filter((summary): summary is HistoryRecordSummary => summary !== null);
 
   const reverseLists = await Promise.all(
     LINKING_CATEGORIES.map((category) => fetchCategoryRecords(webId, category, accessToken).catch(() => []))
   );
   const reverse = reverseLists
     .flat()
-    .filter((record) => record.links?.some((link) => link.url === recordUrl));
+    .filter((item) => item.links?.some((link) => link.url === recordUrl));
 
   // Η ίδια σχέση μπορεί να υπάρχει και στις δύο κατευθύνσεις - κρατάμε μία εγγραφή ανά URL.
   const byUrl = new Map<string, HistoryRecordSummary>();
-  for (const record of [...forward, ...reverse]) {
-    if (record.url !== recordUrl) byUrl.set(record.url, record);
+  for (const item of [...forward, ...reverse]) {
+    if (item.url !== recordUrl) byUrl.set(item.url, item);
   }
 
   return [...byUrl.values()];

@@ -11,7 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { fetchFileContent, downloadAttachment } from '../services/solidPod';
 import { openLocalFile } from '../utils/openLocalFile';
 import { isCompleteRecord } from '../utils/podRecords';
-import { readLinks, fetchRelatedRecords, HistoryRecordSummary, CATEGORY_SINGULAR } from '../services/historyRecords';
+import { fetchRelatedRecords, HistoryRecordSummary, CATEGORY_SINGULAR } from '../services/historyRecords';
 import { CodedCardTitle } from '../components/CodedCardTitle';
 import { formatDate } from '../utils/age';
 
@@ -52,7 +52,7 @@ export default function RecordDetailScreen() {
 
         setRecord(isCompleteRecord(params.category, parsed) ? parsed : null);
 
-        const found = await fetchRelatedRecords(params.webId, params.url, readLinks(parsed), accessToken);
+        const found = await fetchRelatedRecords(params.webId, params.url, parsed, accessToken);
         if (!canceled) setRelated(found);
       } catch {
         if (!canceled) setRecord(null);

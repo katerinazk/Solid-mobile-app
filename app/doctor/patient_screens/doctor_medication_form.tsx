@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, View, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { loginStyles } from '../../../constants/loginStyles';
@@ -12,7 +12,7 @@ import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { SelectField } from '../../../components/SelectField';
 import { ADMINISTRATION_ROUTES, matchAdministrationRoute } from '../../../constants/medicalOptions';
 import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
-import { LinkedRecord, parseLinkedRecords } from '../../../services/historyRecords';
+import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
 
 export default function DoctorMedicationFormScreen() {
   const params = useLocalSearchParams<{
@@ -52,6 +52,21 @@ export default function DoctorMedicationFormScreen() {
   const [durationMonths, setDurationMonths] = useState(params.editDurationMonths || '');
   const [links, setLinks] = useState<LinkedRecord[]>(parseLinkedRecords(params.editLinks));
   const [saving, setSaving] = useState(false);
+
+  // Αν ο ασθενής έσβησε στο μεταξύ κάποια από τις συνδεδεμένες εγγραφές, φεύγει και η
+  // σύνδεση: δεν θέλουμε ο γιατρός να βλέπει, και να ξαναποθηκεύει, σύνδεσμο προς το κενό.
+  useEffect(() => {
+    if (links.length === 0) return;
+
+    let canceled = false;
+    (async () => {
+      const alive = await filterExistingLinks(params.webId, links, accessToken);
+      if (!canceled && alive.length !== links.length) setLinks(alive);
+    })();
+
+    return () => { canceled = true; };
+    // Μία φορά, με τους συνδέσμους που ήρθαν από την καρτέλα.
+  }, []);
 
   // Ο κατάλογος ATC ξέρει τους τρόπους χορήγησης για ένα μέρος των ουσιών. Όταν ορίζει
   // ακριβώς έναν, τον προεπιλέγουμε - ο γιατρός μπορεί πάντα να τον αλλάξει.
