@@ -1,0 +1,175 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Text, View, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { COLORS } from '../constants/colors';
+import { sharedStyles as styles } from '../constants/sharedStyles';
+import { doctorStyles } from '../constants/doctorStyles';
+import { TYPOGRAPHY, SPACING } from '../constants/designSystem';
+import { ROUTES } from '../constants/routes';
+import { useAuth } from '../hooks/useAuth';
+import { fetchFileContent, downloadAttachment } from '../services/solidPod';
+import { openLocalFile } from '../utils/openLocalFile';
+import { isCompleteRecord } from '../utils/podRecords';
+import { readLinks, fetchRelatedRecords, HistoryRecordSummary, CATEGORY_SINGULAR } from '../services/historyRecords';
+import { CodedCardTitle } from '../components/CodedCardTitle';
+import { formatDate } from '../utils/age';
+
+// "Διαγνώσεις" -> "Σχετικές Διαγνώσεις", "Εμβολιασμοί" -> "Σχετικοί Εμβολιασμοί". Το γένος
+// αλλάζει ανά κατηγορία, οπότε δεν γίνεται να κολλήσουμε μία λέξη μπροστά.
+const RELATED_TITLES: Record<string, string> = {
+  'Διαγνώσεις': 'Σχετικές Διαγνώσεις',
+  'Νοσηλίες': 'Σχετικές Νοσηλίες',
+  'Εξετάσεις': 'Σχετικές Εξετάσεις',
+  'Αλλεργίες': 'Σχετικές Αλλεργίες',
+  'Φάρμακα': 'Σχετικά Φάρμακα',
+  'Εμβολιασμοί': 'Σχετικοί Εμβολιασμοί',
+};
+
+/**
+ * Η αναλυτική προβολή μιας εγγραφής ιστορικού. Ανοίγει όταν πατηθεί μια κάρτα και δείχνει
+ * το αρχείο αποτελέσματος, αν υπάρχει, και τις εγγραφές που σχετίζονται μαζί της
+ * ομαδοποιημένες ανά κατηγορία. Κάθε σχετική κάρτα ανοίγει με τη σειρά της τη δική της
+ * προβολή, οπότε ο γιατρός ακολουθεί την αλυσίδα "γιατί δόθηκε αυτό" όσο βαθιά θέλει.
+ */
+export default function RecordDetailScreen() {
+  const params = useLocalSearchParams<{ url: string; category: string; webId: string }>();
+  const { accessToken } = useAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [record, setRecord] = useState<any | null>(null);
+  const [related, setRelated] = useState<HistoryRecordSummary[]>([]);
+  const [openingResult, setOpeningResult] = useState(false);
+
+  useEffect(() => {
+    let canceled = false;
+
+    (async () => {
+      try {
+        const content = await fetchFileContent(params.url, accessToken);
+        const parsed = JSON.parse(content);
+        if (canceled) return;
+
+        setRecord(isCompleteRecord(params.category, parsed) ? parsed : null);
+
+        const found = await fetchRelatedRecords(params.webId, params.url, readLinks(parsed), accessToken);
+        if (!canceled) setRelated(found);
+      } catch {
+        if (!canceled) setRecord(null);
+      } finally {
+        if (!canceled) setLoading(false);
+      }
+    })();
+
+    return () => { canceled = true; };
+  }, [params.url, params.category, params.webId, accessToken]);
+
+  const grouped = useMemo(() => {
+    const order = Object.keys(RELATED_TITLES);
+    return order
+      .map((category) => ({ category, items: related.filter((r) => r.category === category) }))
+      .filter((group) => group.items.length > 0);
+  }, [related]);
+
+  const handleOpenResult = async () => {
+    if (!record?.resultFile) return;
+    try {
+      setOpeningResult(true);
+      const localUri = await downloadAttachment(params.url, record.resultFile, accessToken);
+      await openLocalFile(localUri, record.resultFile);
+    } catch (error: any) {
+      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+    } finally {
+      setOpeningResult(false);
+    }
+  };
+
+  const openRelated = (item: HistoryRecordSummary) => {
+    router.push({
+      pathname: ROUTES.RECORD_DETAIL,
+      params: { url: item.url, category: item.category, webId: params.webId },
+    });
+  };
+
+  return (
+    <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
+      <StatusBar barStyle="dark-content" />
+
+      <View style={doctorStyles.historyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={doctorStyles.historyBackButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
+        </TouchableOpacity>
+        <Text style={doctorStyles.historyTitle}>{CATEGORY_SINGULAR[params.category] || params.category}</Text>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+      ) : !record ? (
+        <Text style={styles.emptyText}>Η καταχώρηση δεν βρέθηκε.</Text>
+      ) : (
+        <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
+          <View style={localStyles.identity}>
+            <CodedCardTitle code={record.code} title={record.title} parentName={record.parentName} />
+          </View>
+
+          {/* Μόνο οι ολοκληρωμένες εξετάσεις έχουν αρχείο αποτελέσματος. Τα φάρμακα δεν έχουν
+              ποτέ, οπότε το κουμπί απλώς δεν εμφανίζεται. */}
+          {!!record.resultFile && (
+            <TouchableOpacity
+              style={[styles.addButton, { borderRadius: 25, flexDirection: 'row' }]}
+              onPress={handleOpenResult}
+              disabled={openingResult}
+            >
+              {openingResult ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <Ionicons name="document-text-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
+                  <Text style={styles.addButtonText}>Προβολή Αποτελεσμάτων</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {grouped.length === 0 ? (
+            <Text style={styles.emptyText}>Δεν υπάρχουν σχετικές καταχωρήσεις.</Text>
+          ) : (
+            grouped.map((group) => (
+              <View key={group.category} style={{ marginTop: SPACING.sectionGap }}>
+                <Text style={localStyles.sectionTitle}>{RELATED_TITLES[group.category]}</Text>
+
+                {group.items.map((item) => (
+                  <TouchableOpacity
+                    key={item.url}
+                    style={[doctorStyles.diagnosisCard, { marginHorizontal: 0 }]}
+                    onPress={() => openRelated(item)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                      <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+                    </View>
+                    {!!item.date && (
+                      <Text style={doctorStyles.diagnosisCardDetail}>
+                        <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))
+          )}
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}
+
+const localStyles = StyleSheet.create({
+  identity: { marginBottom: SPACING.sectionGap },
+  sectionTitle: {
+    fontSize: TYPOGRAPHY.subtitle,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SPACING.groupGap,
+  },
+});

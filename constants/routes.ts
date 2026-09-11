@@ -2,6 +2,8 @@
 // Χρησιμοποίησέ τες σε κάθε router.push/replace αντί για strings,
 // ώστε μια μελλοντική μετονομασία αρχείου να χρειάζεται αλλαγή σε ΕΝΑ σημείο.
 export const ROUTES = {
+  // Κοινή οθόνη: την ανοίγουν και ο γιατρός και ο ασθενής.
+  RECORD_DETAIL: '/record_detail',
   LOGIN: '/login',
   PATIENT_LOGIN: '/patient/patient_login',
   PATIENT_REGISTER: '/patient/patient_register',

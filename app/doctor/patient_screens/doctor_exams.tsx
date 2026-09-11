@@ -13,11 +13,9 @@ import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { LinkedRecordLines } from '../../../components/LinkedRecordLine';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
-import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
-import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
@@ -50,9 +48,10 @@ function createdDateFromUrl(url: string): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onDelete }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onDelete, onOpen }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (
-    <View style={doctorStyles.diagnosisCard}>
+    // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
+    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         {!isReadOnly && item.doctorAmka === loggedInDoctorAmka && (
@@ -69,7 +68,6 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
       </Text>
-      <LinkedRecordLines links={item.links} />
       {!!item.createdDate && (
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
@@ -78,16 +76,15 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
-function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boolean; onOpen: (item: Exam) => void }) {
+function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) => void }) {
   return (
     <TouchableOpacity
       style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}
       onPress={() => onOpen(item)}
-      disabled={!item.resultFile || opening}
     >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
@@ -98,9 +95,8 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
         <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Αποτελέσματος: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
         </Text>
-        <LinkedRecordLines links={item.links} />
-      </View>
-      {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
+        </View>
+      <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
     </TouchableOpacity>
   );
 }
@@ -118,8 +114,6 @@ export default function DoctorExamsScreen() {
 
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
-
-  const [openingResultFor, setOpeningResultFor] = useState<string | null>(null);
 
   const loadExams = async (silent = false) => {
     if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
@@ -202,6 +196,10 @@ export default function DoctorExamsScreen() {
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
   const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
 
+  const openDetail = (item: Exam) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
+  };
+
   const openForm = (item?: Exam) => {
     router.push({
       pathname: ROUTES.DOCTOR_EXAM_FORM,
@@ -251,19 +249,6 @@ export default function DoctorExamsScreen() {
         }
       ]
     );
-  };
-
-  const handleOpenResult = async (item: Exam) => {
-    if (!item.resultFile) return;
-    try {
-      setOpeningResultFor(item.url);
-      const localUri = await downloadAttachment(item.url, item.resultFile, accessToken);
-      await openLocalFile(localUri, item.resultFile);
-    } catch (error: any) {
-      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
-    } finally {
-      setOpeningResultFor(null);
-    }
   };
 
   return (
@@ -333,7 +318,7 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />)
           )}
 
           <TouchableOpacity
@@ -349,7 +334,7 @@ export default function DoctorExamsScreen() {
               {completedExams.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
               ) : (
-                completedExams.map((item) => <CompletedExamCard key={item.url} item={item} opening={openingResultFor === item.url} onOpen={handleOpenResult} />)
+                completedExams.map((item) => <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />)
               )}
             </View>
           )}

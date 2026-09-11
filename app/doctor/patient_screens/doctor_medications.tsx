@@ -12,7 +12,6 @@ import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { LinkedRecordLines } from '../../../components/LinkedRecordLine';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { formatDuration, medicationEndDate } from '../../../utils/duration';
@@ -44,9 +43,11 @@ interface Medication {
   parentName?: string;
 }
 
-function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit, onEdit, onDelete }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; allowEdit: boolean; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void }) {
+function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit, onEdit, onDelete, onOpen }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; allowEdit: boolean; onEdit: (item: Medication) => void; onDelete: (item: Medication) => void; onOpen: (item: Medication) => void }) {
   return (
-    <View style={doctorStyles.diagnosisCard}>
+    // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους
+    // πάτημα, οπότε δεν ανοίγουν κατά λάθος την προβολή.
+    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         {allowEdit && item.doctorAmka === loggedInDoctorAmka && (
@@ -65,7 +66,6 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
           <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
         </Text>
       )}
-      <LinkedRecordLines links={item.links} />
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
       </Text>
@@ -79,7 +79,7 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -154,6 +154,10 @@ export default function DoctorMedicationsScreen() {
   const displayDoctorName = (item: Medication) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
+  };
+
+  const openDetail = (item: Medication) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
   const openForm = (item?: Medication) => {
@@ -289,7 +293,7 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
           )}
 
           <TouchableOpacity
@@ -305,7 +309,7 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} />)
+                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
               )}
             </View>
           )}

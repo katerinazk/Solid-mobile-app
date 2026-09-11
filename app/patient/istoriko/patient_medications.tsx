@@ -6,8 +6,8 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { LinkedRecordLines } from '../../../components/LinkedRecordLine';
 import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
@@ -125,6 +125,10 @@ export default function PatientMedicationsScreen() {
   const displayDoctorName = (item: Medication) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
+  };
+
+  const openDetail = (item: Medication) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
   const handleStartMedication = async (item: Medication) => {
@@ -267,7 +271,7 @@ export default function PatientMedicationsScreen() {
           ) : (
             activeMedications.map((item) =>
               isPending(item) ? (
-                <View key={item.url} style={doctorStyles.diagnosisCard}>
+                <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
                   <View style={doctorStyles.diagnosisCardHeader}>
                     <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                     <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
@@ -277,7 +281,6 @@ export default function PatientMedicationsScreen() {
                       <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
                     </Text>
                   )}
-                  <LinkedRecordLines links={item.links} />
                   <Text style={doctorStyles.diagnosisCardDetail}>
                     <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                   </Text>
@@ -302,16 +305,15 @@ export default function PatientMedicationsScreen() {
                       <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               ) : (
-                <View key={item.url} style={doctorStyles.diagnosisCard}>
+                <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
                   <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                   {!!item.route && (
                     <Text style={doctorStyles.diagnosisCardDetail}>
                       <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
                     </Text>
                   )}
-                  <LinkedRecordLines links={item.links} />
                   <Text style={doctorStyles.diagnosisCardDetail}>
                     <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                   </Text>
@@ -324,7 +326,7 @@ export default function PatientMedicationsScreen() {
                   <Text style={doctorStyles.diagnosisCardDetail}>
                     <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
                   </Text>
-                </View>
+                </TouchableOpacity>
               )
             )
           )}
@@ -352,14 +354,13 @@ export default function PatientMedicationsScreen() {
               ) : (
                 previousMedications.map((item) => {
                   return (
-                    <View key={item.url} style={doctorStyles.diagnosisCard}>
+                    <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
                       <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                       {!!item.route && (
                         <Text style={doctorStyles.diagnosisCardDetail}>
                           <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
                         </Text>
                       )}
-                      <LinkedRecordLines links={item.links} />
                       <Text style={doctorStyles.diagnosisCardDetail}>
                         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
                       </Text>
@@ -372,7 +373,7 @@ export default function PatientMedicationsScreen() {
                       <Text style={doctorStyles.diagnosisCardDetail}>
                         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })
               )}

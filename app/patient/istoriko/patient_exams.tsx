@@ -7,16 +7,15 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { LinkedRecordLines } from '../../../components/LinkedRecordLine';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
+import { ROUTES } from '../../../constants/routes';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
-import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Εξετάσεις';
@@ -50,16 +49,16 @@ function createdDateFromUrl(url: string): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelete }: { item: Exam; doctorDisplayName: string; uploading: boolean; onUpload: (item: Exam) => void; onDelete: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelete, onOpen }: { item: Exam; doctorDisplayName: string; uploading: boolean; onUpload: (item: Exam) => void; onDelete: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (
-    <View style={doctorStyles.diagnosisCard}>
+    // Η κάρτα ανοίγει την αναλυτική προβολή. Τα κουμπιά μέσα της κρατούν το δικό τους πάτημα.
+    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
       </Text>
-      <LinkedRecordLines links={item.links} />
       {!!item.createdDate && (
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
@@ -90,16 +89,15 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
       >
         <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 }
 
-function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boolean; onOpen: (item: Exam) => void }) {
+function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) => void }) {
   return (
     <TouchableOpacity
       style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}
       onPress={() => onOpen(item)}
-      disabled={!item.resultFile || opening}
     >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
       <View style={{ flex: 1 }}>
@@ -110,9 +108,8 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
         <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Αποτελέσματος: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
         </Text>
-        <LinkedRecordLines links={item.links} />
-      </View>
-      {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
+        </View>
+      <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
     </TouchableOpacity>
   );
 }
@@ -129,7 +126,6 @@ export default function PatientExamsScreen() {
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-  const [openingResultFor, setOpeningResultFor] = useState<string | null>(null);
 
   const loadExams = async (silent = false) => {
     try {
@@ -240,17 +236,8 @@ export default function PatientExamsScreen() {
     }
   };
 
-  const handleOpenResult = async (item: Exam) => {
-    if (!item.resultFile) return;
-    try {
-      setOpeningResultFor(item.url);
-      const localUri = await downloadAttachment(item.url, item.resultFile, accessToken);
-      await openLocalFile(localUri, item.resultFile);
-    } catch (error: any) {
-      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
-    } finally {
-      setOpeningResultFor(null);
-    }
+  const openDetail = (item: Exam) => {
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
   const handleDeleteExam = (item: Exam) => {
@@ -365,6 +352,7 @@ export default function PatientExamsScreen() {
                 uploading={uploadingFor === item.url}
                 onUpload={handleUploadResult}
                 onDelete={handleDeleteExam}
+                onOpen={openDetail}
               />
             ))
           )}
@@ -385,7 +373,7 @@ export default function PatientExamsScreen() {
                 </Text>
               ) : (
                 completedExams.map((item) => (
-                  <CompletedExamCard key={item.url} item={item} opening={openingResultFor === item.url} onOpen={handleOpenResult} />
+                  <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />
                 ))
               )}
             </View>

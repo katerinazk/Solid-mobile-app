@@ -10,6 +10,9 @@ export interface HistoryRecordSummary {
   code?: string;
   parentName?: string;
   date?: string;
+  // Οι συνδέσεις της ίδιας της εγγραφής. Τις χρειαζόμαστε για να βρούμε και την αντίστροφη
+  // κατεύθυνση: ποια φάρμακα ή εξετάσεις δείχνουν προς μια διάγνωση.
+  links?: LinkedRecord[];
 }
 
 // Κάθε κατηγορία ονομάζει αλλιώς την ημερομηνία της.
@@ -57,6 +60,7 @@ export async function fetchCategoryRecords(
             code: record.code,
             parentName: record.parentName,
             date: pickDate(category, record),
+            links: readLinks(record),
           } as HistoryRecordSummary;
         } catch {
           return null;
@@ -109,4 +113,69 @@ export function readLinks(record: any): LinkedRecord[] {
   if (Array.isArray(record?.links)) return record.links;
   if (record?.link) return [record.link];
   return [];
+}
+
+
+// Μόνο τα φάρμακα και οι εξετάσεις κρατούν συνδέσμους. Για την αντίστροφη αναζήτηση ("ποιος
+// δείχνει προς αυτή τη διάγνωση;") αρκεί να κοιτάξουμε αυτές τις δύο κατηγορίες.
+const LINKING_CATEGORIES = ['Φάρμακα', 'Εξετάσεις'];
+
+export async function fetchRecordSummary(
+  url: string,
+  category: string,
+  accessToken: string
+): Promise<HistoryRecordSummary | null> {
+  try {
+    const record = JSON.parse(await fetchFileContent(url, accessToken));
+    if (!isCompleteRecord(category, record)) return null;
+
+    return {
+      url,
+      category,
+      title: record.title,
+      code: record.code,
+      parentName: record.parentName,
+      date: pickDate(category, record),
+      links: readLinks(record),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ό,τι σχετίζεται με μια εγγραφή, και προς τις δύο κατευθύνσεις:
+ *   - όσες συνέδεσε ο γιατρός μαζί της (π.χ. η διάγνωση για την οποία δόθηκε το φάρμακο)
+ *   - όσες δείχνουν προς αυτήν (π.χ. τα φάρμακα που δόθηκαν για μια διάγνωση)
+ *
+ * Έτσι η σχέση διαβάζεται από όποια πλευρά κι αν την ανοίξει κανείς.
+ */
+export async function fetchRelatedRecords(
+  webId: string,
+  recordUrl: string,
+  links: LinkedRecord[],
+  accessToken: string
+): Promise<HistoryRecordSummary[]> {
+  const forward = await Promise.all(
+    links.map(async (link) => {
+      const summary = await fetchRecordSummary(link.url, link.category, accessToken);
+      // Αν η εγγραφή διαγράφηκε στο μεταξύ, δείχνουμε ό,τι είχε κρατηθεί μαζί με τον σύνδεσμο.
+      return summary || { url: link.url, category: link.category, title: link.title, code: link.code, parentName: link.parentName };
+    })
+  );
+
+  const reverseLists = await Promise.all(
+    LINKING_CATEGORIES.map((category) => fetchCategoryRecords(webId, category, accessToken).catch(() => []))
+  );
+  const reverse = reverseLists
+    .flat()
+    .filter((record) => record.links?.some((link) => link.url === recordUrl));
+
+  // Η ίδια σχέση μπορεί να υπάρχει και στις δύο κατευθύνσεις - κρατάμε μία εγγραφή ανά URL.
+  const byUrl = new Map<string, HistoryRecordSummary>();
+  for (const record of [...forward, ...reverse]) {
+    if (record.url !== recordUrl) byUrl.set(record.url, record);
+  }
+
+  return [...byUrl.values()];
 }
