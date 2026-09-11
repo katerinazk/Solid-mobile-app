@@ -12,9 +12,11 @@ import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { LinkedRecordLine } from '../../../components/LinkedRecordLine';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { formatDuration, medicationEndDate } from '../../../utils/duration';
+import { LinkedRecord } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 
 const CATEGORY = 'Φάρμακα';
@@ -26,6 +28,8 @@ interface Medication {
   // Τρόπος χορήγησης (χάπι, ενέσιμο, ...). Λείπει από τις εγγραφές πριν υπάρξει το πεδίο.
   route?: string;
   startDate: string;
+  // Η εγγραφή ιστορικού στην οποία οφείλεται η καταχώρηση. Προαιρετική.
+  link?: LinkedRecord;
   durationDays: number;
   // Προαιρετικοί, δίπλα στις μέρες. Λείπουν από τις εγγραφές πριν υπάρξει το πεδίο.
   durationMonths?: number;
@@ -61,6 +65,7 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
           <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
         </Text>
       )}
+      <LinkedRecordLine link={item.link} />
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
       </Text>
@@ -112,6 +117,7 @@ export default function DoctorMedicationsScreen() {
             dosage: record.dosage,
             route: record.route,
             startDate: record.startDate,
+            link: record.link,
             durationDays: record.durationDays,
             durationMonths: record.durationMonths,
             doctorName: record.doctorName,
@@ -164,6 +170,7 @@ export default function DoctorMedicationsScreen() {
           editParentName: item.parentName,
           editDosage: item.dosage,
           editRoute: item.route,
+          editLink: item.link ? JSON.stringify(item.link) : '',
           editDurationDays: String(item.durationDays),
           editDurationMonths: item.durationMonths ? String(item.durationMonths) : '',
           editStartDate: item.startDate,

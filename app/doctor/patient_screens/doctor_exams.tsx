@@ -13,6 +13,8 @@ import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { LinkedRecordLine } from '../../../components/LinkedRecordLine';
+import { LinkedRecord } from '../../../services/historyRecords';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
@@ -28,6 +30,8 @@ interface Exam {
   doctorName: string;
   doctorAmka: string;
   completedDate?: string;
+  // Η εγγραφή ιστορικού στην οποία οφείλεται η εξέταση. Προαιρετική.
+  link?: LinkedRecord;
   resultFile?: string;
   // Ημερομηνία καταχώρησης της εξέτασης (όχι ολοκλήρωσης).
   createdDate?: string;
@@ -65,6 +69,7 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
       </Text>
+      <LinkedRecordLine link={item.link} />
       {!!item.createdDate && (
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
@@ -93,6 +98,7 @@ function CompletedExamCard({ item, opening, onOpen }: { item: Exam; opening: boo
         <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Αποτελέσματος: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
         </Text>
+        <LinkedRecordLine link={item.link} />
       </View>
       {opening && <ActivityIndicator size="small" color={COLORS.primary} />}
     </TouchableOpacity>
@@ -139,6 +145,7 @@ export default function DoctorExamsScreen() {
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             completedDate: record.completedDate,
+            link: record.link,
             resultFile: record.resultFile,
             createdDate: record.createdDate || createdDateFromUrl(url),
           } as Exam;
@@ -209,6 +216,7 @@ export default function DoctorExamsScreen() {
           editParentName: item.parentName,
           editType: item.type,
           editStatus: item.status,
+          editLink: item.link ? JSON.stringify(item.link) : '',
           editCompletedDate: item.completedDate,
           editResultFile: item.resultFile,
           editCreatedDate: item.createdDate,

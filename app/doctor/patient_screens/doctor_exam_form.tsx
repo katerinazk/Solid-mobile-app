@@ -11,6 +11,8 @@ import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../co
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { SelectField } from '../../../components/SelectField';
 import { EXAM_TYPES } from '../../../constants/medicalOptions';
+import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
+import { LinkedRecord, parseLinkedRecord } from '../../../services/historyRecords';
 
 export default function DoctorExamFormScreen() {
   const params = useLocalSearchParams<{
@@ -27,6 +29,8 @@ export default function DoctorExamFormScreen() {
     editCompletedDate?: string;
     editResultFile?: string;
     editCreatedDate?: string;
+    // Ο σύνδεσμος προς άλλη εγγραφή ιστορικού, ως JSON.
+    editLink?: string;
     editDoctorName?: string;
     editDoctorAmka?: string;
   }>();
@@ -41,6 +45,7 @@ export default function DoctorExamFormScreen() {
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
   const [type, setType] = useState(params.editType || '');
+  const [link, setLink] = useState<LinkedRecord | null>(parseLinkedRecord(params.editLink));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -89,6 +94,7 @@ export default function DoctorExamFormScreen() {
         resultFile: params.editResultFile,
         // Στην επεξεργασία κρατάμε την αρχική ημερομηνία καταχώρησης, δεν τη μηδενίζουμε.
         createdDate: params.editCreatedDate || todayIso,
+        link: link || undefined,
       };
 
       const fileUrl = params.editUrl || `${folderUrl}${Date.now()}.json`;
@@ -125,6 +131,14 @@ export default function DoctorExamFormScreen() {
         onChange={setType}
         options={EXAM_TYPES}
         placeholder="Επιλέξτε τύπο"
+      />
+
+      <RecordLinkPicker
+        webId={params.webId}
+        accessToken={accessToken}
+        excludeCategory="Εξετάσεις"
+        value={link}
+        onChange={setLink}
       />
     </DoctorFormScreen>
   );
