@@ -154,6 +154,25 @@ export async function fetchRecordSummary(
 }
 
 /**
+ * Το URL μιας εγγραφής άλλοτε έρχεται από τη λίστα του φακέλου και άλλοτε από τα params της
+ * πλοήγησης, που το αποκωδικοποιούν. Οι φάκελοι έχουν ελληνικά ονόματα, οπότε οι δύο μορφές
+ * διαφέρουν ("%CE%95..." έναντι "Εξετάσεις") και η ίδια εγγραφή μοιάζει με δύο διαφορετικές.
+ * Γι' αυτό συγκρίνουμε πάντα την αποκωδικοποιημένη μορφή.
+ */
+function normalizeUrl(url: string): string {
+  try {
+    return decodeURIComponent(url);
+  } catch {
+    return url;
+  }
+}
+
+export function isSameRecord(a?: string, b?: string): boolean {
+  if (!a || !b) return false;
+  return normalizeUrl(a) === normalizeUrl(b);
+}
+
+/**
  * Κρατά μόνο τους συνδέσμους που δείχνουν σε αρχείο το οποίο υπάρχει ακόμα στο Pod.
  *
  * Αν ο φάκελος δεν διαβάζεται, τους επιστρέφει όλους: μια στιγμιαία αποτυχία δικτύου δεν
@@ -177,7 +196,8 @@ export async function filterExistingLinks(
     return links;
   }
 
-  return links.filter((link) => existing.has(link.url));
+  const existingNormalized = new Set([...existing].map(normalizeUrl));
+  return links.filter((link) => existingNormalized.has(normalizeUrl(link.url)));
 }
 
 /**
@@ -244,7 +264,7 @@ export async function fetchRelatedRecords(
 
   const reverse = [...byCategory.values()]
     .flat()
-    .filter((item) => item.links?.some((link) => link.url === recordUrl));
+    .filter((item) => item.links?.some((link) => isSameRecord(link.url, recordUrl)));
 
   const sameCode = record?.code
     ? (byCategory.get(category) || []).filter((item) => item.code === record.code)
@@ -253,7 +273,7 @@ export async function fetchRelatedRecords(
   // Η ίδια σχέση μπορεί να προκύψει με πάνω από έναν τρόπο - κρατάμε μία εγγραφή ανά URL.
   const byUrl = new Map<string, HistoryRecordSummary>();
   for (const item of [...forward, ...reverse, ...sameCode]) {
-    if (item.url !== recordUrl) byUrl.set(item.url, item);
+    if (!isSameRecord(item.url, recordUrl)) byUrl.set(normalizeUrl(item.url), item);
   }
 
   return [...byUrl.values()];
