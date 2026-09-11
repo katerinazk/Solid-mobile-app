@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
@@ -12,6 +12,10 @@ import { addAccess, deleteAccess, updateAccessType, fetchAccessEntry } from '../
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, hasPendingAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
+
+// Οι επιλογές του φίλτρου. Η πρώτη είναι η "χωρίς φίλτρο", ώστε να υπάρχει δρόμος πίσω.
+const ALL_ACCESS = 'Όλες οι προσβάσεις';
+const ACCESS_FILTERS = [ALL_ACCESS, 'Πλήρης Πρόσβαση', 'Μόνο Ανάγνωση'];
 
 interface AccessRequest {
   id: string;
@@ -29,6 +33,14 @@ export default function PatientAccessScreen() {
   const [newAccessType, setNewAccessType] = useState('Πλήρης Πρόσβαση');
 
   const [openTypeFor, setOpenTypeFor] = useState<string | null>(null);
+
+  const [accessFilter, setAccessFilter] = useState(ALL_ACCESS);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const visibleAccessList = useMemo(
+    () => accessFilter === ALL_ACCESS ? accessList : accessList.filter((a) => a.access_type === accessFilter),
+    [accessList, accessFilter]
+  );
 
   const [isRequestsModalVisible, setIsRequestsModalVisible] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -307,7 +319,7 @@ export default function PatientAccessScreen() {
       <PatientHeader />
 
       <FlatList
-        data={accessList}
+        data={visibleAccessList}
         keyExtractor={(item) => item.doctor_amka}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin, flexGrow: 1 }}
         ListHeaderComponent={
@@ -345,16 +357,39 @@ export default function PatientAccessScreen() {
               </View>
             </View>
 
-            <TouchableOpacity style={localStyles.sortButton} onPress={() => alert('Η λειτουργία έρχεται σύντομα.')}>
-              <Text style={localStyles.sortButtonText}>↕  Όλες οι προσβάσεις</Text>
-            </TouchableOpacity>
+            {/* Το φίλτρο ανοίγει προς τα κάτω σπρώχνοντας τη λίστα, αντί να επιπλέει από πάνω
+                της: μέσα σε κεφαλίδα FlatList ένα επιπλέον στοιχείο κόβεται στα άκρα. */}
+            <View style={localStyles.filterWrapper}>
+              <TouchableOpacity style={localStyles.sortButton} onPress={() => setIsFilterOpen((prev) => !prev)}>
+                <Text style={localStyles.sortButtonText}>↕  {accessFilter}</Text>
+              </TouchableOpacity>
+
+              {isFilterOpen && (
+                <View style={localStyles.filterDropdown}>
+                  {ACCESS_FILTERS.map((option, index) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[localStyles.filterOption, index < ACCESS_FILTERS.length - 1 && localStyles.filterOptionBorder]}
+                      onPress={() => { setAccessFilter(option); setIsFilterOpen(false); }}
+                    >
+                      <Text style={[localStyles.filterOptionText, option === accessFilter && localStyles.filterOptionTextSelected]}>{option}</Text>
+                      {option === accessFilter && <Ionicons name="checkmark" size={16} color={COLORS.primary} style={{ marginLeft: 8 }} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </>
         }
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
           ) : (
-            <Text style={[styles.emptyText, { marginTop: 50 }]}>Δεν έχετε δώσει πρόσβαση σε κανέναν γιατρό.</Text>
+            <Text style={[styles.emptyText, { marginTop: 50 }]}>
+              {accessFilter === ALL_ACCESS
+                ? 'Δεν έχετε δώσει πρόσβαση σε κανέναν γιατρό.'
+                : `Κανένας γιατρός δεν έχει "${accessFilter}".`}
+            </Text>
           )
         }
         renderItem={({ item }) => (
@@ -537,7 +572,20 @@ const localStyles = StyleSheet.create({
   searchLabel: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary, marginBottom: 8 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.lightest, borderRadius: 25, marginHorizontal: SPACING.sideMargin, paddingHorizontal: 15, marginBottom: SPACING.sectionGap, borderWidth: 1, borderColor: COLORS.medium },
   searchInput: { flex: 1, height: 40, fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
-  sortButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', alignItems: 'center', borderRadius: 25, marginHorizontal: SPACING.sideMargin, marginBottom: SPACING.sectionGap },
+  filterWrapper: { marginHorizontal: SPACING.sideMargin, marginBottom: SPACING.sectionGap },
+  sortButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', alignItems: 'center', borderRadius: 25 },
+  filterDropdown: {
+    marginTop: SPACING.groupGap,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  filterOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: TOUCH.minTargetSize, paddingHorizontal: 14 },
+  filterOptionBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.lightest },
+  filterOptionText: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
+  filterOptionTextSelected: { color: COLORS.primary, fontWeight: 'bold' },
   sortButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
   card: { backgroundColor: COLORS.lightest, borderRadius: 15, padding: 16, marginHorizontal: SPACING.sideMargin, marginBottom: 12 },
   doctorName: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary },
