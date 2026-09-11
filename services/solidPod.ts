@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { createDpopToken } from '../utils/dpop';
+import { ACCESS_FULL, grantsPodAccess } from '../constants/accessTypes';
 
 // Ανακατασκευάζει το WebID του ασθενή-ιδιοκτήτη από το URL του δημόσιου φακέλου του
 // (αντίστροφος μετασχηματισμός του webId.replace('profile/card#me', 'public/') στο AuthContext).
@@ -298,17 +299,19 @@ export async function syncPodAcl({
     acl:mode acl:Read, acl:Write, acl:Control.
   `;
 
-  // Οι γιατροί χωρίς WebID απλώς παραλείπονται - θα μπουν σε επόμενο συγχρονισμό.
+  // Οι γιατροί χωρίς WebID απλώς παραλείπονται - θα μπουν σε επόμενο συγχρονισμό. Όσοι έχουν
+  // "Καμία Πρόσβαση" μένουν εκτός επίτηδες: η εγγραφή τους υπάρχει μόνο για να τη θυμάται ο
+  // ασθενής, δεν δίνει κανένα δικαίωμα στον φάκελο.
   accessList.forEach((a, index) => {
     const webId = a.doctors?.web_id;
-    if (!webId) return;
+    if (!webId || !grantsPodAccess(a.access_type)) return;
     aclContent += `
   <#doctor${index}>
     a acl:Authorization;
     acl:agent <${webId}>;
     acl:accessTo <${activePatientFolderUrl}>;
     acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read${a.access_type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
+    acl:mode acl:Read${a.access_type === ACCESS_FULL ? ', acl:Write' : ''}.
   `;
   });
 
@@ -361,14 +364,14 @@ export async function removeDoctorFromAcl({
   `;
 
   remainingDoctors.forEach((a, index) => {
-    if (a.doctors?.web_id) {
+    if (a.doctors?.web_id && grantsPodAccess(a.access_type)) {
       aclContent += `
   <#doctor${index}>
     a acl:Authorization;
     acl:agent <${a.doctors.web_id}>;
     acl:accessTo <${activePatientFolderUrl}>;
     acl:default <${activePatientFolderUrl}>;
-    acl:mode acl:Read${a.access_type === 'Πλήρης Πρόσβαση' ? ', acl:Write' : ''}.
+    acl:mode acl:Read${a.access_type === ACCESS_FULL ? ', acl:Write' : ''}.
   `;
     }
   });

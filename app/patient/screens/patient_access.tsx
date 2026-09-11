@@ -12,10 +12,11 @@ import { addAccess, deleteAccess, updateAccessType, fetchAccessEntry } from '../
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, hasPendingAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
+import { ACCESS_FULL, ACCESS_READ_ONLY, ACCESS_NONE, ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
 
 // Οι επιλογές του φίλτρου. Η πρώτη είναι η "χωρίς φίλτρο", ώστε να υπάρχει δρόμος πίσω.
 const ALL_ACCESS = 'Όλες οι προσβάσεις';
-const ACCESS_FILTERS = [ALL_ACCESS, 'Πλήρης Πρόσβαση', 'Μόνο Ανάγνωση'];
+const ACCESS_FILTERS = [ALL_ACCESS, ...ACCESS_TYPES];
 
 interface AccessRequest {
   id: string;
@@ -30,7 +31,7 @@ export default function PatientAccessScreen() {
 
   const [isAddAccessModalVisible, setIsAddAccessModalVisible] = useState(false);
   const [newDoctorAmka, setNewDoctorAmka] = useState('');
-  const [newAccessType, setNewAccessType] = useState('Πλήρης Πρόσβαση');
+  const [newAccessType, setNewAccessType] = useState(ACCESS_FULL);
 
   const [openTypeFor, setOpenTypeFor] = useState<string | null>(null);
 
@@ -85,25 +86,44 @@ export default function PatientAccessScreen() {
       );
     });
 
-  // Για γιατρό που έχει ΗΔΗ πρόσβαση: ρωτάμε και, αν συμφωνήσει ο ασθενής, αλλάζουμε τον τύπο.
-  const confirmChangeAccessType = async (doctorAmka: string, doctorWebId: string | null, newType: string, title: string, message: string): Promise<boolean> => {
-    if (!(await confirmDialog(title, message))) return false;
+  /**
+   * Γράφει τον νέο τύπο στη βάση και ευθυγραμμίζει το ACL του Pod.
+   *
+   * Το "Καμία Πρόσβαση" βγάζει τον γιατρό από το ACL και κατεβάζει το acl_synced, χωρίς όμως
+   * να σβήσει την εγγραφή του: ο ασθενής τον κρατά στη λίστα του για το μέλλον, ενώ ο γιατρός
+   * παύει να βλέπει και τον φάκελο και τον ίδιο τον ασθενή στη δική του λίστα.
+   */
+  const applyAccessType = async (doctorAmka: string, doctorWebId: string | null | undefined, newType: string): Promise<boolean> => {
+    const revoking = newType === ACCESS_NONE;
 
-    const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType);
+    const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType, revoking ? false : !!doctorWebId);
     if (error) {
       alert("Σφάλμα: " + error.message);
       return false;
     }
 
+    // Χωρίς WebID ο γιατρός δεν βρίσκεται καν στο ACL - δεν υπάρχει τίποτα να γραφτεί.
     if (doctorWebId) {
-      await updatePodAcl({
-        activePatientFolderUrl,
-        accessToken,
-        accessList,
-        newDoctorWebId: doctorWebId,
-        accessType: newType,
-      });
+      if (revoking) {
+        await removeDoctorFromAcl({ activePatientFolderUrl, accessToken, accessList, doctorWebId });
+      } else {
+        await updatePodAcl({
+          activePatientFolderUrl,
+          accessToken,
+          accessList,
+          newDoctorWebId: doctorWebId,
+          accessType: newType,
+        });
+      }
     }
+
+    return true;
+  };
+
+  // Για γιατρό που έχει ΗΔΗ πρόσβαση: ρωτάμε και, αν συμφωνήσει ο ασθενής, αλλάζουμε τον τύπο.
+  const confirmChangeAccessType = async (doctorAmka: string, doctorWebId: string | null, newType: string, title: string, message: string): Promise<boolean> => {
+    if (!(await confirmDialog(title, message))) return false;
+    if (!(await applyAccessType(doctorAmka, doctorWebId, newType))) return false;
 
     refresh();
     alert("Ο τύπος πρόσβασης άλλαξε επιτυχώς!");
@@ -290,23 +310,10 @@ export default function PatientAccessScreen() {
   const handleSelectAccessType = async (doctorAmka: string, newType: string) => {
     setOpenTypeFor(null);
 
-    const doctorEntryBefore = accessList.find(a => a.doctor_amka === doctorAmka);
-    if (doctorEntryBefore?.access_type === newType) return;
-
-    const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType);
-
-    if (error) { alert("Σφάλμα: " + error.message); return; }
-
     const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
-    if (doctorEntry?.doctors?.web_id) {
-      await updatePodAcl({
-        activePatientFolderUrl,
-        accessToken,
-        accessList,
-        newDoctorWebId: doctorEntry.doctors.web_id,
-        accessType: newType,
-      });
-    }
+    if (doctorEntry?.access_type === newType) return;
+
+    if (!(await applyAccessType(doctorAmka, doctorEntry?.doctors?.web_id, newType))) return;
 
     setAccessList(prev => prev.map(a =>
       a.doctor_amka === doctorAmka ? { ...a, access_type: newType } : a
@@ -412,10 +419,10 @@ export default function PatientAccessScreen() {
 
                 {openTypeFor === item.doctor_amka && (
                   <View style={localStyles.typeDropdown}>
-                    {['Πλήρης Πρόσβαση', 'Μόνο Ανάγνωση'].map((type, index) => (
+                    {ACCESS_TYPES.map((type, index) => (
                       <TouchableOpacity
                         key={type}
-                        style={[localStyles.typeDropdownOption, index === 0 && localStyles.typeDropdownOptionBorder]}
+                        style={[localStyles.typeDropdownOption, index < ACCESS_TYPES.length - 1 && localStyles.typeDropdownOptionBorder]}
                         onPress={() => handleSelectAccessType(item.doctor_amka, type)}
                       >
                         <Text style={[localStyles.typeDropdownOptionText, type === item.access_type && localStyles.typeDropdownOptionTextSelected]} numberOfLines={1}>{type}</Text>
@@ -452,16 +459,16 @@ export default function PatientAccessScreen() {
             <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
             <View style={{ flexDirection: 'row', marginBottom: 20 }}>
               <TouchableOpacity
-                style={[styles.modalButton, { flex: 1, marginRight: 5, backgroundColor: newAccessType === 'Πλήρης Πρόσβαση' ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
-                onPress={() => setNewAccessType('Πλήρης Πρόσβαση')}
+                style={[styles.modalButton, { flex: 1, marginRight: 5, backgroundColor: newAccessType === ACCESS_FULL ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
+                onPress={() => setNewAccessType(ACCESS_FULL)}
               >
-                <Text style={{ color: newAccessType === 'Πλήρης Πρόσβαση' ? COLORS.white : COLORS.text, textAlign: 'center' }}>Πλήρης</Text>
+                <Text style={{ color: newAccessType === ACCESS_FULL ? COLORS.white : COLORS.text, textAlign: 'center' }}>Πλήρης</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, { flex: 1, marginLeft: 5, backgroundColor: newAccessType === 'Μόνο Ανάγνωση' ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
-                onPress={() => setNewAccessType('Μόνο Ανάγνωση')}
+                style={[styles.modalButton, { flex: 1, marginLeft: 5, backgroundColor: newAccessType === ACCESS_READ_ONLY ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
+                onPress={() => setNewAccessType(ACCESS_READ_ONLY)}
               >
-                <Text style={{ color: newAccessType === 'Μόνο Ανάγνωση' ? COLORS.white : COLORS.text, textAlign: 'center' }}>Μόνο Ανάγνωση</Text>
+                <Text style={{ color: newAccessType === ACCESS_READ_ONLY ? COLORS.white : COLORS.text, textAlign: 'center' }}>Μόνο Ανάγνωση</Text>
               </TouchableOpacity>
             </View>
 
@@ -513,7 +520,7 @@ export default function PatientAccessScreen() {
 
                       {openRequestTypeFor === item.id && (
                         <View style={localStyles.typeDropdown}>
-                          {['Πλήρης Πρόσβαση', 'Μόνο Ανάγνωση'].map((type, index) => (
+                          {GRANTABLE_ACCESS_TYPES.map((type, index) => (
                             <TouchableOpacity
                               key={type}
                               style={[localStyles.typeDropdownOption, index === 0 && localStyles.typeDropdownOptionBorder]}

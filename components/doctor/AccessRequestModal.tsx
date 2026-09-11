@@ -9,6 +9,7 @@ import { fetchPatientByAmka } from '../../services/patients';
 import { hasPendingAccessRequest, createAccessRequest } from '../../services/accessRequests';
 import { fetchAccessEntry } from '../../services/access';
 import { InvitePatientModal } from './InvitePatientModal';
+import { ACCESS_FULL, ACCESS_READ_ONLY } from '../../constants/accessTypes';
 
 interface Props {
   visible: boolean;
@@ -25,14 +26,14 @@ interface Props {
 // εκκρεμές αίτημα) να ζει σε ένα μόνο σημείο.
 export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccessTo, onClose, onSubmitted }: Props) {
   const [patientAmka, setPatientAmka] = useState(initialAmka || '');
-  const [accessType, setAccessType] = useState('Πλήρης Πρόσβαση');
+  const [accessType, setAccessType] = useState(ACCESS_FULL);
   const [submitting, setSubmitting] = useState(false);
   const [inviteAmka, setInviteAmka] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
       setPatientAmka(initialAmka || '');
-      setAccessType('Πλήρης Πρόσβαση');
+      setAccessType(ACCESS_FULL);
     }
   }, [visible, initialAmka]);
 
@@ -165,7 +166,7 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
           <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
           <TouchableOpacity
             style={[loginStyles.loginInput, localStyles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            onPress={() => setAccessType((prev) => prev === 'Πλήρης Πρόσβαση' ? 'Μόνο Ανάγνωση' : 'Πλήρης Πρόσβαση')}
+            onPress={() => setAccessType((prev) => prev === ACCESS_FULL ? ACCESS_READ_ONLY : ACCESS_FULL)}
           >
             <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{accessType}</Text>
             <Ionicons name="chevron-down" size={18} color={COLORS.primary} />

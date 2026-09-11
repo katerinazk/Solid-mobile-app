@@ -55,10 +55,16 @@ export async function deleteAccess(patientAmka: string, doctorAmka: string) {
     .eq('doctor_amka', doctorAmka);
 }
 
-export async function updateAccessType(patientAmka: string, doctorAmka: string, newType: string) {
+// Το acl_synced είναι η πύλη της πλευράς του γιατρού: όσο είναι false, ο ασθενής δεν του
+// εμφανίζεται καθόλου και ο φύλακας τον βγάζει από τον φάκελο. Το "Καμία Πρόσβαση" το
+// κατεβάζει χωρίς να σβήσει την εγγραφή, και η επαναφορά πρόσβασης το ξανασηκώνει.
+export async function updateAccessType(patientAmka: string, doctorAmka: string, newType: string, aclSynced?: boolean) {
+  const changes: { access_type: string; acl_synced?: boolean } = { access_type: newType };
+  if (aclSynced !== undefined) changes.acl_synced = aclSynced;
+
   return supabase
     .from('access')
-    .update({ access_type: newType })
+    .update(changes)
     .eq('patient_amka', patientAmka)
     .eq('doctor_amka', doctorAmka);
 }

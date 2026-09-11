@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { ROUTES } from '../constants/routes';
 import { fetchAccessEntry } from '../services/access';
+import { ACCESS_READ_ONLY } from '../constants/accessTypes';
 import { useAuth } from './useAuth';
 
 // Κάθε πόσο ξαναρωτάμε τη βάση όσο ο γιατρός έχει ανοιχτή μια οθόνη του φακέλου.
@@ -53,5 +54,5 @@ export function useDoctorAccessGuard(patientAmka: string, initialAccessType: str
     }, [checkAccess])
   );
 
-  return { accessType, isReadOnly: accessType === 'Μόνο Ανάγνωση', checkAccess };
+  return { accessType, isReadOnly: accessType === ACCESS_READ_ONLY, checkAccess };
 }
