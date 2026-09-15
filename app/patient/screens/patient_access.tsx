@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { loginStyles } from '../../../constants/loginStyles';
@@ -34,6 +35,18 @@ export default function PatientAccessScreen() {
   const [newAccessType, setNewAccessType] = useState(ACCESS_FULL);
 
   const [openTypeFor, setOpenTypeFor] = useState<string | null>(null);
+
+  // Οπτική επιβεβαίωση της αλλαγής: πρώτα δείχνει ότι αποθηκεύεται, μετά ότι ολοκληρώθηκε.
+  // Χωρίς αυτό η αλλαγή γινόταν σιωπηλά και ο ασθενής δεν ήξερε αν καταγράφηκε.
+  //
+  // Κρατάμε λίστα και όχι έναν γιατρό: αλλάζοντας δεύτερο, η επιβεβαίωση του πρώτου δεν
+  // πρέπει να σβήσει, γιατί θα διαβαζόταν σαν να αναιρέθηκε η αλλαγή του.
+  const [savingTypeFor, setSavingTypeFor] = useState<string | null>(null);
+  const [savedTypeAmkas, setSavedTypeAmkas] = useState<string[]>([]);
+
+  // Οι επιβεβαιώσεις μένουν όσο ο ασθενής βρίσκεται στην οθόνη και καθαρίζουν μόλις τη
+  // αφήσει, ώστε επιστρέφοντας αργότερα να μη βλέπει παλιά πράσινα.
+  useFocusEffect(useCallback(() => () => setSavedTypeAmkas([]), []));
 
   const [accessFilter, setAccessFilter] = useState(ALL_ACCESS);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -313,11 +326,18 @@ export default function PatientAccessScreen() {
     const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
     if (doctorEntry?.access_type === newType) return;
 
-    if (!(await applyAccessType(doctorAmka, doctorEntry?.doctors?.web_id, newType))) return;
+    setSavingTypeFor(doctorAmka);
+    setSavedTypeAmkas(prev => prev.filter(amka => amka !== doctorAmka));
+
+    const saved = await applyAccessType(doctorAmka, doctorEntry?.doctors?.web_id, newType);
+    setSavingTypeFor(null);
+    if (!saved) return;
 
     setAccessList(prev => prev.map(a =>
       a.doctor_amka === doctorAmka ? { ...a, access_type: newType } : a
     ));
+
+    setSavedTypeAmkas(prev => [...prev, doctorAmka]);
   };
 
   return (
@@ -410,11 +430,19 @@ export default function PatientAccessScreen() {
               <Text style={localStyles.typeLabel}>Τύπος πρόσβασης: </Text>
               <View style={{ position: 'relative' }}>
                 <TouchableOpacity
-                  style={localStyles.typePill}
+                  style={[localStyles.typePill, savedTypeAmkas.includes(item.doctor_amka) && localStyles.typePillSaved]}
                   onPress={() => setOpenTypeFor((prev) => prev === item.doctor_amka ? null : item.doctor_amka)}
+                  disabled={savingTypeFor === item.doctor_amka}
                 >
-                  <Text style={localStyles.typePillText}>{item.access_type}</Text>
-                  <Ionicons name={openTypeFor === item.doctor_amka ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
+                  <Text style={[localStyles.typePillText, savedTypeAmkas.includes(item.doctor_amka) && localStyles.typePillTextSaved]}>{item.access_type}</Text>
+
+                  {savingTypeFor === item.doctor_amka ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 6 }} />
+                  ) : savedTypeAmkas.includes(item.doctor_amka) ? (
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} style={{ marginLeft: 4 }} />
+                  ) : (
+                    <Ionicons name={openTypeFor === item.doctor_amka ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
+                  )}
                 </TouchableOpacity>
 
                 {openTypeFor === item.doctor_amka && (
@@ -433,6 +461,13 @@ export default function PatientAccessScreen() {
                 )}
               </View>
             </View>
+
+            {savingTypeFor === item.doctor_amka && (
+              <Text style={localStyles.statusText}>Αποθήκευση αλλαγής...</Text>
+            )}
+            {savedTypeAmkas.includes(item.doctor_amka) && (
+              <Text style={[localStyles.statusText, { color: COLORS.success, fontWeight: 'bold' }]}>Η αλλαγή αποθηκεύτηκε</Text>
+            )}
 
             <TouchableOpacity style={localStyles.removeButton} onPress={() => handleDeleteAccess(item.doctor_amka)}>
               <Text style={localStyles.removeButtonText}>Κατάργηση</Text>
@@ -600,6 +635,9 @@ const localStyles = StyleSheet.create({
   typeLabel: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
   typePill: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginLeft: 8 },
   typePillText: { color: COLORS.primary, fontWeight: '600', fontSize: TYPOGRAPHY.secondaryText },
+  typePillSaved: { borderColor: COLORS.success },
+  typePillTextSaved: { color: COLORS.success },
+  statusText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, marginTop: 6 },
   typeDropdown: {
     position: 'absolute',
     top: '100%',
