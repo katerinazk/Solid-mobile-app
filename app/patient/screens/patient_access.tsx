@@ -12,12 +12,18 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { addAccess, deleteAccess, updateAccessType, fetchAccessEntry } from '../../../services/access';
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, hasPendingAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
+import { Dropdown } from 'react-native-element-dropdown';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { ACCESS_FULL, ACCESS_READ_ONLY, ACCESS_NONE, ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
 
 // Οι επιλογές του φίλτρου. Η πρώτη είναι η "χωρίς φίλτρο", ώστε να υπάρχει δρόμος πίσω.
 const ALL_ACCESS = 'Όλες οι προσβάσεις';
 const ACCESS_FILTERS = [ALL_ACCESS, ...ACCESS_TYPES];
+
+// Η βιβλιοθήκη του dropdown θέλει αντικείμενα με ετικέτα και τιμή, όχι σκέτες συμβολοσειρές.
+const ACCESS_TYPE_OPTIONS = ACCESS_TYPES.map((type) => ({ label: type, value: type }));
+const GRANTABLE_ACCESS_OPTIONS = GRANTABLE_ACCESS_TYPES.map((type) => ({ label: type, value: type }));
+
 
 interface AccessRequest {
   id: string;
@@ -34,14 +40,13 @@ export default function PatientAccessScreen() {
   const [newDoctorAmka, setNewDoctorAmka] = useState('');
   const [newAccessType, setNewAccessType] = useState(ACCESS_FULL);
 
-  const [openTypeFor, setOpenTypeFor] = useState<string | null>(null);
 
   // Οπτική επιβεβαίωση της αλλαγής: πρώτα δείχνει ότι αποθηκεύεται, μετά ότι ολοκληρώθηκε.
   // Χωρίς αυτό η αλλαγή γινόταν σιωπηλά και ο ασθενής δεν ήξερε αν καταγράφηκε.
   //
   // Κρατάμε λίστα και όχι έναν γιατρό: αλλάζοντας δεύτερο, η επιβεβαίωση του πρώτου δεν
   // πρέπει να σβήσει, γιατί θα διαβαζόταν σαν να αναιρέθηκε η αλλαγή του.
-  const [savingTypeFor, setSavingTypeFor] = useState<string | null>(null);
+  const [savingChange, setSavingChange] = useState<{ amka: string; type: string } | null>(null);
   const [savedTypeAmkas, setSavedTypeAmkas] = useState<string[]>([]);
 
   // Οι επιβεβαιώσεις μένουν όσο ο ασθενής βρίσκεται στην οθόνη και καθαρίζουν μόλις τη
@@ -60,11 +65,9 @@ export default function PatientAccessScreen() {
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
-  const [openRequestTypeFor, setOpenRequestTypeFor] = useState<string | null>(null);
 
   const handleChangeRequestType = (requestId: string, newType: string) => {
     setRequests((prev) => prev.map((r) => r.id === requestId ? { ...r, access_type: newType } : r));
-    setOpenRequestTypeFor(null);
   };
 
   const openRequestsModal = async () => {
@@ -321,16 +324,14 @@ export default function PatientAccessScreen() {
   };
 
   const handleSelectAccessType = async (doctorAmka: string, newType: string) => {
-    setOpenTypeFor(null);
-
     const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
     if (doctorEntry?.access_type === newType) return;
 
-    setSavingTypeFor(doctorAmka);
+    setSavingChange({ amka: doctorAmka, type: newType });
     setSavedTypeAmkas(prev => prev.filter(amka => amka !== doctorAmka));
 
     const saved = await applyAccessType(doctorAmka, doctorEntry?.doctors?.web_id, newType);
-    setSavingTypeFor(null);
+    setSavingChange(null);
     if (!saved) return;
 
     setAccessList(prev => prev.map(a =>
@@ -426,43 +427,36 @@ export default function PatientAccessScreen() {
             </Text>
             <Text style={localStyles.specialty}>{item.doctors?.specialty}</Text>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={localStyles.typeLabel}>Τύπος πρόσβασης: </Text>
-              <View style={{ position: 'relative' }}>
-                <TouchableOpacity
-                  style={[localStyles.typePill, savedTypeAmkas.includes(item.doctor_amka) && localStyles.typePillSaved]}
-                  onPress={() => setOpenTypeFor((prev) => prev === item.doctor_amka ? null : item.doctor_amka)}
-                  disabled={savingTypeFor === item.doctor_amka}
-                >
-                  <Text style={[localStyles.typePillText, savedTypeAmkas.includes(item.doctor_amka) && localStyles.typePillTextSaved]}>{item.access_type}</Text>
+            <View style={localStyles.typeRow}>
+              <Text style={localStyles.typeLabel}>Τύπος πρόσβασης:</Text>
 
-                  {savingTypeFor === item.doctor_amka ? (
-                    <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 6 }} />
+              <Dropdown
+                style={[localStyles.typeField, savedTypeAmkas.includes(item.doctor_amka) && localStyles.typeFieldSaved]}
+                containerStyle={localStyles.typeFieldList}
+                selectedTextStyle={[localStyles.typeFieldText, savedTypeAmkas.includes(item.doctor_amka) && localStyles.typeFieldTextSaved]}
+                itemTextStyle={localStyles.typeFieldItemText}
+                selectedTextProps={{ numberOfLines: 1 }}
+                activeColor={COLORS.lightest}
+                maxHeight={220}
+                data={ACCESS_TYPE_OPTIONS}
+                labelField="label"
+                valueField="value"
+                value={item.access_type}
+                disable={!!savingChange}
+                onChange={(option) => handleSelectAccessType(item.doctor_amka, option.value)}
+                renderRightIcon={() =>
+                  savingChange?.amka === item.doctor_amka ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
                   ) : savedTypeAmkas.includes(item.doctor_amka) ? (
-                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} style={{ marginLeft: 4 }} />
+                    <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
                   ) : (
-                    <Ionicons name={openTypeFor === item.doctor_amka ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
-                  )}
-                </TouchableOpacity>
-
-                {openTypeFor === item.doctor_amka && (
-                  <View style={localStyles.typeDropdown}>
-                    {ACCESS_TYPES.map((type, index) => (
-                      <TouchableOpacity
-                        key={type}
-                        style={[localStyles.typeDropdownOption, index < ACCESS_TYPES.length - 1 && localStyles.typeDropdownOptionBorder]}
-                        onPress={() => handleSelectAccessType(item.doctor_amka, type)}
-                      >
-                        <Text style={[localStyles.typeDropdownOptionText, type === item.access_type && localStyles.typeDropdownOptionTextSelected]} numberOfLines={1}>{type}</Text>
-                        {type === item.access_type && <Ionicons name="checkmark" size={14} color={COLORS.primary} style={{ marginLeft: 6 }} />}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
+                    <Ionicons name="chevron-down" size={18} color={COLORS.primary} />
+                  )
+                }
+              />
             </View>
 
-            {savingTypeFor === item.doctor_amka && (
+            {savingChange?.amka === item.doctor_amka && (
               <Text style={localStyles.statusText}>Αποθήκευση αλλαγής...</Text>
             )}
             {savedTypeAmkas.includes(item.doctor_amka) && (
@@ -544,30 +538,20 @@ export default function PatientAccessScreen() {
                     {!!item.doctors?.specialty && <Text style={localStyles.specialty}>{item.doctors.specialty}</Text>}
 
                     <Text style={[localStyles.typeLabel, { marginBottom: 6 }]}>Τύπος πρόσβασης:</Text>
-                    <View style={{ position: 'relative', alignSelf: 'flex-start' }}>
-                      <TouchableOpacity
-                        style={localStyles.typePill}
-                        onPress={() => setOpenRequestTypeFor((prev) => prev === item.id ? null : item.id)}
-                      >
-                        <Text style={localStyles.typePillText}>{item.access_type}</Text>
-                        <Ionicons name={openRequestTypeFor === item.id ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.primary} style={{ marginLeft: 4 }} />
-                      </TouchableOpacity>
-
-                      {openRequestTypeFor === item.id && (
-                        <View style={localStyles.typeDropdown}>
-                          {GRANTABLE_ACCESS_TYPES.map((type, index) => (
-                            <TouchableOpacity
-                              key={type}
-                              style={[localStyles.typeDropdownOption, index === 0 && localStyles.typeDropdownOptionBorder]}
-                              onPress={() => handleChangeRequestType(item.id, type)}
-                            >
-                              <Text style={[localStyles.typeDropdownOptionText, type === item.access_type && localStyles.typeDropdownOptionTextSelected]} numberOfLines={1}>{type}</Text>
-                              {type === item.access_type && <Ionicons name="checkmark" size={14} color={COLORS.primary} style={{ marginLeft: 6 }} />}
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                    </View>
+                    <Dropdown
+                      style={localStyles.typeField}
+                      containerStyle={localStyles.typeFieldList}
+                      selectedTextStyle={localStyles.typeFieldText}
+                      itemTextStyle={localStyles.typeFieldItemText}
+                      activeColor={COLORS.lightest}
+                      maxHeight={220}
+                      data={GRANTABLE_ACCESS_OPTIONS}
+                      labelField="label"
+                      valueField="value"
+                      value={item.access_type}
+                      onChange={(option) => handleChangeRequestType(item.id, option.value)}
+                      renderRightIcon={() => <Ionicons name="chevron-down" size={18} color={COLORS.primary} />}
+                    />
 
                     <View style={{ flexDirection: 'row', marginTop: 10 }}>
                       <TouchableOpacity
@@ -633,29 +617,31 @@ const localStyles = StyleSheet.create({
   doctorName: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary },
   specialty: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, marginTop: 2, marginBottom: SPACING.groupGap },
   typeLabel: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
-  typePill: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, marginLeft: 8 },
-  typePillText: { color: COLORS.primary, fontWeight: '600', fontSize: TYPOGRAPHY.secondaryText },
-  typePillSaved: { borderColor: COLORS.success },
-  typePillTextSaved: { color: COLORS.success },
-  statusText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, marginTop: 6 },
-  typeDropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    marginTop: 4,
-    backgroundColor: COLORS.white,
+  // Το πεδίο επιλογής είναι γεμάτο κουμπί, στο χρώμα της εφαρμογής. Μόλις αποθηκευτεί μια
+  // αλλαγή, γεμίζει πράσινο: η επιβεβαίωση φαίνεται από απόσταση, όχι σε μια λεπτή γραμμή.
+  typeRow: { flexDirection: 'row', alignItems: 'center' },
+  typeField: {
+    // Πιάνει ό,τι περισσεύει δεξιά από την ετικέτα. Το ύψος πέφτει στο ελάχιστο που
+    // επιτρέπουν οι κανόνες για στόχο αφής - πιο κάτω δεν γίνεται.
+    flex: 1,
+    marginLeft: SPACING.groupGap,
+    height: TOUCH.minTargetSize,
+    backgroundColor: COLORS.light,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+  },
+  typeFieldSaved: { backgroundColor: COLORS.success },
+  typeFieldText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, fontWeight: '600' },
+  typeFieldTextSaved: { color: COLORS.white },
+  // Η λίστα που ανοίγει χρειάζεται δικό της φόντο και περίγραμμα: επιπλέει πάνω από την καρτέλα.
+  typeFieldList: {
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.medium,
-    borderRadius: 12,
-    overflow: 'hidden',
-    zIndex: 10,
-    elevation: 5,
+    backgroundColor: COLORS.white,
   },
-  typeDropdownOption: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10 },
-  typeDropdownOptionBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.lightest },
-  typeDropdownOptionText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text },
-  typeDropdownOptionTextSelected: { color: COLORS.primary, fontWeight: 'bold' },
+  typeFieldItemText: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text },
+  statusText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, marginTop: 6 },
   removeButton: { backgroundColor: COLORS.danger, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
   removeButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
   requestCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: 12 },
