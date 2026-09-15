@@ -68,3 +68,22 @@ export async function updateAccessType(patientAmka: string, doctorAmka: string, 
     .eq('patient_amka', patientAmka)
     .eq('doctor_amka', doctorAmka);
 }
+
+// Μετά από αλλαγή Pod, καμία από τις παλιές εγγραφές ACL δεν ισχύει: το νέο Pod του ασθενή
+// ξεκινά χωρίς κανέναν γιατρό μέσα. Ο συγχρονισμός ξαναγράφεται μόλις μπει στο νέο του Pod.
+export async function resetAclSyncForPatient(patientAmka: string) {
+  return supabase
+    .from('access')
+    .update({ acl_synced: false })
+    .eq('patient_amka', patientAmka);
+}
+
+// Ο γιατρός που άλλαξε Pod έχει νέο WebID, που δεν υπάρχει σε κανένα ACL ασθενή. Οι ασθενείς
+// του ξαναεμφανίζονται ένας ένας, καθώς ο καθένας τους μπαίνει στην εφαρμογή και ξαναγράφει
+// το ACL του Pod του.
+export async function resetAclSyncForDoctor(doctorAmka: string) {
+  return supabase
+    .from('access')
+    .update({ acl_synced: false })
+    .eq('doctor_amka', doctorAmka);
+}

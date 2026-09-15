@@ -119,3 +119,12 @@ export async function updatePatient(amka: string, form: PatientUpdateForm) {
     email: form.email || null,
   }).eq('amka', amka);
 }
+
+// Αποδεσμεύει το ΑΜΚΑ από το Pod του. Η επόμενη είσοδος δέχεται όποιο Pod δηλώσει ο ασθενής
+// και το γράφει ως το νέο του - όσο υπάρχει web_id, κάθε άλλο Pod απορρίπτεται.
+export async function clearPatientWebId(amka: string) {
+  return supabase
+    .from('patients')
+    .update({ web_id: null })
+    .eq('amka', amka);
+}

@@ -46,3 +46,11 @@ export async function updateDoctor(amka: string, form: DoctorUpdateForm) {
     email: form.email || null,
   }).eq('amka', amka);
 }
+
+// Όπως και στον ασθενή: σβήνοντας το web_id, η επόμενη είσοδος δένει το ΑΜΚΑ με νέο Pod.
+export async function clearDoctorWebId(amka: string) {
+  return supabase
+    .from('doctors')
+    .update({ web_id: null })
+    .eq('amka', amka);
+}

@@ -6,6 +6,9 @@ import { router } from 'expo-router';
 import { supabase } from '../services/supabase';
 import { createDpopToken } from '../utils/dpop';
 import { ROUTES } from '../constants/routes';
+import { clearPatientWebId } from '../services/patients';
+import { clearDoctorWebId } from '../services/doctors';
+import { resetAclSyncForPatient, resetAclSyncForDoctor } from '../services/access';
 
 type Role = 'doctor' | 'patient';
 
@@ -23,6 +26,7 @@ export interface AuthContextValue {
   login: (role: Role, amka: string, providerUrl?: string) => void;
   logout: () => void;
   confirmLogout: () => void;
+  confirmSwitchPod: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -84,6 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!data.web_id) {
+        // Δύο ΑΜΚΑ δεν γίνεται να δείχνουν στο ίδιο Pod: τα ιατρικά αρχεία του ενός θα
+        // εμφανίζονταν στον άλλο. Ο έλεγχος μετράει από τότε που μπορεί κανείς να αλλάξει Pod.
+        const { data: taken } = await supabase
+          .from('patients')
+          .select('amka')
+          .eq('web_id', webId)
+          .maybeSingle();
+
+        if (taken) {
+          alert("Αυτό το Pod χρησιμοποιείται ήδη από άλλον ασθενή. Συνδεθείτε με δικό σας Pod.");
+          return false;
+        }
+
         await supabase
           .from('patients')
           .update({ web_id: webId })
@@ -132,6 +149,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!data.web_id) {
+        // Το ίδιο και εδώ: ένα Pod ανήκει σε έναν μόνο γιατρό.
+        const { data: taken } = await supabase
+          .from('doctors')
+          .select('amka')
+          .eq('web_id', webId)
+          .maybeSingle();
+
+        if (taken) {
+          alert("Αυτό το Pod χρησιμοποιείται ήδη από άλλον γιατρό. Συνδεθείτε με δικό σας Pod.");
+          return false;
+        }
+
         await supabase
           .from('doctors')
           .update({ web_id: webId })
@@ -331,7 +360,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken('');
     setLoggedInPatientAmka('');
     setLoggedInDoctorAmka('');
+    setActivePatientFolderUrl('');
     router.replace(ROUTES.LOGIN);
+  };
+
+  /**
+   * Αποδεσμεύει το ΑΜΚΑ από το τωρινό Pod και βγάζει τον χρήστη στην οθόνη σύνδεσης.
+   *
+   * Η αντιστοίχιση ΑΜΚΑ-Pod γράφεται στη βάση την πρώτη φορά που θα συνδεθεί κανείς, και από
+   * εκεί και πέρα η εφαρμογή απορρίπτει κάθε άλλο Pod για το ίδιο ΑΜΚΑ. Σβήνοντας το web_id,
+   * η επόμενη σύνδεση δέχεται ό,τι Pod δηλώσει ο χρήστης και το κρατά ως το νέο του.
+   */
+  const switchPod = async () => {
+    const { error } = role === 'patient'
+      ? await clearPatientWebId(loggedInPatientAmka)
+      : await clearDoctorWebId(loggedInDoctorAmka);
+
+    if (error) {
+      Alert.alert('Σφάλμα', 'Δεν ήταν δυνατή η αποδέσμευση του Pod. Δοκιμάστε ξανά.');
+      return;
+    }
+
+    // Το νέο Pod ξεκινά με άδειο ACL, οπότε καμία παλιά πρόσβαση δεν ισχύει πια. Ξαναγράφεται
+    // μόνη της μόλις μπει ο ασθενής στο νέο του Pod.
+    if (role === 'patient') {
+      await resetAclSyncForPatient(loggedInPatientAmka);
+    } else {
+      await resetAclSyncForDoctor(loggedInDoctorAmka);
+    }
+
+    logout();
+  };
+
+  const confirmSwitchPod = () => {
+    const consequence = role === 'patient'
+      ? 'Οι καταχωρήσεις που έχετε σήμερα μένουν στο παλιό Pod και δεν μεταφέρονται. Οι γιατροί που σας έχουν πρόσβαση θα την ξαναποκτήσουν μόλις συνδεθείτε στο νέο.'
+      : 'Οι ασθενείς σας θα σας ξαναεμφανιστούν καθώς ο καθένας τους μπαίνει στην εφαρμογή και ενημερώνεται ο φάκελός του.';
+
+    Alert.alert(
+      'Σύνδεση με άλλο Pod',
+      `Θα αποσυνδεθείτε και θα χρειαστεί να συνδεθείτε ξανά, δηλώνοντας το νέο σας Pod.
+
+${consequence}`,
+      [
+        { text: 'Ακύρωση', style: 'cancel' },
+        { text: 'Συνέχεια', style: 'destructive', onPress: switchPod },
+      ],
+    );
   };
 
   const confirmLogout = () => {
@@ -355,6 +430,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         confirmLogout,
+        confirmSwitchPod,
       }}
     >
       {children}

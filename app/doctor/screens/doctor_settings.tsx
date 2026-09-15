@@ -1,26 +1,29 @@
 import React from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles } from '../../../constants/sharedStyles';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
-import { SPACING } from '../../../constants/designSystem';
+import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
 import { useAuth } from '../../../hooks/useAuth';
 
 export default function DoctorSettingsScreen() {
-  const { confirmLogout } = useAuth();
+  const { confirmLogout, confirmSwitchPod } = useAuth();
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <DoctorHeader />
 
-      <Text style={[sharedStyles.emptyText, { marginTop: 50 }]}>Η λειτουργία έρχεται σύντομα.</Text>
-
       <View style={{ flex: 1 }} />
 
       <View style={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
+        <TouchableOpacity style={localStyles.secondaryButton} onPress={confirmSwitchPod}>
+          <Ionicons name="swap-horizontal-outline" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+          <Text style={localStyles.secondaryButtonText}>Σύνδεση με άλλο Pod</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[sharedStyles.addButton, { borderRadius: 25, flexDirection: 'row', marginBottom: 0 }]}
           onPress={confirmLogout}
@@ -32,3 +35,20 @@ export default function DoctorSettingsScreen() {
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  // Δευτερεύουσα ενέργεια: περιγραμμένη αντί για γεμάτη, ώστε να μην ανταγωνίζεται οπτικά
+  // την αποσύνδεση ακριβώς από κάτω.
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: TOUCH.buttonHeight,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.white,
+    marginBottom: SPACING.groupGap,
+  },
+  secondaryButtonText: { color: COLORS.primary, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+});
