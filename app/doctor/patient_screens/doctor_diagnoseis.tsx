@@ -52,7 +52,7 @@ export default function DoctorDiagnoseisScreen() {
 
 
   const loadDiagnoses = async (silent = false) => {
-    if (!webId) return Alert.alert("Σφάλμα", "Δεν βρέθηκε WebID.");
+    if (!webId) return Alert.alert("Σφάλμα", "Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
       if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
