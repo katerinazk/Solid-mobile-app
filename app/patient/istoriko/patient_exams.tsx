@@ -7,6 +7,7 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { FilterScrollRow } from '../../../components/FilterScrollRow';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
@@ -310,10 +311,8 @@ export default function PatientExamsScreen() {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.groupGap }}
+      <FilterScrollRow
+        contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}
         style={localStyles.categoryBar}
       >
         {CATEGORIES.map((category) => {
@@ -328,7 +327,7 @@ export default function PatientExamsScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </FilterScrollRow>
 
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />

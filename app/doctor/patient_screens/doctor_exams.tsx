@@ -13,6 +13,7 @@ import { isCompleteRecord } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
+import { FilterScrollRow } from '../../../components/FilterScrollRow';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -278,10 +279,8 @@ export default function DoctorExamsScreen() {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.groupGap }}
+      <FilterScrollRow
+        contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}
         style={localStyles.categoryBar}
       >
         {CATEGORIES.map((category) => {
@@ -296,7 +295,7 @@ export default function DoctorExamsScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </FilterScrollRow>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         {!isReadOnly && (
