@@ -269,7 +269,14 @@ export default function RecordDetailScreen() {
 }
 
 const localStyles = StyleSheet.create({
-  identity: { marginBottom: SPACING.sectionGap },
+  // Οι πληροφορίες της εγγραφής μέσα σε πλαίσιο, όπως ακριβώς και η κάρτα από την οποία
+  // ήρθε ο χρήστης. Το marginHorizontal είναι μηδέν γιατί το περιθώριο το δίνει η οθόνη.
+  identity: {
+    backgroundColor: COLORS.lightest,
+    borderRadius: 15,
+    padding: 16,
+    marginBottom: SPACING.sectionGap,
+  },
   sectionTitle: {
     fontSize: TYPOGRAPHY.subtitle,
     fontWeight: 'bold',
