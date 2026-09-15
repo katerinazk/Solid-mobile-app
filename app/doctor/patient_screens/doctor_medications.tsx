@@ -6,6 +6,8 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
+import { usePagination } from '../../../hooks/usePagination';
+import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
@@ -244,6 +246,11 @@ export default function DoctorMedicationsScreen() {
 
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και την "Προηγούμενη Αγωγή" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
+  // Πέντε φάρμακα ανά σελίδα σε κάθε ενότητα. Οι δύο ενότητες σελιδοποιούνται χωριστά,
+  // ώστε να μη μετακινεί η μία τα περιεχόμενα της άλλης.
+  const activePager = usePagination(activeMedications);
+  const previousPager = usePagination(previousMedications);
+
   const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
   return (
@@ -293,8 +300,10 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
+            activePager.pageItems.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
           )}
+
+          <Pagination page={activePager.page} pageCount={activePager.pageCount} onChange={activePager.setPage} />
 
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
@@ -309,8 +318,10 @@ export default function DoctorMedicationsScreen() {
               {previousMedications.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
               ) : (
-                previousMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
+                previousPager.pageItems.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
               )}
+
+              <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
             </View>
           )}
         </ScrollView>

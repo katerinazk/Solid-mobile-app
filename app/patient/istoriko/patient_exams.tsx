@@ -10,6 +10,8 @@ import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { FilterScrollRow } from '../../../components/FilterScrollRow';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
+import { usePagination } from '../../../hooks/usePagination';
+import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { useAuth } from '../../../hooks/useAuth';
@@ -284,6 +286,10 @@ export default function PatientExamsScreen() {
 
   // Ίδια λογική με την οθόνη του γιατρού: όσο υπάρχει αναζήτηση ανοίγουμε αυτόματα και τις
   // "Ολοκληρωμένες", αλλιώς ένα αποτέλεσμα εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
+  // Πέντε εξετάσεις ανά σελίδα σε κάθε ενότητα, χωριστά η μία από την άλλη.
+  const pendingPager = usePagination(pendingExams);
+  const completedPager = usePagination(completedExams);
+
   const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
 
   return (
@@ -343,7 +349,7 @@ export default function PatientExamsScreen() {
               {searchQuery.trim() ? 'Δεν βρέθηκε εκκρεμής εξέταση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν εκκρεμείς εξετάσεις.'}
             </Text>
           ) : (
-            pendingExams.map((item) => (
+            pendingPager.pageItems.map((item) => (
               <PendingExamCard
                 key={item.url}
                 item={item}
@@ -355,6 +361,8 @@ export default function PatientExamsScreen() {
               />
             ))
           )}
+
+          <Pagination page={pendingPager.page} pageCount={pendingPager.pageCount} onChange={pendingPager.setPage} />
 
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
@@ -371,10 +379,12 @@ export default function PatientExamsScreen() {
                   {searchQuery.trim() ? 'Δεν βρέθηκε ολοκληρωμένη εξέταση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν ολοκληρωμένες εξετάσεις.'}
                 </Text>
               ) : (
-                completedExams.map((item) => (
+                completedPager.pageItems.map((item) => (
                   <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />
                 ))
               )}
+
+              <Pagination page={completedPager.page} pageCount={completedPager.pageCount} onChange={completedPager.setPage} />
             </View>
           )}
         </ScrollView>

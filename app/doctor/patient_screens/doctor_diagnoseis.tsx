@@ -13,6 +13,8 @@ import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
+import { usePagination } from '../../../hooks/usePagination';
+import { Pagination } from '../../../components/Pagination';
 import { useDoctorNames, formatDoctorLastNameOnly } from '../../../hooks/useDoctorNames';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 
@@ -158,6 +160,10 @@ export default function DoctorDiagnoseisScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Διαγνώσεις', webId } });
   };
 
+  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
+  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
+  const { pageItems, page, pageCount, setPage } = usePagination(visibleDiagnoses);
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -207,7 +213,8 @@ export default function DoctorDiagnoseisScreen() {
       ) : (
         <FlatList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          data={visibleDiagnoses}
+          data={pageItems}
+          ListFooterComponent={<Pagination page={page} pageCount={pageCount} onChange={setPage} />}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (

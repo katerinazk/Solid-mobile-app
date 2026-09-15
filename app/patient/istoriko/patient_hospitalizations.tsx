@@ -7,6 +7,8 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
+import { usePagination } from '../../../hooks/usePagination';
+import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
@@ -127,6 +129,10 @@ export default function PatientHospitalizationsScreen() {
     }
   };
 
+  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
+  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
+  const { pageItems, page, pageCount, setPage } = usePagination(hospitalizations);
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -145,7 +151,8 @@ export default function PatientHospitalizationsScreen() {
       ) : (
         <FlatList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          data={hospitalizations}
+          data={pageItems}
+          ListFooterComponent={<Pagination page={page} pageCount={pageCount} onChange={setPage} />}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (

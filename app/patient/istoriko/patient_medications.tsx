@@ -7,6 +7,8 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
+import { usePagination } from '../../../hooks/usePagination';
+import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
@@ -228,6 +230,11 @@ export default function PatientMedicationsScreen() {
 
   // Όσο υπάρχει αναζήτηση ανοίγουμε μόνοι μας την "Προηγούμενη Αγωγή", αλλιώς τα αποτελέσματα
   // που βρίσκονται εκεί θα έμεναν κρυμμένα μέσα στην κλειστή ενότητα.
+  // Πέντε φάρμακα ανά σελίδα σε κάθε ενότητα. Οι δύο ενότητες σελιδοποιούνται χωριστά,
+  // ώστε να μη μετακινεί η μία τα περιεχόμενα της άλλης.
+  const activePager = usePagination(activeMedications);
+  const previousPager = usePagination(previousMedications);
+
   const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
   return (
@@ -269,7 +276,7 @@ export default function PatientMedicationsScreen() {
               {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν ενεργές αγωγές.'}
             </Text>
           ) : (
-            activeMedications.map((item) =>
+            activePager.pageItems.map((item) =>
               isPending(item) ? (
                 <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
                   <View style={doctorStyles.diagnosisCardHeader}>
@@ -331,6 +338,8 @@ export default function PatientMedicationsScreen() {
             )
           )}
 
+          <Pagination page={activePager.page} pageCount={activePager.pageCount} onChange={activePager.setPage} />
+
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
             onPress={() => setShowPrevious((prev) => !prev)}
@@ -352,7 +361,7 @@ export default function PatientMedicationsScreen() {
                   {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν προηγούμενες αγωγές.'}
                 </Text>
               ) : (
-                previousMedications.map((item) => {
+                previousPager.pageItems.map((item) => {
                   return (
                     <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
                       <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
@@ -377,6 +386,8 @@ export default function PatientMedicationsScreen() {
                   );
                 })
               )}
+
+              <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
             </View>
           )}
         </ScrollView>

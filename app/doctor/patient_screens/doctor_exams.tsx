@@ -6,6 +6,8 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
+import { usePagination } from '../../../hooks/usePagination';
+import { Pagination } from '../../../components/Pagination';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
@@ -195,6 +197,10 @@ export default function DoctorExamsScreen() {
 
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και τις "Ολοκληρωμένες" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
+  // Πέντε εξετάσεις ανά σελίδα σε κάθε ενότητα, χωριστά η μία από την άλλη.
+  const pendingPager = usePagination(pendingExams);
+  const completedPager = usePagination(completedExams);
+
   const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
 
   const openDetail = (item: Exam) => {
@@ -317,8 +323,10 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />)
+            pendingPager.pageItems.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />)
           )}
+
+          <Pagination page={pendingPager.page} pageCount={pendingPager.pageCount} onChange={pendingPager.setPage} />
 
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
@@ -333,8 +341,10 @@ export default function DoctorExamsScreen() {
               {completedExams.length === 0 ? (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ολοκληρωμένες εξετάσεις.</Text>
               ) : (
-                completedExams.map((item) => <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />)
+                completedPager.pageItems.map((item) => <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />)
               )}
+
+              <Pagination page={completedPager.page} pageCount={completedPager.pageCount} onChange={completedPager.setPage} />
             </View>
           )}
         </ScrollView>

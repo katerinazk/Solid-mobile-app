@@ -6,6 +6,8 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
+import { usePagination } from '../../../hooks/usePagination';
+import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord } from '../../../utils/podRecords';
@@ -144,6 +146,10 @@ export default function DoctorAllergiesScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Αλλεργίες', webId } });
   };
 
+  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
+  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
+  const { pageItems, page, pageCount, setPage } = usePagination(allergies);
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -172,7 +178,8 @@ export default function DoctorAllergiesScreen() {
       ) : (
         <FlatList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          data={allergies}
+          data={pageItems}
+          ListFooterComponent={<Pagination page={page} pageCount={pageCount} onChange={setPage} />}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
