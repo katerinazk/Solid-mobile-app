@@ -14,6 +14,9 @@ type Role = 'doctor' | 'patient';
 
 const SOLID_PROVIDER_URL = 'https://datapod.igrant.io';
 
+// Το όνομα με το οποίο συστήνεται η εφαρμογή στον Solid provider.
+const APP_NAME = 'MedPod';
+
 export interface AuthContextValue {
   role: Role | null;
   isLoggedIn: boolean;
@@ -47,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState('');
   const [idToken, setIdToken] = useState('');
 
+  // Προσοχή: ο node-solid-server δεν δείχνει το client_name στην οθόνη συγκατάθεσης, αλλά την
+  // προέλευση (origin) αυτού εδώ του URI. Ένα σχήμα εφαρμογής δεν έχει origin, οπότε εκεί
+  // εμφανίζεται "null". Θα χρειαζόταν https redirect σε δικό μας domain για να φαίνεται όνομα.
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp' });
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
@@ -311,7 +317,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          client_name: 'Solid Medical App',
+          // Το όνομα που δηλώνει η εφαρμογή στον Solid provider. Οι servers που ακολουθούν το
+          // Solid-OIDC το δείχνουν στην οθόνη συγκατάθεσης. Ο datapod.igrant.io (node-solid-server)
+          // δείχνει αντ' αυτού την προέλευση του redirect URI - βλ. σχόλιο στο redirectUri.
+          client_name: APP_NAME,
           redirect_uris: [redirectUri],
           // Χωρίς αυτό, ο server απορρίπτει το post_logout_redirect_uri στο RP-Initiated
           post_logout_redirect_uris: [redirectUri],
