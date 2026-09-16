@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -8,13 +8,17 @@ import { loginStyles } from '../../../constants/loginStyles';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
-import { fetchDoctorByAmka } from '../../../services/doctors';
+import { fetchDoctorByAmka, searchDoctors } from '../../../services/doctors';
 import { addAccess, deleteAccess, updateAccessType, fetchAccessEntry } from '../../../services/access';
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, hasPendingAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { Dropdown } from 'react-native-element-dropdown';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { ACCESS_FULL, ACCESS_READ_ONLY, ACCESS_NONE, ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
+
+// Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
+// τα πάντα και το αποτέλεσμα δεν λέει τίποτα στον ασθενή.
+const MIN_SEARCH_LENGTH = 3;
 
 // Οι επιλογές του φίλτρου. Η πρώτη είναι η "χωρίς φίλτρο", ώστε να υπάρχει δρόμος πίσω.
 const ALL_ACCESS = 'Όλες οι προσβάσεις';
@@ -24,6 +28,13 @@ const ACCESS_FILTERS = [ALL_ACCESS, ...ACCESS_TYPES];
 const ACCESS_TYPE_OPTIONS = ACCESS_TYPES.map((type) => ({ label: type, value: type }));
 const GRANTABLE_ACCESS_OPTIONS = GRANTABLE_ACCESS_TYPES.map((type) => ({ label: type, value: type }));
 
+
+interface DoctorSearchResult {
+  first_name: string;
+  last_name: string;
+  amka: string;
+  specialty: string | null;
+}
 
 interface AccessRequest {
   id: string;
@@ -60,6 +71,56 @@ export default function PatientAccessScreen() {
     () => accessFilter === ALL_ACCESS ? accessList : accessList.filter((a) => a.access_type === accessFilter),
     [accessList, accessFilter]
   );
+
+  // Η αναζήτηση πηγαίνει σε ΟΛΟΥΣ τους γιατρούς της βάσης, όχι μόνο σε όσους έχει ήδη δώσει
+  // πρόσβαση ο ασθενής: αλλιώς δεν θα μπορούσε ποτέ να βρει καινούργιο γιατρό με το όνομά του.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<DoctorSearchResult[]>([]);
+
+  const trimmedQuery = searchQuery.trim();
+  const isSearchActive = trimmedQuery.length >= MIN_SEARCH_LENGTH;
+
+  useEffect(() => {
+    if (!isSearchActive) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+
+    // Μικρή καθυστέρηση ώστε να μη στέλνουμε ένα query σε κάθε χαρακτήρα που πληκτρολογείται.
+    let canceled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { data, error } = await searchDoctors(trimmedQuery);
+        if (canceled) return;
+        setResults(error ? [] : ((data || []) as DoctorSearchResult[]));
+      } finally {
+        if (!canceled) setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      canceled = true;
+      clearTimeout(timer);
+    };
+  }, [trimmedQuery, isSearchActive]);
+
+  // Πρώτα οι γιατροί που έχουν ήδη πρόσβαση, ώστε ο ασθενής να βλέπει αμέσως τι ισχύει, και
+  // μετά οι υπόλοιποι της βάσης, που περιμένουν να τους δοθεί.
+  const sortedResults = useMemo(() => {
+    const hasAccess = (item: DoctorSearchResult) => accessList.some((a) => a.doctor_amka === item.amka);
+    return [...results.filter(hasAccess), ...results.filter((item) => !hasAccess(item))];
+  }, [results, accessList]);
+
+  // Η προσθήκη γίνεται από το ίδιο παράθυρο με το κουμπί "+", απλώς με συμπληρωμένο ΑΜΚΑ:
+  // έτσι περνούν και εδώ όλοι οι έλεγχοι της χειροκίνητης προσθήκης.
+  const openAddAccessFor = (doctorAmka: string) => {
+    setNewDoctorAmka(doctorAmka);
+    setNewAccessType(ACCESS_FULL);
+    setIsAddAccessModalVisible(true);
+  };
 
   const [isRequestsModalVisible, setIsRequestsModalVisible] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -341,86 +402,9 @@ export default function PatientAccessScreen() {
     setSavedTypeAmkas(prev => [...prev, doctorAmka]);
   };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
-      <StatusBar barStyle="dark-content" />
-      <PatientHeader />
-
-      <FlatList
-        data={visibleAccessList}
-        keyExtractor={(item) => item.doctor_amka}
-        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin, flexGrow: 1 }}
-        ListHeaderComponent={
-          <>
-            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-              {/* Οι δύο ενέργειες της οθόνης ζουν δίπλα στον τίτλο, ως στρογγυλά εικονίδια:
-                  δίνω πρόσβαση σε γιατρό, και βλέπω ποιοι μου την έχουν ζητήσει. */}
-              <View style={localStyles.titleRow}>
-                <Text style={localStyles.sectionTitle}>Προσβάσεις</Text>
-                <TouchableOpacity
-                  style={localStyles.circleButton}
-                  onPress={() => setIsAddAccessModalVisible(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Προσθήκη πρόσβασης σε γιατρό"
-                >
-                  <Ionicons name="add" size={26} color={COLORS.white} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={localStyles.circleButton}
-                  onPress={openRequestsModal}
-                  accessibilityRole="button"
-                  accessibilityLabel="Αιτήματα πρόσβασης από γιατρούς"
-                >
-                  <Ionicons name="mail-unread-outline" size={22} color={COLORS.white} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ width: '70%', alignSelf: 'center' }}>
-                <Text style={localStyles.searchLabel}>Αναζήτηση γιατρού:</Text>
-                <View style={[localStyles.searchContainer, { marginHorizontal: 0 }]}>
-                  <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-                  <TextInput style={localStyles.searchInput} placeholder="Αναζήτηση..." placeholderTextColor={COLORS.primary} />
-                </View>
-              </View>
-            </View>
-
-            {/* Το φίλτρο ανοίγει προς τα κάτω σπρώχνοντας τη λίστα, αντί να επιπλέει από πάνω
-                της: μέσα σε κεφαλίδα FlatList ένα επιπλέον στοιχείο κόβεται στα άκρα. */}
-            <View style={localStyles.filterWrapper}>
-              <TouchableOpacity style={localStyles.sortButton} onPress={() => setIsFilterOpen((prev) => !prev)}>
-                <Text style={localStyles.sortButtonText}>↕  {accessFilter}</Text>
-              </TouchableOpacity>
-
-              {isFilterOpen && (
-                <View style={localStyles.filterDropdown}>
-                  {ACCESS_FILTERS.map((option, index) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[localStyles.filterOption, index < ACCESS_FILTERS.length - 1 && localStyles.filterOptionBorder]}
-                      onPress={() => { setAccessFilter(option); setIsFilterOpen(false); }}
-                    >
-                      <Text style={[localStyles.filterOptionText, option === accessFilter && localStyles.filterOptionTextSelected]}>{option}</Text>
-                      {option === accessFilter && <Ionicons name="checkmark" size={16} color={COLORS.primary} style={{ marginLeft: 8 }} />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          </>
-        }
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
-          ) : (
-            <Text style={[styles.emptyText, { marginTop: 50 }]}>
-              {accessFilter === ALL_ACCESS
-                ? 'Δεν έχετε δώσει πρόσβαση σε κανέναν γιατρό.'
-                : `Κανένας γιατρός δεν έχει "${accessFilter}".`}
-            </Text>
-          )
-        }
-        renderItem={({ item }) => (
+  // Η καρτέλα ενός γιατρού που έχει ήδη πρόσβαση. Είναι ξεχωριστή συνάρτηση επειδή
+  // εμφανίζεται σε δύο σημεία: στη λίστα προσβάσεων και μέσα στα αποτελέσματα αναζήτησης.
+  const renderAccessCard = (item: any) => (
           <View style={localStyles.card}>
             <Text style={localStyles.doctorName}>
               Δρ. {item.doctors?.last_name} {item.doctors?.first_name}
@@ -467,7 +451,129 @@ export default function PatientAccessScreen() {
               <Text style={localStyles.removeButtonText}>Κατάργηση</Text>
             </TouchableOpacity>
           </View>
-        )}
+  );
+
+  // Το αποτέλεσμα αναζήτησης: αν ο γιατρός έχει ήδη πρόσβαση δείχνουμε την κανονική του
+  // καρτέλα, ώστε ο ασθενής να αλλάζει τον τύπο επιτόπου αντί να ψάχνει πάλι τη λίστα.
+  const renderSearchResultCard = (result: DoctorSearchResult) => {
+    const existing = accessList.find((a) => a.doctor_amka === result.amka);
+    if (existing) return renderAccessCard(existing);
+
+    return (
+      <View style={localStyles.card}>
+        <Text style={localStyles.doctorName}>Δρ. {result.last_name} {result.first_name}</Text>
+        {!!result.specialty && <Text style={localStyles.specialty}>{result.specialty}</Text>}
+        <Text style={localStyles.resultAmka}>ΑΜΚΑ: {result.amka}</Text>
+        <TouchableOpacity style={localStyles.grantButton} onPress={() => openAddAccessFor(result.amka)}>
+          <Text style={localStyles.grantButtonText}>Προσθήκη Πρόσβασης</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
+      <StatusBar barStyle="dark-content" />
+      <PatientHeader />
+
+      <FlatList
+        data={isSearchActive ? sortedResults : visibleAccessList}
+        keyExtractor={(item) => item.doctor_amka || item.amka}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin, flexGrow: 1 }}
+        ListHeaderComponent={
+          <>
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              {/* Οι δύο ενέργειες της οθόνης ζουν δίπλα στον τίτλο, ως στρογγυλά εικονίδια:
+                  δίνω πρόσβαση σε γιατρό, και βλέπω ποιοι μου την έχουν ζητήσει. */}
+              <View style={localStyles.titleRow}>
+                <Text style={localStyles.sectionTitle}>Προσβάσεις</Text>
+                <TouchableOpacity
+                  style={localStyles.circleButton}
+                  onPress={() => setIsAddAccessModalVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Προσθήκη πρόσβασης σε γιατρό"
+                >
+                  <Ionicons name="add" size={26} color={COLORS.white} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={localStyles.circleButton}
+                  onPress={openRequestsModal}
+                  accessibilityRole="button"
+                  accessibilityLabel="Αιτήματα πρόσβασης από γιατρούς"
+                >
+                  <Ionicons name="mail-unread-outline" size={22} color={COLORS.white} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ width: '70%', alignSelf: 'center' }}>
+                <Text style={localStyles.searchLabel}>Αναζήτηση γιατρού:</Text>
+                <View style={[localStyles.searchContainer, { marginHorizontal: 0 }]}>
+                  <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
+                  <TextInput
+                    style={localStyles.searchInput}
+                    placeholder="Όνομα, επώνυμο ή ΑΜΚΑ"
+                    placeholderTextColor={COLORS.primary}
+                    autoCorrect={false}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {!!searchQuery && (
+                    <TouchableOpacity
+                      onPress={() => setSearchQuery('')}
+                      hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Καθαρισμός αναζήτησης"
+                    >
+                      <Ionicons name="close-circle" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Το φίλτρο ανοίγει προς τα κάτω σπρώχνοντας τη λίστα, αντί να επιπλέει από πάνω
+                της: μέσα σε κεφαλίδα FlatList ένα επιπλέον στοιχείο κόβεται στα άκρα.
+                Κατά την αναζήτηση κρύβεται: τα αποτελέσματα περιλαμβάνουν και γιατρούς χωρίς
+                καμία πρόσβαση, που δεν έχουν τύπο για να φιλτραριστούν. */}
+            {!isSearchActive && (
+            <View style={localStyles.filterWrapper}>
+              <TouchableOpacity style={localStyles.sortButton} onPress={() => setIsFilterOpen((prev) => !prev)}>
+                <Text style={localStyles.sortButtonText}>↕  {accessFilter}</Text>
+              </TouchableOpacity>
+
+              {isFilterOpen && (
+                <View style={localStyles.filterDropdown}>
+                  {ACCESS_FILTERS.map((option, index) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[localStyles.filterOption, index < ACCESS_FILTERS.length - 1 && localStyles.filterOptionBorder]}
+                      onPress={() => { setAccessFilter(option); setIsFilterOpen(false); }}
+                    >
+                      <Text style={[localStyles.filterOptionText, option === accessFilter && localStyles.filterOptionTextSelected]}>{option}</Text>
+                      {option === accessFilter && <Ionicons name="checkmark" size={16} color={COLORS.primary} style={{ marginLeft: 8 }} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+            )}
+          </>
+        }
+        ListEmptyComponent={
+          (loading && !isSearchActive) || (isSearchActive && searching) ? (
+            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
+          ) : isSearchActive ? (
+            <Text style={[styles.emptyText, { marginTop: 50 }]}>Δεν βρέθηκε γιατρός με αυτά τα στοιχεία.</Text>
+          ) : (
+            <Text style={[styles.emptyText, { marginTop: 50 }]}>
+              {accessFilter === ALL_ACCESS
+                ? 'Δεν έχετε δώσει πρόσβαση σε κανέναν γιατρό.'
+                : `Κανένας γιατρός δεν έχει "${accessFilter}".`}
+            </Text>
+          )
+        }
+        renderItem={({ item }) => isSearchActive ? renderSearchResultCard(item) : renderAccessCard(item)}
       />
 
       {/* Modal Προσθήκης Πρόσβασης */}
@@ -644,6 +750,10 @@ const localStyles = StyleSheet.create({
   statusText: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.primary, marginTop: 6 },
   removeButton: { backgroundColor: COLORS.danger, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
   removeButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+  resultAmka: { fontSize: TYPOGRAPHY.secondaryText, color: COLORS.text, marginBottom: SPACING.groupGap },
+  // Ίδιο σχήμα με το κουμπί κατάργησης, στο χρώμα της εφαρμογής: η μία ενέργεια δίνει, η άλλη αφαιρεί.
+  grantButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
+  grantButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
   requestCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: 12 },
   requestActionButton: { flex: 1, minHeight: TOUCH.buttonHeight, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   requestActionButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText },
