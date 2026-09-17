@@ -356,29 +356,29 @@ export default function PatientMedicationsScreen() {
                   </TouchableOpacity>
 
                   {previousPager.pageItems.map((item) => {
-                      return (
-                        <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
-                          <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                          {!!item.route && (
-                            <Text style={doctorStyles.diagnosisCardDetail}>
-                              <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
-                            </Text>
-                          )}
+                    return (
+                      <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
+                        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                        {!!item.route && (
                           <Text style={doctorStyles.diagnosisCardDetail}>
-                            <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
+                            <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
                           </Text>
-                          <Text style={doctorStyles.diagnosisCardDetail}>
-                            <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
-                          </Text>
-                          <Text style={doctorStyles.diagnosisCardDetail}>
-                            <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
-                          </Text>
-                          <Text style={doctorStyles.diagnosisCardDetail}>
-                            <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                        )}
+                        <Text style={doctorStyles.diagnosisCardDetail}>
+                          <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
+                        </Text>
+                        <Text style={doctorStyles.diagnosisCardDetail}>
+                          <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
+                        </Text>
+                        <Text style={doctorStyles.diagnosisCardDetail}>
+                          <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
+                        </Text>
+                        <Text style={doctorStyles.diagnosisCardDetail}>
+                          <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
 
                   <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
                 </View>

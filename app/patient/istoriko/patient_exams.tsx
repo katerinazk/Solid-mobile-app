@@ -374,8 +374,8 @@ export default function PatientExamsScreen() {
               {completedSectionOpen && (
                 <View style={{ marginTop: 12 }}>
                   {completedPager.pageItems.map((item) => (
-                      <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />
-                    ))}
+                    <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />
+                  ))}
 
                   <Pagination page={completedPager.page} pageCount={completedPager.pageCount} onChange={completedPager.setPage} />
                 </View>
