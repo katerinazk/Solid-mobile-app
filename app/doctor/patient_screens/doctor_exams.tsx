@@ -114,7 +114,7 @@ export default function DoctorExamsScreen() {
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);

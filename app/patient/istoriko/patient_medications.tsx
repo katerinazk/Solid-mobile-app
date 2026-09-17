@@ -59,7 +59,7 @@ export default function PatientMedicationsScreen() {
 
   const [loading, setLoading] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
-  const [showPrevious, setShowPrevious] = useState(false);
+  const [showPrevious, setShowPrevious] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [previousNewestFirst, setPreviousNewestFirst] = useState(true);
 

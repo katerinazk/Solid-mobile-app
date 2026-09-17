@@ -126,7 +126,7 @@ export default function PatientExamsScreen() {
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(true);
   const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
