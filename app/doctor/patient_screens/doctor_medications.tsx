@@ -95,10 +95,15 @@ export default function DoctorMedicationsScreen() {
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
   const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
-  const [loading, setLoading] = useState(false);
+  // Ό,τι έχει μείνει στη μνήμη από προηγούμενη επίσκεψη στην ίδια κατηγορία.
+  const cachedRecords = getCachedRecords<Medication>(webId, CATEGORY) ?? [];
+
+  // Ξεκινάμε σε κατάσταση φόρτωσης όταν δεν έχουμε τίποτα να δείξουμε. Αλλιώς το
+  // "δεν υπάρχουν εγγραφές" προλαβαίνει να εμφανιστεί πριν καν ρωτήσουμε το Pod.
+  const [loading, setLoading] = useState(cachedRecords.length === 0);
   // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
   // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
-  const [medications, setMedications] = useState<Medication[]>(() => getCachedRecords<Medication>(webId, CATEGORY) ?? []);
+  const [medications, setMedications] = useState<Medication[]>(cachedRecords);
 
   // Διαγραφές και επεξεργασίες αλλάζουν τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνούν
   // από εδώ ώστε η μνήμη να μη μείνει με εγγραφή που δεν υπάρχει πια.
@@ -113,7 +118,10 @@ export default function DoctorMedicationsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadMedications = async (silent = false) => {
-    if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
+    if (!webId) {
+      setLoading(false);
+      return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
+    }
     try {
       if (!silent && medications.length === 0) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);

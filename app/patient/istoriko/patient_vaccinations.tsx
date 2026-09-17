@@ -41,10 +41,15 @@ export default function PatientVaccinationsScreen() {
   const webId = getOwnerWebId(activePatientFolderUrl);
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
 
-  const [loading, setLoading] = useState(false);
+  // Ό,τι έχει μείνει στη μνήμη από προηγούμενη επίσκεψη στην ίδια κατηγορία.
+  const cachedRecords = getCachedRecords<Vaccination>(webId, CATEGORY) ?? [];
+
+  // Ξεκινάμε σε κατάσταση φόρτωσης όταν δεν έχουμε τίποτα να δείξουμε. Αλλιώς το
+  // "δεν υπάρχουν εγγραφές" προλαβαίνει να εμφανιστεί πριν καν ρωτήσουμε το Pod.
+  const [loading, setLoading] = useState(cachedRecords.length === 0);
   // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
   // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
-  const [vaccinations, setVaccinations] = useState<Vaccination[]>(() => getCachedRecords<Vaccination>(webId, CATEGORY) ?? []);
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>(cachedRecords);
   const [newestFirst, setNewestFirst] = useState(true);
 
   const loadVaccinations = async (silent = false) => {

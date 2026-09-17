@@ -45,7 +45,11 @@ export function getCategoryFolderUrl(webId: string, category: string): string {
 // κατηγορίες. Μέχρι τότε, μια οθόνη ιστορικού απλά βλέπει ότι ο φάκελος δεν υπάρχει ακόμα.
 
 export async function listFolderFiles(folderUrl: string, accessToken: string): Promise<string[]> {
+  // ΠΡΟΣΩΡΙΝΟ: χωρίζει τον χρόνο υπογραφής από τον χρόνο δικτύου, για να φανεί ποιος φταίει.
+  const tSign = Date.now();
   const dpopToken = await createDpopToken('GET', folderUrl);
+  const signMs = Date.now() - tSign;
+  const tNet = Date.now();
   const response = await fetch(folderUrl, {
     method: 'GET',
     headers: {
@@ -61,6 +65,7 @@ export async function listFolderFiles(folderUrl: string, accessToken: string): P
   }
 
   const text = await response.text();
+  if (__DEV__) console.log(`[ΧΡΟΝΟΣ] κατάλογος: υπογραφή ${signMs}ms, δίκτυο ${Date.now() - tNet}ms`);
 
   // Χαρτογραφούμε τα @prefix ώστε να μπορούμε να επεκτείνουμε "prefixed names" (π.χ. n1:)
   // που ο server χρησιμοποιεί μέσα στη λίστα ldp:contains για nested containers
@@ -110,6 +115,8 @@ export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: str
     return await listFolderFiles(folderUrl, accessToken);
   } catch (error) {
     if (isPodAccessDenied(error)) throw error;
+    // ΠΡΟΣΩΡΙΝΟ: φαίνεται αν χτυπάει η διαδρομή αποτυχίας, που κοιμάται 800ms πριν ξαναδοκιμάσει.
+    if (__DEV__) console.log('[ΧΡΟΝΟΣ] κατάλογος ΑΠΕΤΥΧΕ, ακολουθεί αναμονή 800ms');
   }
 
   try {
@@ -124,7 +131,11 @@ export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: str
 }
 
 export async function fetchFileContent(url: string, accessToken: string): Promise<string> {
+  // ΠΡΟΣΩΡΙΝΟ: χωρίζει τον χρόνο υπογραφής από τον χρόνο δικτύου, για να φανεί ποιος φταίει.
+  const tSign = Date.now();
   const dpopToken = await createDpopToken('GET', url);
+  const signMs = Date.now() - tSign;
+  const tNet = Date.now();
   const response = await fetch(url, {
     method: 'GET',
     headers: {
@@ -138,7 +149,9 @@ export async function fetchFileContent(url: string, accessToken: string): Promis
     throw new Error('Δεν ήταν δυνατή η ανάγνωση του αρχείου.');
   }
 
-  return response.text();
+  const text = await response.text();
+  if (__DEV__) console.log(`[ΧΡΟΝΟΣ] αρχείο: υπογραφή ${signMs}ms, δίκτυο ${Date.now() - tNet}ms`);
+  return text;
 }
 
 export async function deleteFile(url: string, accessToken: string): Promise<void> {

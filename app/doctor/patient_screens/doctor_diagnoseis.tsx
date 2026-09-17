@@ -49,10 +49,15 @@ export default function DoctorDiagnoseisScreen() {
   const patientCategory: Category = calculateAge(birthDate) >= 18 ? 'adult' : 'child';
   const [activeCategory, setActiveCategory] = useState<Category>(patientCategory);
 
-  const [loading, setLoading] = useState(false);
+  // Ό,τι έχει μείνει στη μνήμη από προηγούμενη επίσκεψη στην ίδια κατηγορία.
+  const cachedRecords = getCachedRecords<Diagnosis>(webId, 'Διαγνώσεις') ?? [];
+
+  // Ξεκινάμε σε κατάσταση φόρτωσης όταν δεν έχουμε τίποτα να δείξουμε. Αλλιώς το
+  // "δεν υπάρχουν εγγραφές" προλαβαίνει να εμφανιστεί πριν καν ρωτήσουμε το Pod.
+  const [loading, setLoading] = useState(cachedRecords.length === 0);
   // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
   // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
-  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>(() => getCachedRecords<Diagnosis>(webId, 'Διαγνώσεις') ?? []);
+  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>(cachedRecords);
 
   // Διαγραφές και επεξεργασίες αλλάζουν τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνούν
   // από εδώ ώστε η μνήμη να μη μείνει με εγγραφή που δεν υπάρχει πια.
@@ -67,7 +72,10 @@ export default function DoctorDiagnoseisScreen() {
 
 
   const loadDiagnoses = async (silent = false) => {
-    if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
+    if (!webId) {
+      setLoading(false);
+      return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
+    }
     try {
       if (!silent && diagnoses.length === 0) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
