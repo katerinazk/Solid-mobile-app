@@ -16,6 +16,8 @@ import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 const CATEGORY = 'Εμβολιασμοί';
 
@@ -40,12 +42,14 @@ export default function PatientVaccinationsScreen() {
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
 
   const [loading, setLoading] = useState(false);
-  const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>(() => getCachedRecords<Vaccination>(webId, CATEGORY) ?? []);
   const [newestFirst, setNewestFirst] = useState(true);
 
   const loadVaccinations = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      if (!silent && vaccinations.length === 0) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -62,30 +66,36 @@ export default function PatientVaccinationsScreen() {
 
       const vaccinationFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(vaccinationFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Εμβολιασμοί', record)) return null;
-          return {
-            url,
-            title: record.title,
-            code: record.code,
-            parentName: record.parentName,
-            doctorName: record.doctorName,
-            doctorAmka: record.doctorAmka,
-            batchNumber: record.batchNumber,
-            doseNumber: record.doseNumber,
-            administeredDate: record.administeredDate,
-          } as Vaccination;
-        } catch {
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Vaccination>({
+        urls: vaccinationFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Εμβολιασμοί', record)) return null;
+            return {
+              url,
+              title: record.title,
+              code: record.code,
+              parentName: record.parentName,
+              doctorName: record.doctorName,
+              doctorAmka: record.doctorAmka,
+              batchNumber: record.batchNumber,
+              doseNumber: record.doseNumber,
+              administeredDate: record.administeredDate,
+            } as Vaccination;
+          } catch {
+            return null;
+          }
+        },
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && vaccinations.length === 0 ? (records) => setVaccinations(records) : undefined,
+      });
 
-      const valid = loaded.filter((v): v is Vaccination => v !== null);
       setVaccinations(valid);
+      setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((v) => v.doctorAmka));
     } catch {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.

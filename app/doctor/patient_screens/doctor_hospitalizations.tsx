@@ -20,6 +20,8 @@ import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 const CATEGORY = 'Νοσηλίες';
 
@@ -48,7 +50,19 @@ export default function DoctorHospitalizationsScreen() {
   const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const [loading, setLoading] = useState(false);
-  const [hospitalizations, setHospitalizations] = useState<Hospitalization[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [hospitalizations, setHospitalizations] = useState<Hospitalization[]>(() => getCachedRecords<Hospitalization>(webId, CATEGORY) ?? []);
+
+  // Διαγραφές και επεξεργασίες αλλάζουν τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνούν
+  // από εδώ ώστε η μνήμη να μη μείνει με εγγραφή που δεν υπάρχει πια.
+  const updateHospitalizations = (change: (prev: Hospitalization[]) => Hospitalization[]) => {
+    setHospitalizations((prev) => {
+      const next = change(prev);
+      setCachedRecords(webId, CATEGORY, next);
+      return next;
+    });
+  };
 
   const [viewingAttachmentsFor, setViewingAttachmentsFor] = useState<Hospitalization | null>(null);
   const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
@@ -56,39 +70,45 @@ export default function DoctorHospitalizationsScreen() {
   const loadHospitalizations = async (silent = false) => {
     if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
-      if (!silent) setLoading(true);
+      if (!silent && hospitalizations.length === 0) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const hospitalizationFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(hospitalizationFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Νοσηλίες', record)) return null;
-          return {
-            url,
-            title: record.title,
-            code: record.code,
-            parentName: record.parentName,
-            hospitalClinic: record.hospitalClinic,
-            hospitalArea: record.hospitalArea,
-            doctorName: record.doctorName,
-            doctorAmka: record.doctorAmka,
-            admissionDate: record.admissionDate,
-            dischargeDate: record.dischargeDate,
-            attachments: record.attachments || [],
-            links: readLinks(record),
-          } as Hospitalization;
-        } catch (error: any) {
-          console.warn('⚠️ Αποτυχία φόρτωσης νοσηλίας', url, error?.message || error);
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Hospitalization>({
+        urls: hospitalizationFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Νοσηλίες', record)) return null;
+            return {
+              url,
+              title: record.title,
+              code: record.code,
+              parentName: record.parentName,
+              hospitalClinic: record.hospitalClinic,
+              hospitalArea: record.hospitalArea,
+              doctorName: record.doctorName,
+              doctorAmka: record.doctorAmka,
+              admissionDate: record.admissionDate,
+              dischargeDate: record.dischargeDate,
+              attachments: record.attachments || [],
+              links: readLinks(record),
+            } as Hospitalization;
+          } catch (error: any) {
+            console.warn('⚠️ Αποτυχία φόρτωσης νοσηλίας', url, error?.message || error);
+            return null;
+          }
+        },
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && hospitalizations.length === 0 ? (records) => setHospitalizations(records) : undefined,
+      });
 
-      const valid = loaded.filter((h): h is Hospitalization => h !== null);
       setHospitalizations(valid);
+      setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((h) => h.doctorAmka));
     } catch (error: any) {
       // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
@@ -157,7 +177,7 @@ export default function DoctorHospitalizationsScreen() {
 
     try {
       await deleteFile(item.url, accessToken);
-      setHospitalizations((prev) => prev.filter((h) => h.url !== item.url));
+      updateHospitalizations((prev) => prev.filter((h) => h.url !== item.url));
     } catch (error: any) {
       showMessage(error.message || "Αποτυχία διαγραφής.");
     }

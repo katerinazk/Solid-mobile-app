@@ -18,6 +18,8 @@ import { Pagination } from '../../../components/Pagination';
 import { useDoctorNames, formatDoctorLastNameOnly } from '../../../hooks/useDoctorNames';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 type Category = 'adult' | 'child';
 
@@ -48,32 +50,50 @@ export default function DoctorDiagnoseisScreen() {
   const [activeCategory, setActiveCategory] = useState<Category>(patientCategory);
 
   const [loading, setLoading] = useState(false);
-  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>(() => getCachedRecords<Diagnosis>(webId, 'Διαγνώσεις') ?? []);
+
+  // Διαγραφές και επεξεργασίες αλλάζουν τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνούν
+  // από εδώ ώστε η μνήμη να μη μείνει με εγγραφή που δεν υπάρχει πια.
+  const updateDiagnoses = (change: (prev: Diagnosis[]) => Diagnosis[]) => {
+    setDiagnoses((prev) => {
+      const next = change(prev);
+      setCachedRecords(webId, 'Διαγνώσεις', next);
+      return next;
+    });
+  };
   const [newestFirst, setNewestFirst] = useState(true);
 
 
   const loadDiagnoses = async (silent = false) => {
     if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
-      if (!silent) setLoading(true);
+      if (!silent && diagnoses.length === 0) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
       const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(diagnosisFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Διαγνώσεις', record)) return null;
-          return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
-        } catch {
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Diagnosis>({
+        urls: diagnosisFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Διαγνώσεις', record)) return null;
+            return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
+          } catch {
+            return null;
+          }
+        },
+        compare: (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && diagnoses.length === 0 ? (records) => setDiagnoses(records) : undefined,
+      });
 
-      const valid = loaded.filter((d): d is Diagnosis => d !== null);
-      valid.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setDiagnoses(valid);
+      setCachedRecords(webId, 'Διαγνώσεις', valid);
       ensureDoctorInfo(valid.map((d) => d.doctorAmka));
     } catch (error: any) {
       // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
@@ -144,7 +164,7 @@ export default function DoctorDiagnoseisScreen() {
 
     try {
       await deleteFile(item.url, accessToken);
-      setDiagnoses((prev) => prev.filter((d) => d.url !== item.url));
+      updateDiagnoses((prev) => prev.filter((d) => d.url !== item.url));
     } catch (error: any) {
       showMessage(error.message || "Αποτυχία διαγραφής.");
     }

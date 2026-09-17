@@ -8,6 +8,7 @@ import { ROUTES } from '../constants/routes';
 import { clearPatientWebId } from '../services/patients';
 import { clearDoctorWebId } from '../services/doctors';
 import { resetAclSyncForPatient, resetAclSyncForDoctor } from '../services/access';
+import { clearRecordCache } from '../utils/recordCache';
 import { askConfirm, showMessage } from '../utils/appMessage';
 
 type Role = 'doctor' | 'patient';
@@ -364,6 +365,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Οι εγγραφές του Pod μένουν μόνο στη μνήμη. Τις σβήνουμε εδώ, ώστε ο επόμενος χρήστης
+    // της συσκευής να μην μπορεί να δει ιστορικό του προηγούμενου.
+    clearRecordCache();
     setIsLoggedIn(false);
     setRole(null);
     setAccessToken('');

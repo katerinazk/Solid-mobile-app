@@ -18,6 +18,8 @@ import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { showMessage } from '../../../utils/appMessage';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 const CATEGORY = 'Νοσηλίες';
 
@@ -45,13 +47,15 @@ export default function PatientHospitalizationsScreen() {
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
 
   const [loading, setLoading] = useState(false);
-  const [hospitalizations, setHospitalizations] = useState<Hospitalization[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [hospitalizations, setHospitalizations] = useState<Hospitalization[]>(() => getCachedRecords<Hospitalization>(webId, CATEGORY) ?? []);
   const [viewingAttachmentsFor, setViewingAttachmentsFor] = useState<Hospitalization | null>(null);
   const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
 
   const loadHospitalizations = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      if (!silent && hospitalizations.length === 0) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -68,32 +72,38 @@ export default function PatientHospitalizationsScreen() {
 
       const hospitalizationFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(hospitalizationFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Νοσηλίες', record)) return null;
-          return {
-            url,
-            title: record.title,
-            code: record.code,
-            parentName: record.parentName,
-            hospitalClinic: record.hospitalClinic,
-            hospitalArea: record.hospitalArea,
-            doctorName: record.doctorName,
-            doctorAmka: record.doctorAmka,
-            admissionDate: record.admissionDate,
-            dischargeDate: record.dischargeDate,
-            attachments: record.attachments || [],
-          } as Hospitalization;
-        } catch {
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Hospitalization>({
+        urls: hospitalizationFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Νοσηλίες', record)) return null;
+            return {
+              url,
+              title: record.title,
+              code: record.code,
+              parentName: record.parentName,
+              hospitalClinic: record.hospitalClinic,
+              hospitalArea: record.hospitalArea,
+              doctorName: record.doctorName,
+              doctorAmka: record.doctorAmka,
+              admissionDate: record.admissionDate,
+              dischargeDate: record.dischargeDate,
+              attachments: record.attachments || [],
+            } as Hospitalization;
+          } catch {
+            return null;
+          }
+        },
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && hospitalizations.length === 0 ? (records) => setHospitalizations(records) : undefined,
+      });
 
-      const valid = loaded.filter((h): h is Hospitalization => h !== null);
       setHospitalizations(valid);
+      setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((h) => h.doctorAmka));
     } catch {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.

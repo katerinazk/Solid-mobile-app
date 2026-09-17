@@ -21,6 +21,8 @@ import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolder
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 const CATEGORY = 'Εξετάσεις';
 
@@ -117,43 +119,61 @@ export default function DoctorExamsScreen() {
   const [showCompleted, setShowCompleted] = useState(true);
 
   const [loading, setLoading] = useState(false);
-  const [exams, setExams] = useState<Exam[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [exams, setExams] = useState<Exam[]>(() => getCachedRecords<Exam>(webId, CATEGORY) ?? []);
+
+  // Διαγραφές και επεξεργασίες αλλάζουν τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνούν
+  // από εδώ ώστε η μνήμη να μη μείνει με εγγραφή που δεν υπάρχει πια.
+  const updateExams = (change: (prev: Exam[]) => Exam[]) => {
+    setExams((prev) => {
+      const next = change(prev);
+      setCachedRecords(webId, CATEGORY, next);
+      return next;
+    });
+  };
 
   const loadExams = async (silent = false) => {
     if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
-      if (!silent) setLoading(true);
+      if (!silent && exams.length === 0) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const examFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(examFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Εξετάσεις', record)) return null;
-          return {
-            url,
-            title: record.title,
-            code: record.code,
-            parentName: record.parentName,
-            type: record.type,
-            status: record.status,
-            doctorName: record.doctorName,
-            doctorAmka: record.doctorAmka,
-            completedDate: record.completedDate,
-            links: readLinks(record),
-            resultFile: record.resultFile,
-            createdDate: record.createdDate || createdDateFromUrl(url),
-          } as Exam;
-        } catch {
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Exam>({
+        urls: examFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Εξετάσεις', record)) return null;
+            return {
+              url,
+              title: record.title,
+              code: record.code,
+              parentName: record.parentName,
+              type: record.type,
+              status: record.status,
+              doctorName: record.doctorName,
+              doctorAmka: record.doctorAmka,
+              completedDate: record.completedDate,
+              links: readLinks(record),
+              resultFile: record.resultFile,
+              createdDate: record.createdDate || createdDateFromUrl(url),
+            } as Exam;
+          } catch {
+            return null;
+          }
+        },
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && exams.length === 0 ? (records) => setExams(records) : undefined,
+      });
 
-      const valid = loaded.filter((e): e is Exam => e !== null);
       setExams(valid);
+      setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((e) => e.doctorAmka));
     } catch (error: any) {
       // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
@@ -247,7 +267,7 @@ export default function DoctorExamsScreen() {
 
     try {
       await deleteFile(item.url, accessToken);
-      setExams((prev) => prev.filter((e) => e.url !== item.url));
+      updateExams((prev) => prev.filter((e) => e.url !== item.url));
     } catch (error: any) {
       showMessage(error.message || "Αποτυχία διαγραφής.");
     }

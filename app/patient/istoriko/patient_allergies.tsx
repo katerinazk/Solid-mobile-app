@@ -18,6 +18,8 @@ import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCate
 import { fetchPatientByAmka } from '../../../services/patients';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 const CATEGORY = 'Αλλεργίες';
 
@@ -40,7 +42,19 @@ export default function PatientAllergiesScreen() {
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
 
   const [loading, setLoading] = useState(false);
-  const [allergies, setAllergies] = useState<Allergy[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [allergies, setAllergies] = useState<Allergy[]>(() => getCachedRecords<Allergy>(webId, CATEGORY) ?? []);
+
+  // Διαγραφές και επεξεργασίες αλλάζουν τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνούν
+  // από εδώ ώστε η μνήμη να μη μείνει με εγγραφή που δεν υπάρχει πια.
+  const updateAllergies = (change: (prev: Allergy[]) => Allergy[]) => {
+    setAllergies((prev) => {
+      const next = change(prev);
+      setCachedRecords(webId, CATEGORY, next);
+      return next;
+    });
+  };
   const [patientInfo, setPatientInfo] = useState<{ last_name: string; sex: string | null } | null>(null);
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -55,7 +69,7 @@ export default function PatientAllergiesScreen() {
 
   const loadAllergies = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      if (!silent && allergies.length === 0) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -72,28 +86,34 @@ export default function PatientAllergiesScreen() {
 
       const allergyFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(allergyFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Αλλεργίες', record)) return null;
-          return {
-            url,
-            title: record.title,
-            code: record.code,
-            parentName: record.parentName,
-            reaction: record.reaction,
-            doctorName: record.doctorName,
-            doctorAmka: record.doctorAmka,
-          } as Allergy;
-        } catch {
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Allergy>({
+        urls: allergyFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Αλλεργίες', record)) return null;
+            return {
+              url,
+              title: record.title,
+              code: record.code,
+              parentName: record.parentName,
+              reaction: record.reaction,
+              doctorName: record.doctorName,
+              doctorAmka: record.doctorAmka,
+            } as Allergy;
+          } catch {
+            return null;
+          }
+        },
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && allergies.length === 0 ? (records) => setAllergies(records) : undefined,
+      });
 
-      const valid = loaded.filter((a): a is Allergy => a !== null);
       setAllergies(valid);
+      setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((a) => a.doctorAmka));
     } catch {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
@@ -166,9 +186,9 @@ export default function PatientAllergiesScreen() {
       await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
 
       if (editingAllergy) {
-        setAllergies((prev) => prev.map((a) => a.url === fileUrl ? { url: fileUrl, ...record } : a));
+        updateAllergies((prev) => prev.map((a) => a.url === fileUrl ? { url: fileUrl, ...record } : a));
       } else {
-        setAllergies((prev) => [{ url: fileUrl, ...record }, ...prev]);
+        updateAllergies((prev) => [{ url: fileUrl, ...record }, ...prev]);
       }
 
       closeModal();
@@ -190,7 +210,7 @@ export default function PatientAllergiesScreen() {
 
     try {
       await deleteFile(item.url, accessToken);
-      setAllergies((prev) => prev.filter((a) => a.url !== item.url));
+      updateAllergies((prev) => prev.filter((a) => a.url !== item.url));
     } catch (error: any) {
       showMessage(error.message || "Αποτυχία διαγραφής.");
     }

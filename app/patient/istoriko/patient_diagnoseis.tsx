@@ -17,6 +17,8 @@ import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId 
 import { fetchPatientByAmka } from '../../../services/patients';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 type Category = 'adult' | 'child';
 
@@ -41,7 +43,9 @@ export default function PatientDiagnoseisScreen() {
 
   const [activeCategory, setActiveCategory] = useState<Category>('adult');
   const [loading, setLoading] = useState(false);
-  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>(() => getCachedRecords<Diagnosis>(webId, 'Διαγνώσεις') ?? []);
   const [newestFirst, setNewestFirst] = useState(true);
 
   useEffect(() => {
@@ -56,7 +60,7 @@ export default function PatientDiagnoseisScreen() {
 
   const loadDiagnoses = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
+      if (!silent && diagnoses.length === 0) setLoading(true);
       let files: string[];
       try {
         files = await listFolderFiles(folderUrl, accessToken);
@@ -73,20 +77,26 @@ export default function PatientDiagnoseisScreen() {
 
       const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(diagnosisFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Διαγνώσεις', record)) return null;
-          return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
-        } catch {
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Diagnosis>({
+        urls: diagnosisFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Διαγνώσεις', record)) return null;
+            return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
+          } catch {
+            return null;
+          }
+        },
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && diagnoses.length === 0 ? (records) => setDiagnoses(records) : undefined,
+      });
 
-      const valid = loaded.filter((d): d is Diagnosis => d !== null);
       setDiagnoses(valid);
+      setCachedRecords(webId, 'Διαγνώσεις', valid);
       ensureDoctorInfo(valid.map((d) => d.doctorAmka));
     } catch {
       // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.

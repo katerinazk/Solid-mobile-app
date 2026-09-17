@@ -20,6 +20,8 @@ import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
+import { loadProgressively } from '../../../utils/progressiveLoad';
 
 const CATEGORY = 'Φάρμακα';
 
@@ -94,46 +96,64 @@ export default function DoctorMedicationsScreen() {
   const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const [loading, setLoading] = useState(false);
-  const [medications, setMedications] = useState<Medication[]>([]);
+  // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
+  // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
+  const [medications, setMedications] = useState<Medication[]>(() => getCachedRecords<Medication>(webId, CATEGORY) ?? []);
+
+  // Διαγραφές και επεξεργασίες αλλάζουν τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνούν
+  // από εδώ ώστε η μνήμη να μη μείνει με εγγραφή που δεν υπάρχει πια.
+  const updateMedications = (change: (prev: Medication[]) => Medication[]) => {
+    setMedications((prev) => {
+      const next = change(prev);
+      setCachedRecords(webId, CATEGORY, next);
+      return next;
+    });
+  };
   const [showPrevious, setShowPrevious] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadMedications = async (silent = false) => {
     if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
-      if (!silent) setLoading(true);
+      if (!silent && medications.length === 0) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
 
       const medicationFiles = files.filter((url) => url.endsWith('.json'));
 
-      const loaded = await Promise.all(medicationFiles.map(async (url) => {
-        try {
-          const content = await fetchFileContent(url, accessToken);
-          const record = JSON.parse(content);
-          // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-          if (!isCompleteRecord('Φάρμακα', record)) return null;
-          return {
-            url,
-            title: record.title,
-            code: record.code,
-            parentName: record.parentName,
-            dosage: record.dosage,
-            route: record.route,
-            startDate: record.startDate,
-            links: readLinks(record),
-            durationDays: record.durationDays,
-            durationMonths: record.durationMonths,
-            doctorName: record.doctorName,
-            doctorAmka: record.doctorAmka,
-            started: record.started,
-          } as Medication;
-        } catch {
-          return null;
-        }
-      }));
+      const valid = await loadProgressively<Medication>({
+        urls: medicationFiles,
+        parse: async (url) => {
+          try {
+            const content = await fetchFileContent(url, accessToken);
+            const record = JSON.parse(content);
+            // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
+            if (!isCompleteRecord('Φάρμακα', record)) return null;
+            return {
+              url,
+              title: record.title,
+              code: record.code,
+              parentName: record.parentName,
+              dosage: record.dosage,
+              route: record.route,
+              startDate: record.startDate,
+              links: readLinks(record),
+              durationDays: record.durationDays,
+              durationMonths: record.durationMonths,
+              doctorName: record.doctorName,
+              doctorAmka: record.doctorAmka,
+              started: record.started,
+            } as Medication;
+          } catch {
+            return null;
+          }
+        },
+        // Σταδιακή εμφάνιση μόνο σε άδεια οθόνη. Με γεμάτη μνήμη ή σε σιωπηλή
+        // ανανέωση θα αντικαθιστούσαμε πλήρη λίστα με μία που μεγαλώνει.
+        onPartial: !silent && medications.length === 0 ? (records) => setMedications(records) : undefined,
+      });
 
-      const valid = loaded.filter((m): m is Medication => m !== null);
       setMedications(valid);
+      setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((m) => m.doctorAmka));
     } catch (error: any) {
       // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
@@ -204,7 +224,7 @@ export default function DoctorMedicationsScreen() {
 
     try {
       await deleteFile(item.url, accessToken);
-      setMedications((prev) => prev.filter((m) => m.url !== item.url));
+      updateMedications((prev) => prev.filter((m) => m.url !== item.url));
     } catch (error: any) {
       showMessage(error.message || "Αποτυχία διαγραφής.");
     }
