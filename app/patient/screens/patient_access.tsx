@@ -571,42 +571,50 @@ export default function PatientAccessScreen() {
       {/* Modal Προσθήκης Πρόσβασης */}
       <Modal animationType="slide" transparent={true} visible={isAddAccessModalVisible} onRequestClose={() => setIsAddAccessModalVisible(false)}>
         <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <Text style={styles.addmodalTitle}>Νέα Πρόσβαση</Text>
+          <View style={[styles.addmodalContent, { width: '90%' }]}>
+            <View style={localStyles.modalTitleRow}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0, color: COLORS.primary }]}>Νέα Πρόσβαση</Text>
+              <TouchableOpacity
+                style={localStyles.modalClose}
+                onPress={() => setIsAddAccessModalVisible(false)}
+                hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
+                accessibilityRole="button"
+                accessibilityLabel="Κλείσιμο"
+              >
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
 
             <Text style={loginStyles.inputLabel}>ΑΜΚΑ Γιατρού</Text>
             {/* Κλειδωμένο: το ΑΜΚΑ έρχεται από τον γιατρό που διάλεξε ο ασθενής στην αναζήτηση.
                 Αν άλλαζε εδώ, η πρόσβαση θα πήγαινε σε άλλον γιατρό από αυτόν που είδε. */}
             <TextInput
-              style={[loginStyles.loginInput, { color: COLORS.medium }]}
+              style={[loginStyles.loginInput, localStyles.lockedInput]}
               value={newDoctorAmka}
               editable={false}
             />
 
             <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
-            <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+            <View style={localStyles.typeChoiceRow}>
               <TouchableOpacity
-                style={[styles.modalButton, { flex: 1, marginRight: 5, backgroundColor: newAccessType === ACCESS_FULL ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
+                style={[localStyles.typeChoice, newAccessType === ACCESS_FULL && localStyles.typeChoiceSelected]}
                 onPress={() => setNewAccessType(ACCESS_FULL)}
+                accessibilityRole="button"
               >
-                <Text style={{ color: newAccessType === ACCESS_FULL ? COLORS.white : COLORS.text, textAlign: 'center' }}>Πλήρης</Text>
+                <Text style={[localStyles.typeChoiceText, newAccessType === ACCESS_FULL && localStyles.typeChoiceTextSelected]}>Πλήρης</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, { flex: 1, marginLeft: 5, backgroundColor: newAccessType === ACCESS_READ_ONLY ? COLORS.primary : COLORS.lightest, borderWidth: 1, borderColor: COLORS.medium }]}
+                style={[localStyles.typeChoice, newAccessType === ACCESS_READ_ONLY && localStyles.typeChoiceSelected]}
                 onPress={() => setNewAccessType(ACCESS_READ_ONLY)}
+                accessibilityRole="button"
               >
-                <Text style={{ color: newAccessType === ACCESS_READ_ONLY ? COLORS.white : COLORS.text, textAlign: 'center' }}>Μόνο Ανάγνωση</Text>
+                <Text style={[localStyles.typeChoiceText, newAccessType === ACCESS_READ_ONLY && localStyles.typeChoiceTextSelected]}>Μόνο Ανάγνωση</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalButtonsGroup}>
-              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setIsAddAccessModalVisible(false)}>
-                <Text style={styles.cancelButtonText}>Ακύρωση</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleAddAccess} disabled={loading}>
-                {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveButtonText}>Εντάξει</Text>}
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={[localStyles.grantButton, { marginTop: 0 }]} onPress={handleAddAccess} disabled={loading}>
+              {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={localStyles.grantButtonText}>Εντάξει</Text>}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -746,6 +754,30 @@ const localStyles = StyleSheet.create({
   // Ίδιο σχήμα με το κουμπί κατάργησης, στο χρώμα της εφαρμογής: η μία ενέργεια δίνει, η άλλη αφαιρεί.
   grantButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
   grantButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+  // Οι δύο επιλογές τύπου: ίδιο στρογγυλό σχήμα με τα υπόλοιπα κουμπιά της εφαρμογής.
+  // Η επιλεγμένη γεμίζει στο χρώμα της εφαρμογής, η άλλη μένει περιγραμμένη.
+  typeChoiceRow: { flexDirection: 'row', gap: TOUCH.buttonGap, marginBottom: TOUCH.buttonGap },
+  typeChoice: {
+    flex: 1,
+    minHeight: TOUCH.buttonHeight,
+    borderRadius: 25,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+  typeChoiceSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  typeChoiceText: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.primary, textAlign: 'center' },
+  typeChoiceTextSelected: { color: COLORS.white, fontWeight: 'bold' },
+  // Κλειδωμένο πεδίο: το φόντο δείχνει ότι δεν πληκτρολογείται, ενώ το κείμενο μένει μαύρο
+  // ώστε το ΑΜΚΑ να διαβάζεται κανονικά.
+  lockedInput: { backgroundColor: COLORS.light, color: COLORS.text },
+  modalTitleRow: { justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+  // Απλώνεται σε όλο το ύψος της γραμμής και κεντράρει το εικονίδιο μέσα του: έτσι το χ
+  // ευθυγραμμίζεται με τον τίτλο ό,τι ύψος κι αν πάρει εκείνος.
+  modalClose: { position: 'absolute', right: 0, top: 0, bottom: 0, justifyContent: 'center' },
   requestCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: 12 },
   requestActionButton: { flex: 1, minHeight: TOUCH.buttonHeight, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   requestActionButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText },
