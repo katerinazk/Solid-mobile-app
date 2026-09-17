@@ -359,28 +359,28 @@ export default function PatientExamsScreen() {
 
           <Pagination page={pendingPager.page} pageCount={pendingPager.pageCount} onChange={pendingPager.setPage} />
 
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
-            onPress={() => setShowCompleted((prev) => !prev)}
-          >
-            <Ionicons name={completedSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
-            <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ολοκληρωμένες</Text>
-          </TouchableOpacity>
+          {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
+              σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
+          {completedExams.length > 0 && (
+            <>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
+                onPress={() => setShowCompleted((prev) => !prev)}
+              >
+                <Ionicons name={completedSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ολοκληρωμένες</Text>
+              </TouchableOpacity>
 
-          {completedSectionOpen && (
-            <View style={{ marginTop: 12 }}>
-              {completedExams.length === 0 ? (
-                <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
-                  {searchQuery.trim() ? 'Δεν βρέθηκε ολοκληρωμένη εξέταση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν ολοκληρωμένες εξετάσεις.'}
-                </Text>
-              ) : (
-                completedPager.pageItems.map((item) => (
-                  <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />
-                ))
+              {completedSectionOpen && (
+                <View style={{ marginTop: 12 }}>
+                  {completedPager.pageItems.map((item) => (
+                      <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />
+                    ))}
+
+                  <Pagination page={completedPager.page} pageCount={completedPager.pageCount} onChange={completedPager.setPage} />
+                </View>
               )}
-
-              <Pagination page={completedPager.page} pageCount={completedPager.pageCount} onChange={completedPager.setPage} />
-            </View>
+            </>
           )}
         </ScrollView>
       )}

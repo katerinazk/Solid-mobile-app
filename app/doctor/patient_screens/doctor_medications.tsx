@@ -300,24 +300,26 @@ export default function DoctorMedicationsScreen() {
 
           <Pagination page={activePager.page} pageCount={activePager.pageCount} onChange={activePager.setPage} />
 
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
-            onPress={() => setShowPrevious((prev) => !prev)}
-          >
-            <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
-            <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
-          </TouchableOpacity>
+          {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
+              σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
+          {previousMedications.length > 0 && (
+            <>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
+                onPress={() => setShowPrevious((prev) => !prev)}
+              >
+                <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
+              </TouchableOpacity>
 
-          {previousSectionOpen && (
-            <View style={{ marginTop: 12 }}>
-              {previousMedications.length === 0 ? (
-                <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν προηγούμενες αγωγές.</Text>
-              ) : (
-                previousPager.pageItems.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
+              {previousSectionOpen && (
+                <View style={{ marginTop: 12 }}>
+                  {previousPager.pageItems.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)}
+
+                  <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
+                </View>
               )}
-
-              <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
-            </View>
+            </>
           )}
         </ScrollView>
       )}

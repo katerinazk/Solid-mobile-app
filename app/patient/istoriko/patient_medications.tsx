@@ -335,55 +335,55 @@ export default function PatientMedicationsScreen() {
 
           <Pagination page={activePager.page} pageCount={activePager.pageCount} onChange={activePager.setPage} />
 
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
-            onPress={() => setShowPrevious((prev) => !prev)}
-          >
-            <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
-            <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
-          </TouchableOpacity>
-
-          {previousSectionOpen && (
-            <View style={{ marginTop: 12 }}>
-              <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setPreviousNewestFirst((prev) => !prev)}>
-                <Text style={doctorStyles.diagnosisSortButtonText}>
-                  ↕ {previousNewestFirst ? 'Νεότερα προς Παλαιότερα' : 'Παλαιότερα προς Νεότερα'}
-                </Text>
+          {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
+              σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
+          {previousMedications.length > 0 && (
+            <>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
+                onPress={() => setShowPrevious((prev) => !prev)}
+              >
+                <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
               </TouchableOpacity>
 
-              {previousMedications.length === 0 ? (
-                <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
-                  {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν προηγούμενες αγωγές.'}
-                </Text>
-              ) : (
-                previousPager.pageItems.map((item) => {
-                  return (
-                    <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
-                      <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                      {!!item.route && (
-                        <Text style={doctorStyles.diagnosisCardDetail}>
-                          <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
-                        </Text>
-                      )}
-                      <Text style={doctorStyles.diagnosisCardDetail}>
-                        <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
-                      </Text>
-                      <Text style={doctorStyles.diagnosisCardDetail}>
-                        <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
-                      </Text>
-                      <Text style={doctorStyles.diagnosisCardDetail}>
-                        <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
-                      </Text>
-                      <Text style={doctorStyles.diagnosisCardDetail}>
-                        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
+              {previousSectionOpen && (
+                <View style={{ marginTop: 12 }}>
+                  <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setPreviousNewestFirst((prev) => !prev)}>
+                    <Text style={doctorStyles.diagnosisSortButtonText}>
+                      ↕ {previousNewestFirst ? 'Νεότερα προς Παλαιότερα' : 'Παλαιότερα προς Νεότερα'}
+                    </Text>
+                  </TouchableOpacity>
 
-              <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
-            </View>
+                  {previousPager.pageItems.map((item) => {
+                      return (
+                        <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
+                          <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                          {!!item.route && (
+                            <Text style={doctorStyles.diagnosisCardDetail}>
+                              <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+                            </Text>
+                          )}
+                          <Text style={doctorStyles.diagnosisCardDetail}>
+                            <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
+                          </Text>
+                          <Text style={doctorStyles.diagnosisCardDetail}>
+                            <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
+                          </Text>
+                          <Text style={doctorStyles.diagnosisCardDetail}>
+                            <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
+                          </Text>
+                          <Text style={doctorStyles.diagnosisCardDetail}>
+                            <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                  <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
+                </View>
+              )}
+            </>
           )}
         </ScrollView>
       )}
