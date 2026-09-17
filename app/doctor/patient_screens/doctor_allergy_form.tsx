@@ -10,6 +10,7 @@ import { fetchDoctorByAmka } from '../../../services/doctors';
 import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
+import { showMessage } from '../../../utils/appMessage';
 
 export default function DoctorAllergyFormScreen() {
   const params = useLocalSearchParams<{
@@ -44,12 +45,12 @@ export default function DoctorAllergyFormScreen() {
     if (!(await checkAccess())) return;
 
     if (!selectedCode || !reaction.trim()) {
-      alert("Επιλέξτε αλλεργία από τον κατάλογο και συμπληρώστε την αντίδραση!");
+      showMessage("Επιλέξτε αλλεργία από τον κατάλογο και συμπληρώστε την αντίδραση!");
       return;
     }
 
     if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;
     }
 
@@ -80,7 +81,7 @@ export default function DoctorAllergyFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
       setSaving(false);
     }

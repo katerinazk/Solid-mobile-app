@@ -10,6 +10,7 @@ import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
 import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
 import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
 import { dateToIso } from '../../../utils/dateInput';
+import { showMessage } from '../../../utils/appMessage';
 
 export default function DoctorVaccinationFormScreen() {
   const params = useLocalSearchParams<{
@@ -47,12 +48,12 @@ export default function DoctorVaccinationFormScreen() {
     if (!(await checkAccess())) return;
 
     if (!selectedCode || !batchNumber.trim() || !doseNumber.trim()) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      showMessage("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
 
     if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;
     }
 
@@ -87,7 +88,7 @@ export default function DoctorVaccinationFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
       setSaving(false);
     }

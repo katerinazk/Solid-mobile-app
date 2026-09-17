@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert, Modal, RefreshControl } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -19,6 +19,7 @@ import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 const CATEGORY = 'Νοσηλίες';
 
@@ -53,7 +54,7 @@ export default function DoctorHospitalizationsScreen() {
   const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
 
   const loadHospitalizations = async (silent = false) => {
-    if (!webId) return Alert.alert("Σφάλμα", "Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
+    if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
       if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
@@ -96,7 +97,7 @@ export default function DoctorHospitalizationsScreen() {
         checkAccess();
         return;
       }
-      Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      showMessage(error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -147,25 +148,19 @@ export default function DoctorHospitalizationsScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    Alert.alert(
-      "Διαγραφή",
-      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη νοσηλία;",
-      [
-        { text: "Ακύρωση", style: "cancel" },
-        {
-          text: "Διαγραφή",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteFile(item.url, accessToken);
-              setHospitalizations((prev) => prev.filter((h) => h.url !== item.url));
-            } catch (error: any) {
-              alert(error.message || "Αποτυχία διαγραφής.");
-            }
-          }
-        }
-      ]
-    );
+    const confirmed = await askConfirm({
+      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη νοσηλία;",
+      confirmText: "Διαγραφή",
+      cancelText: "Ακύρωση",
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteFile(item.url, accessToken);
+      setHospitalizations((prev) => prev.filter((h) => h.url !== item.url));
+    } catch (error: any) {
+      showMessage(error.message || "Αποτυχία διαγραφής.");
+    }
   };
 
   const handleOpenAttachment = async (item: Hospitalization, fileName: string) => {
@@ -174,7 +169,7 @@ export default function DoctorHospitalizationsScreen() {
       const localUri = await downloadAttachment(item.url, fileName, accessToken);
       await openLocalFile(localUri, fileName);
     } catch (error: any) {
-      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+      showMessage(error.message || 'Αποτυχία ανοίγματος αρχείου.');
     } finally {
       setDownloadingAttachment(null);
     }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -15,6 +15,7 @@ import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { Dropdown } from 'react-native-element-dropdown';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { ACCESS_FULL, ACCESS_READ_ONLY, ACCESS_NONE, ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 // Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
 // τα πάντα και το αποτέλεσμα δεν λέει τίποτα στον ασθενή.
@@ -137,7 +138,7 @@ export default function PatientAccessScreen() {
       setLoadingRequests(true);
       const { data, error } = await fetchPendingAccessRequestsForPatient(loggedInPatientAmka);
       if (error) {
-        alert("Σφάλμα φόρτωσης αιτημάτων: " + error.message);
+        showMessage("Σφάλμα φόρτωσης αιτημάτων: " + error.message);
         return;
       }
       setRequests((data || []) as unknown as AccessRequest[]);
@@ -148,20 +149,12 @@ export default function PatientAccessScreen() {
 
   // Ο γιατρός έχει ήδη πρόσβαση αλλά με άλλον τύπο: αντί για σκέτη άρνηση, ρωτάμε τον ασθενή
   // αν θέλει να την αλλάξει. Επιστρέφει true αν έγινε η αλλαγή.
-  // Το Alert.alert δεν επιστρέφει την απάντηση, οπότε το τυλίγουμε σε Promise ώστε η ροή να
-  // μπορεί να την περιμένει αντί να συνεχίσει πριν καν εμφανιστεί το παράθυρο.
+  // Η ερώτηση επιστρέφει Promise, ώστε η ροή να περιμένει την απάντηση αντί να συνεχίσει
+  // πριν καν εμφανιστεί το παράθυρο.
+  // Το νέο παράθυρο δεν έχει τίτλο, οπότε ο πρώτος παράγοντας δεν εμφανίζεται πια. Μένει στην
+  // υπογραφή ώστε να μην αλλάξουν όλα τα σημεία που καλούν, και για να διαβάζεται η πρόθεση.
   const confirmDialog = (title: string, message: string): Promise<boolean> =>
-    new Promise((resolve) => {
-      Alert.alert(
-        title,
-        message,
-        [
-          { text: "Όχι", style: "cancel", onPress: () => resolve(false) },
-          { text: "Ναι", onPress: () => resolve(true) },
-        ],
-        { cancelable: false }
-      );
-    });
+    askConfirm({ message });
 
   /**
    * Γράφει τον νέο τύπο στη βάση και ευθυγραμμίζει το ACL του Pod.
@@ -175,7 +168,7 @@ export default function PatientAccessScreen() {
 
     const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType, revoking ? false : !!doctorWebId);
     if (error) {
-      alert("Σφάλμα: " + error.message);
+      showMessage("Σφάλμα: " + error.message);
       return false;
     }
 
@@ -203,7 +196,7 @@ export default function PatientAccessScreen() {
     if (!(await applyAccessType(doctorAmka, doctorWebId, newType))) return false;
 
     refresh();
-    alert("Ο τύπος πρόσβασης άλλαξε επιτυχώς!");
+    showMessage("Ο τύπος πρόσβασης άλλαξε επιτυχώς!");
     return true;
   };
 
@@ -224,7 +217,7 @@ export default function PatientAccessScreen() {
             `Έχετε ήδη δώσει "${existingAccess.access_type}" σε αυτόν τον γιατρό. Θέλετε να την αλλάξετε σε "${request.access_type}";`,
           );
         } else {
-          alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
+          showMessage("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
         }
         // Είτε άλλαξε ο τύπος είτε όχι, ο γιατρός έχει πρόσβαση - το αίτημα δεν έχει λόγο να μείνει.
         await resolveAccessRequest(request.id, 'accepted');
@@ -234,7 +227,7 @@ export default function PatientAccessScreen() {
 
       const { error } = await addAccess(loggedInPatientAmka, request.doctor_amka, request.access_type, !!request.doctors?.web_id);
       if (error) {
-        alert("Σφάλμα: " + error.message);
+        showMessage("Σφάλμα: " + error.message);
         return;
       }
 
@@ -253,9 +246,9 @@ export default function PatientAccessScreen() {
       await resolveAccessRequest(request.id, 'accepted');
       setRequests((prev) => prev.filter((r) => r.id !== request.id));
       refresh();
-      alert(`Η πρόσβαση στον Δρ. ${request.doctors?.last_name || ''} δόθηκε επιτυχώς!`);
+      showMessage(`Η πρόσβαση στον Δρ. ${request.doctors?.last_name || ''} δόθηκε επιτυχώς!`);
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setResolvingRequestId(null);
     }
@@ -267,7 +260,7 @@ export default function PatientAccessScreen() {
       await resolveAccessRequest(request.id, 'rejected');
       setRequests((prev) => prev.filter((r) => r.id !== request.id));
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setResolvingRequestId(null);
     }
@@ -275,7 +268,7 @@ export default function PatientAccessScreen() {
 
   const handleAddAccess = async () => {
     if (!newDoctorAmka) {
-      alert("Παρακαλώ εισάγετε το ΑΜΚΑ του γιατρού.");
+      showMessage("Παρακαλώ εισάγετε το ΑΜΚΑ του γιατρού.");
       return;
     }
     try {
@@ -284,7 +277,7 @@ export default function PatientAccessScreen() {
       const { data: doctorData, error: doctorError } = await fetchDoctorByAmka(newDoctorAmka);
 
       if (doctorError || !doctorData) {
-        alert("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
+        showMessage("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
         return;
       }
 
@@ -293,7 +286,7 @@ export default function PatientAccessScreen() {
       const { data: existingAccess } = await fetchAccessEntry(loggedInPatientAmka, newDoctorAmka);
       if (existingAccess) {
         if (existingAccess.access_type === newAccessType) {
-          alert("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
+          showMessage("Έχετε ήδη δώσει πρόσβαση σε αυτόν τον γιατρό.");
         } else if (await confirmChangeAccessType(
           newDoctorAmka,
           doctorData.web_id,
@@ -323,7 +316,7 @@ export default function PatientAccessScreen() {
       const { error } = await addAccess(loggedInPatientAmka, newDoctorAmka, effectiveType, !!doctorData.web_id);
 
       if (error) {
-        alert("Σφάλμα: " + error.message);
+        showMessage("Σφάλμα: " + error.message);
         return;
       }
 
@@ -338,7 +331,7 @@ export default function PatientAccessScreen() {
           accessType: effectiveType,
         });
       }
-      alert(`Η πρόσβαση στον Δρ. ${doctorData.last_name} δόθηκε επιτυχώς!`);
+      showMessage(`Η πρόσβαση στον Δρ. ${doctorData.last_name} δόθηκε επιτυχώς!`);
 
       // Το αίτημα του γιατρού δεν έχει πια λόγο ύπαρξης - φεύγει από τα "Αιτήματα".
       if (pendingRequest) {
@@ -350,38 +343,36 @@ export default function PatientAccessScreen() {
       setIsAddAccessModalVisible(false);
       refresh();
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteAccess = async (doctorAmka: string) => {
-    Alert.alert("Κατάργηση", "Θέλετε να αφαιρέσετε αυτή την πρόσβαση;", [
-      { text: "Ακύρωση", style: "cancel" },
-      {
-        text: "Κατάργηση",
-        style: "destructive",
-        onPress: async () => {
-          const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
-          const doctorWebId = doctorEntry?.doctors?.web_id;
-          const { error } = await deleteAccess(loggedInPatientAmka, doctorAmka);
+    const confirmed = await askConfirm({
+      message: "Θέλετε να αφαιρέσετε αυτή την πρόσβαση;",
+      confirmText: "Κατάργηση",
+      cancelText: "Ακύρωση",
+    });
+    if (!confirmed) return;
 
-          if (!error) {
-            if (doctorWebId) {
-              await removeDoctorFromAcl({
-                activePatientFolderUrl,
-                accessToken,
-                accessList,
-                doctorWebId,
-              });
-            }
-            setAccessList(prev => prev.filter(a => a.doctor_amka !== doctorAmka));
-            alert("Η πρόσβαση καταργήθηκε επιτυχώς!");
-          }
-        }
-      }
-    ]);
+const doctorEntry = accessList.find(a => a.doctor_amka === doctorAmka);
+const doctorWebId = doctorEntry?.doctors?.web_id;
+const { error } = await deleteAccess(loggedInPatientAmka, doctorAmka);
+
+if (!error) {
+  if (doctorWebId) {
+    await removeDoctorFromAcl({
+      activePatientFolderUrl,
+      accessToken,
+      accessList,
+      doctorWebId,
+    });
+  }
+  setAccessList(prev => prev.filter(a => a.doctor_amka !== doctorAmka));
+  showMessage("Η πρόσβαση καταργήθηκε επιτυχώς!");
+}
   };
 
   const handleSelectAccessType = async (doctorAmka: string, newType: string) => {

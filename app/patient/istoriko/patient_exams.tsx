@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -20,6 +20,7 @@ import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 const CATEGORY = 'Εξετάσεις';
 
@@ -198,7 +199,7 @@ export default function PatientExamsScreen() {
 
   const handleUploadResult = async (item: Exam) => {
     if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;
     }
 
@@ -233,7 +234,7 @@ export default function PatientExamsScreen() {
 
       setExams((prev) => prev.map((e) => e.url === item.url ? { ...e, status: 'completed', completedDate, resultFile: asset.name } : e));
     } catch (error: any) {
-      alert(error.message || "Αποτυχία μεταφόρτωσης αρχείου.");
+      showMessage(error.message || "Αποτυχία μεταφόρτωσης αρχείου.");
     } finally {
       setUploadingFor(null);
     }
@@ -243,26 +244,20 @@ export default function PatientExamsScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
-  const handleDeleteExam = (item: Exam) => {
-    Alert.alert(
-      "Διαγραφή",
-      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
-      [
-        { text: "Ακύρωση", style: "cancel" },
-        {
-          text: "Διαγραφή",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteFile(item.url, accessToken);
-              setExams((prev) => prev.filter((e) => e.url !== item.url));
-            } catch (error: any) {
-              alert(error.message || "Αποτυχία διαγραφής.");
-            }
-          }
-        }
-      ]
-    );
+  const handleDeleteExam = async (item: Exam) => {
+    const confirmed = await askConfirm({
+      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
+      confirmText: "Διαγραφή",
+      cancelText: "Ακύρωση",
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteFile(item.url, accessToken);
+      setExams((prev) => prev.filter((e) => e.url !== item.url));
+    } catch (error: any) {
+      showMessage(error.message || "Αποτυχία διαγραφής.");
+    }
   };
 
   const { pendingExams, completedExams } = useMemo(() => {

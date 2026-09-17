@@ -8,6 +8,7 @@ import { TYPOGRAPHY, TOUCH, SPACING } from '../../constants/designSystem';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
 import { registerDoctor } from '../../services/doctors';
+import { showMessage } from '../../utils/appMessage';
 
 export default function DoctorRegisterScreen() {
   const { login } = useAuth();
@@ -24,7 +25,7 @@ export default function DoctorRegisterScreen() {
 
   const handleDoctorRegister = async () => {
     if (!doctorForm.first_name || !doctorForm.last_name || !doctorForm.amka) {
-      alert("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα, Επίθετο και ΑΜΚΑ.");
+      showMessage("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα, Επίθετο και ΑΜΚΑ.");
       return;
     }
     try {
@@ -32,7 +33,7 @@ export default function DoctorRegisterScreen() {
       const { error } = await registerDoctor(doctorForm);
 
       if (error) {
-        alert("Σφάλμα αποθήκευσης: " + error.message);
+        showMessage("Σφάλμα αποθήκευσης: " + error.message);
         return;
       }
 
@@ -44,7 +45,7 @@ export default function DoctorRegisterScreen() {
         router.replace(ROUTES.DOCTOR_LOGIN);
       }
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setLoading(false);
     }

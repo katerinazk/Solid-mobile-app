@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -17,6 +17,7 @@ import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 const CATEGORY = 'Εμβολιασμοί';
 
@@ -47,7 +48,7 @@ export default function DoctorVaccinationsScreen() {
   const [newestFirst, setNewestFirst] = useState(true);
 
   const loadVaccinations = async (silent = false) => {
-    if (!webId) return Alert.alert("Σφάλμα", "Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
+    if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
       if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
@@ -86,7 +87,7 @@ export default function DoctorVaccinationsScreen() {
         checkAccess();
         return;
       }
-      Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      showMessage(error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -137,25 +138,19 @@ export default function DoctorVaccinationsScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    Alert.alert(
-      "Διαγραφή",
-      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον εμβολιασμό;",
-      [
-        { text: "Ακύρωση", style: "cancel" },
-        {
-          text: "Διαγραφή",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteFile(item.url, accessToken);
-              setVaccinations((prev) => prev.filter((v) => v.url !== item.url));
-            } catch (error: any) {
-              alert(error.message || "Αποτυχία διαγραφής.");
-            }
-          }
-        }
-      ]
-    );
+    const confirmed = await askConfirm({
+      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον εμβολιασμό;",
+      confirmText: "Διαγραφή",
+      cancelText: "Ακύρωση",
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteFile(item.url, accessToken);
+      setVaccinations((prev) => prev.filter((v) => v.url !== item.url));
+    } catch (error: any) {
+      showMessage(error.message || "Αποτυχία διαγραφής.");
+    }
   };
 
   // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.

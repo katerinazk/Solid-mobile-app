@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -20,6 +20,7 @@ import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 const CATEGORY = 'Εξετάσεις';
 
@@ -119,7 +120,7 @@ export default function DoctorExamsScreen() {
   const [exams, setExams] = useState<Exam[]>([]);
 
   const loadExams = async (silent = false) => {
-    if (!webId) return Alert.alert("Σφάλμα", "Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
+    if (!webId) return showMessage("Ο ασθενής δεν έχει συνδέσει προσωπικό χώρο (Pod).");
     try {
       if (!silent) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
@@ -161,7 +162,7 @@ export default function DoctorExamsScreen() {
         checkAccess();
         return;
       }
-      Alert.alert("Πρόβλημα", error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      showMessage(error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -237,25 +238,19 @@ export default function DoctorExamsScreen() {
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    Alert.alert(
-      "Διαγραφή",
-      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
-      [
-        { text: "Ακύρωση", style: "cancel" },
-        {
-          text: "Διαγραφή",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteFile(item.url, accessToken);
-              setExams((prev) => prev.filter((e) => e.url !== item.url));
-            } catch (error: any) {
-              alert(error.message || "Αποτυχία διαγραφής.");
-            }
-          }
-        }
-      ]
-    );
+    const confirmed = await askConfirm({
+      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
+      confirmText: "Διαγραφή",
+      cancelText: "Ακύρωση",
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteFile(item.url, accessToken);
+      setExams((prev) => prev.filter((e) => e.url !== item.url));
+    } catch (error: any) {
+      showMessage(error.message || "Αποτυχία διαγραφής.");
+    }
   };
 
   return (

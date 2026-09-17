@@ -13,6 +13,7 @@ import { SelectField } from '../../../components/SelectField';
 import { ADMINISTRATION_ROUTES, matchAdministrationRoute } from '../../../constants/medicalOptions';
 import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
+import { showMessage } from '../../../utils/appMessage';
 
 export default function DoctorMedicationFormScreen() {
   const params = useLocalSearchParams<{
@@ -86,7 +87,7 @@ export default function DoctorMedicationFormScreen() {
     if (!(await checkAccess())) return;
 
     if (!selectedCode || !route || !dosage.trim()) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      showMessage("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
 
@@ -95,12 +96,12 @@ export default function DoctorMedicationFormScreen() {
     const days = Number(durationDays || 0);
     const months = Number(durationMonths || 0);
     if (days + months <= 0) {
-      alert("Συμπληρώστε τη διάρκεια χορήγησης σε μέρες ή σε μήνες.");
+      showMessage("Συμπληρώστε τη διάρκεια χορήγησης σε μέρες ή σε μήνες.");
       return;
     }
 
     if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;
     }
 
@@ -149,7 +150,7 @@ export default function DoctorMedicationFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -18,6 +18,7 @@ import { formatDate } from '../../../utils/age';
 import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 const CATEGORY = 'Φάρμακα';
 
@@ -135,7 +136,7 @@ export default function PatientMedicationsScreen() {
 
   const handleStartMedication = async (item: Medication) => {
     if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;
     }
 
@@ -163,30 +164,24 @@ export default function PatientMedicationsScreen() {
 
       setMedications((prev) => prev.map((m) => m.url === item.url ? { ...m, startDate, started: true } : m));
     } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
     }
   };
 
-  const handleDeleteMedication = (item: Medication) => {
-    Alert.alert(
-      "Διαγραφή",
-      "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το φάρμακο;",
-      [
-        { text: "Ακύρωση", style: "cancel" },
-        {
-          text: "Διαγραφή",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteFile(item.url, accessToken);
-              setMedications((prev) => prev.filter((m) => m.url !== item.url));
-            } catch (error: any) {
-              alert(error.message || "Αποτυχία διαγραφής.");
-            }
-          }
-        }
-      ]
-    );
+  const handleDeleteMedication = async (item: Medication) => {
+    const confirmed = await askConfirm({
+      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το φάρμακο;",
+      confirmText: "Διαγραφή",
+      cancelText: "Ακύρωση",
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteFile(item.url, accessToken);
+      setMedications((prev) => prev.filter((m) => m.url !== item.url));
+    } catch (error: any) {
+      showMessage(error.message || "Αποτυχία διαγραφής.");
+    }
   };
 
   const { activeMedications, previousMedications } = useMemo(() => {

@@ -17,6 +17,7 @@ import { searchPatients } from '../../../services/patients';
 import { fetchAccessEntry } from '../../../services/access';
 import { fetchPendingAccessRequestsForDoctor } from '../../../services/accessRequests';
 import { Patient } from '../../../types/Patient';
+import { showMessage } from '../../../utils/appMessage';
 
 interface SearchResult {
   first_name: string;
@@ -119,18 +120,18 @@ export default function DoctorHomeScreen() {
       const { data: entry, error } = await fetchAccessEntry(patient.amka, loggedInDoctorAmka);
 
       if (error) {
-        alert("Δεν ήταν δυνατός ο έλεγχος της πρόσβασης. Δοκιμάστε ξανά.");
+        showMessage("Δεν ήταν δυνατός ο έλεγχος της πρόσβασης. Δοκιμάστε ξανά.");
         return;
       }
 
       if (!entry || !entry.acl_synced) {
-        alert("Ο ασθενής κατάργησε την πρόσβασή σας. Δοκιμάστε ξανά αργότερα.");
+        showMessage("Ο ασθενής κατάργησε την πρόσβασή σας. Δοκιμάστε ξανά αργότερα.");
         refresh();
         return;
       }
 
       if (entry.access_type !== patient.accessType) {
-        alert(`Ο ασθενής άλλαξε τον τύπο πρόσβασης σε "${entry.access_type}". Δοκιμάστε ξανά.`);
+        showMessage(`Ο ασθενής άλλαξε τον τύπο πρόσβασης σε "${entry.access_type}". Δοκιμάστε ξανά.`);
         refresh();
         return;
       }
@@ -139,7 +140,7 @@ export default function DoctorHomeScreen() {
       // δεν υπάρχει φάκελος να ανοίξει. Ξαναφορτώνουμε τη λίστα, γιατί μπορεί απλώς να έχει
       // παλιώσει και ο ασθενής να συνδέθηκε στο μεταξύ.
       if (!patient.webId) {
-        alert("Ο ασθενής δεν έχει συνδέσει ακόμη προσωπικό χώρο (Pod), οπότε δεν υπάρχει ιατρικός φάκελος να ανοίξει.");
+        showMessage("Ο ασθενής δεν έχει συνδέσει ακόμη προσωπικό χώρο (Pod), οπότε δεν υπάρχει ιατρικός φάκελος να ανοίξει.");
         refresh();
         return;
       }
@@ -156,7 +157,7 @@ export default function DoctorHomeScreen() {
         },
       });
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setOpeningFolderFor(null);
     }

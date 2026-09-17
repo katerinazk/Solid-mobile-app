@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 import { sharedStyles as styles } from '../../constants/sharedStyles';
@@ -10,6 +10,7 @@ import { hasPendingAccessRequest, createAccessRequest } from '../../services/acc
 import { fetchAccessEntry } from '../../services/access';
 import { InvitePatientModal } from './InvitePatientModal';
 import { ACCESS_FULL, ACCESS_READ_ONLY } from '../../constants/accessTypes';
+import { askConfirm, showMessage } from '../../utils/appMessage';
 
 interface Props {
   visible: boolean;
@@ -37,43 +38,27 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
     }
   }, [visible, initialAmka]);
 
-  // Το Alert.alert δεν επιστρέφει την απάντηση, οπότε το τυλίγουμε σε Promise ώστε η ροή να
-  // μπορεί να την περιμένει.
+  // Η ερώτηση επιστρέφει Promise, ώστε η ροή να περιμένει την απάντηση.
+  // Το νέο παράθυρο δεν έχει τίτλο, οπότε ο πρώτος παράγοντας δεν εμφανίζεται πια. Μένει στην
+  // υπογραφή ώστε να μην αλλάξουν όλα τα σημεία που καλούν, και για να διαβάζεται η πρόθεση.
   const confirmDialog = (title: string, message: string): Promise<boolean> =>
-    new Promise((resolve) => {
-      Alert.alert(
-        title,
-        message,
-        [
-          { text: "Όχι", style: "cancel", onPress: () => resolve(false) },
-          { text: "Ναι", onPress: () => resolve(true) },
-        ],
-        { cancelable: false }
-      );
-    });
+    askConfirm({ message });
 
   // Ο ασθενής δεν έχει λογαριασμό: αντί για σκέτο "δεν βρέθηκε", προτείνουμε στον γιατρό να
   // τον καλέσει να εγγραφεί. Κλείνουμε πρώτα αυτό το παράθυρο για να ανοίξει το επόμενο.
-  const promptInvite = (amka: string) => {
-    Alert.alert(
-      "Δεν χρησιμοποιεί την εφαρμογή",
-      "Ο ασθενής με αυτό το ΑΜΚΑ δεν χρησιμοποιεί την εφαρμογή. Θέλετε να του στείλετε πρόσκληση να τη χρησιμοποιήσει;",
-      [
-        { text: "Όχι", style: "cancel" },
-        {
-          text: "Ναι",
-          onPress: () => {
-            onClose();
-            setInviteAmka(amka);
-          },
-        },
-      ]
-    );
+  const promptInvite = async (amka: string) => {
+    const confirmed = await askConfirm({
+      message: "Ο ασθενής με αυτό το ΑΜΚΑ δεν χρησιμοποιεί την εφαρμογή. Θέλετε να του στείλετε πρόσκληση να τη χρησιμοποιήσει;",
+    });
+    if (!confirmed) return;
+
+    onClose();
+    setInviteAmka(amka);
   };
 
   const handleSubmit = async () => {
     if (!patientAmka.trim()) {
-      alert("Παρακαλώ εισάγετε το ΑΜΚΑ του ασθενή.");
+      showMessage("Παρακαλώ εισάγετε το ΑΜΚΑ του ασθενή.");
       return;
     }
 
@@ -91,14 +76,14 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
       const { data: existingAccess, error: accessError } = await fetchAccessEntry(patientAmka.trim(), doctorAmka);
 
       if (accessError && hasAccessTo(patientAmka.trim())) {
-        alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
+        showMessage("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
         return;
       }
 
       if (existingAccess && !existingAccess.acl_synced) {
         // Η πρόσβαση υπάρχει στη βάση αλλά ο γιατρός δεν έχει μπει ακόμα στο ACL του Pod, οπότε
         // ο φάκελος δεν του εμφανίζεται - χωρίς εξήγηση θα έμοιαζε με σφάλμα.
-        alert("Ο ασθενής σας έχει ήδη δώσει πρόσβαση. Ο φάκελός του θα εμφανιστεί μόλις συνδεθεί ξανά στην εφαρμογή.");
+        showMessage("Ο ασθενής σας έχει ήδη δώσει πρόσβαση. Ο φάκελός του θα εμφανιστεί μόλις συνδεθεί ξανά στην εφαρμογή.");
         return;
       }
 
@@ -106,7 +91,7 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
         // Με ίδιο δικαίωμα το αίτημα δεν έχει νόημα. Με διαφορετικό (τυπικά: έχει "Μόνο
         // Ανάγνωση" και θέλει "Πλήρης Πρόσβαση") επιτρέπεται, αφού το επιβεβαιώσει ο γιατρός.
         if (existingAccess.access_type === accessType) {
-          alert("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
+          showMessage("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");
           return;
         }
 
@@ -119,21 +104,21 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
 
       const { data: pendingRequest } = await hasPendingAccessRequest(doctorAmka, patientAmka.trim());
       if (pendingRequest) {
-        alert("Υπάρχει ήδη εκκρεμές αίτημα πρόσβασης για αυτόν τον ασθενή.");
+        showMessage("Υπάρχει ήδη εκκρεμές αίτημα πρόσβασης για αυτόν τον ασθενή.");
         return;
       }
 
       const { error } = await createAccessRequest(doctorAmka, patientAmka.trim(), accessType);
       if (error) {
-        alert("Σφάλμα: " + error.message);
+        showMessage("Σφάλμα: " + error.message);
         return;
       }
 
-      alert("Το αίτημα πρόσβασης στάλθηκε επιτυχώς!");
+      showMessage("Το αίτημα πρόσβασης στάλθηκε επιτυχώς!");
       onSubmitted?.();
       onClose();
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setSubmitting(false);
     }

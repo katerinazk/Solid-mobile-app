@@ -5,6 +5,7 @@ import { COLORS } from '../../constants/colors';
 import { sharedStyles as styles } from '../../constants/sharedStyles';
 import { loginStyles } from '../../constants/loginStyles';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../../constants/designSystem';
+import { showMessage } from '../../utils/appMessage';
 
 type InviteMethod = 'phone' | 'email';
 
@@ -35,28 +36,28 @@ export function InvitePatientModal({ visible, patientAmka, onClose }: Props) {
 
   const handleSubmit = () => {
     if (!method) {
-      alert("Επιλέξτε αν θα σταλεί με SMS ή email.");
+      showMessage("Επιλέξτε αν θα σταλεί με SMS ή email.");
       return;
     }
 
     if (method === 'phone') {
       const number = phone.trim();
       if (!number.startsWith('+')) {
-        alert("Το κινητό πρέπει να ξεκινά με τον κωδικό χώρας, π.χ. +3069...");
+        showMessage("Το κινητό πρέπει να ξεκινά με τον κωδικό χώρας, π.χ. +3069...");
         return;
       }
       if (!PHONE_PATTERN.test(number)) {
-        alert("Εισάγετε έγκυρο κινητό σε διεθνή μορφή, π.χ. +306912345678.");
+        showMessage("Εισάγετε έγκυρο κινητό σε διεθνή μορφή, π.χ. +306912345678.");
         return;
       }
     } else {
       if (!EMAIL_PATTERN.test(email.trim())) {
-        alert("Εισάγετε έγκυρη διεύθυνση email.");
+        showMessage("Εισάγετε έγκυρη διεύθυνση email.");
         return;
       }
     }
 
-    alert("Η πρόσκληση στάλθηκε επιτυχώς!");
+    showMessage("Η πρόσκληση στάλθηκε επιτυχώς!");
     onClose();
   };
 

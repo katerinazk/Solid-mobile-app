@@ -8,6 +8,7 @@ import { ROUTES } from '../../constants/routes';
 import { TYPOGRAPHY, TOUCH, SPACING } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { registerPatient } from '../../services/patients';
+import { showMessage } from '../../utils/appMessage';
 
 export default function PatientRegisterScreen() {
   const { login } = useAuth();
@@ -26,7 +27,7 @@ export default function PatientRegisterScreen() {
 
   const handlePatientRegister = async () => {
     if (!patientForm.first_name || !patientForm.last_name || !patientForm.amka) {
-      alert("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα, Επίθετο και ΑΜΚΑ.");
+      showMessage("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα, Επίθετο και ΑΜΚΑ.");
       return;
     }
     try {
@@ -34,7 +35,7 @@ export default function PatientRegisterScreen() {
       const { error } = await registerPatient(patientForm);
 
       if (error) {
-        alert("Σφάλμα αποθήκευσης: " + error.message);
+        showMessage("Σφάλμα αποθήκευσης: " + error.message);
         return;
       }
 
@@ -46,7 +47,7 @@ export default function PatientRegisterScreen() {
         router.replace(ROUTES.PATIENT_LOGIN);
       }
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setLoading(false);
     }

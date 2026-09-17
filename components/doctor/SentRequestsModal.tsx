@@ -5,6 +5,7 @@ import { COLORS } from '../../constants/colors';
 import { sharedStyles as styles } from '../../constants/sharedStyles';
 import { TYPOGRAPHY } from '../../constants/designSystem';
 import { fetchPendingAccessRequestsForDoctor } from '../../services/accessRequests';
+import { showMessage } from '../../utils/appMessage';
 
 interface SentAccessRequest {
   id: string;
@@ -35,7 +36,7 @@ export function SentRequestsModal({ visible, doctorAmka, onClose }: Props) {
         const { data, error } = await fetchPendingAccessRequestsForDoctor(doctorAmka);
         if (canceled) return;
         if (error) {
-          alert("Σφάλμα φόρτωσης αιτημάτων: " + error.message);
+          showMessage("Σφάλμα φόρτωσης αιτημάτων: " + error.message);
           return;
         }
         setRequests((data || []) as unknown as SentAccessRequest[]);

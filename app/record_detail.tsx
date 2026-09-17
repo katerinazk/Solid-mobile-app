@@ -16,6 +16,7 @@ import { CodedCardTitle } from '../components/CodedCardTitle';
 import { formatDate } from '../utils/age';
 import { formatDuration } from '../utils/duration';
 import { useDoctorNames, formatDoctorName, formatDoctorLastNameOnly } from '../hooks/useDoctorNames';
+import { showMessage } from '../utils/appMessage';
 
 // "Διαγνώσεις" -> "Σχετικές Διαγνώσεις", "Εμβολιασμοί" -> "Σχετικοί Εμβολιασμοί". Το γένος
 // αλλάζει ανά κατηγορία, οπότε δεν γίνεται να κολλήσουμε μία λέξη μπροστά.
@@ -85,7 +86,7 @@ export default function RecordDetailScreen() {
       const localUri = await downloadAttachment(params.url, record.resultFile, accessToken);
       await openLocalFile(localUri, record.resultFile);
     } catch (error: any) {
-      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+      showMessage(error.message || 'Αποτυχία ανοίγματος αρχείου.');
     } finally {
       setOpeningResult(false);
     }
@@ -152,7 +153,7 @@ export default function RecordDetailScreen() {
       const localUri = await downloadAttachment(params.url, fileName, accessToken);
       await openLocalFile(localUri, fileName);
     } catch (error: any) {
-      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+      showMessage(error.message || 'Αποτυχία ανοίγματος αρχείου.');
     } finally {
       setOpeningAttachment(null);
     }

@@ -13,6 +13,7 @@ import { SelectField } from '../../../components/SelectField';
 import { EXAM_TYPES } from '../../../constants/medicalOptions';
 import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
+import { showMessage } from '../../../utils/appMessage';
 
 export default function DoctorExamFormScreen() {
   const params = useLocalSearchParams<{
@@ -69,12 +70,12 @@ export default function DoctorExamFormScreen() {
     if (!(await checkAccess())) return;
 
     if (!selectedCode || !type.trim()) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      showMessage("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
 
     if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;
     }
 
@@ -118,7 +119,7 @@ export default function DoctorExamFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
       setSaving(false);
     }

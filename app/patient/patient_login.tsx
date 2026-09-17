@@ -8,6 +8,7 @@ import { ROUTES } from '../../constants/routes';
 import { TYPOGRAPHY, TOUCH } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchPatientByAmka } from '../../services/patients';
+import { showMessage } from '../../utils/appMessage';
 
 export default function PatientLoginScreen() {
   const { login, loading } = useAuth();
@@ -17,7 +18,7 @@ export default function PatientLoginScreen() {
 
   const handleLogin = async () => {
     if (!patientAmka.trim() || !solidProvider.trim()) {
-      alert("Παρακαλώ συμπληρώστε ΑΜΚΑ και Solid Provider.");
+      showMessage("Παρακαλώ συμπληρώστε ΑΜΚΑ και Solid Provider.");
       return;
     }
 
@@ -36,7 +37,7 @@ export default function PatientLoginScreen() {
 
       login('patient', patientAmka.trim(), solidProvider.trim());
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setChecking(false);
     }

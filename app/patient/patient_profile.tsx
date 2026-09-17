@@ -9,6 +9,7 @@ import { loginStyles } from '../../constants/loginStyles';
 import { SPACING, TYPOGRAPHY } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchPatientByAmka, updatePatient } from '../../services/patients';
+import { showMessage } from '../../utils/appMessage';
 
 interface PatientProfile {
   first_name: string;
@@ -73,7 +74,7 @@ export default function PatientProfileScreen() {
 
   const handleSave = async () => {
     if (!formFirstName.trim() || !formLastName.trim()) {
-      alert("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα και Επίθετο.");
+      showMessage("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα και Επίθετο.");
       return;
     }
     try {
@@ -89,14 +90,14 @@ export default function PatientProfileScreen() {
       });
 
       if (error) {
-        alert("Σφάλμα αποθήκευσης: " + error.message);
+        showMessage("Σφάλμα αποθήκευσης: " + error.message);
         return;
       }
 
       await loadPatient();
       setIsEditing(false);
     } catch (error) {
-      alert("Απρόσμενο σφάλμα.");
+      showMessage("Απρόσμενο σφάλμα.");
     } finally {
       setSaving(false);
     }

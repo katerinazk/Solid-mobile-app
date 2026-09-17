@@ -1,5 +1,4 @@
 import React, { createContext, useState, useRef, useEffect, ReactNode } from 'react';
-import { Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
@@ -9,6 +8,7 @@ import { ROUTES } from '../constants/routes';
 import { clearPatientWebId } from '../services/patients';
 import { clearDoctorWebId } from '../services/doctors';
 import { resetAclSyncForPatient, resetAclSyncForDoctor } from '../services/access';
+import { askConfirm, showMessage } from '../utils/appMessage';
 
 type Role = 'doctor' | 'patient';
 
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (doctorCheck) {
-        alert("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε γιατρό. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
+        showMessage("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε γιατρό. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
         return false;
       }
 
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error || !data) {
-        alert("Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.");
+        showMessage("Δεν βρέθηκε ασθενής με αυτό το ΑΜΚΑ.");
         return false;
       }
 
@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         if (taken) {
-          alert("Αυτό το Pod χρησιμοποιείται ήδη από άλλον ασθενή. Συνδεθείτε με δικό σας Pod.");
+          showMessage("Αυτό το Pod χρησιμοποιείται ήδη από άλλον ασθενή. Συνδεθείτε με δικό σας Pod.");
           return false;
         }
 
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('amka', loggedInPatientAmka);
         console.log("✅ WebID αποθηκεύτηκε:", webId);
       } else if (data.web_id !== webId) {
-        alert("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
+        showMessage("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
         return false;
       }
 
@@ -139,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (patientCheck) {
-        alert("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε ασθενή. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
+        showMessage("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε ασθενή. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
         return false;
       }
 
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error || !data) {
-        alert("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
+        showMessage("Δεν βρέθηκε γιατρός με αυτό το ΑΜΚΑ.");
         return false;
       }
 
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         if (taken) {
-          alert("Αυτό το Pod χρησιμοποιείται ήδη από άλλον γιατρό. Συνδεθείτε με δικό σας Pod.");
+          showMessage("Αυτό το Pod χρησιμοποιείται ήδη από άλλον γιατρό. Συνδεθείτε με δικό σας Pod.");
           return false;
         }
 
@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('amka', loggedInDoctorAmka);
         console.log("✅ WebID γιατρού αποθηκεύτηκε:", webId);
       } else if (data.web_id !== webId) {
-        alert("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
+        showMessage("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
         return false;
       }
 
@@ -240,12 +240,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
             }
           } else {
-            alert("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
+            showMessage("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
           }
 
         } catch (error) {
           console.error("Σφάλμα κατά την ανταλλαγή του token:", error);
-          alert("Αποτυχία λήψης Access Token!");
+          showMessage("Αποτυχία λήψης Access Token!");
         }
       }
     };
@@ -342,11 +342,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         storedClientId.current = clientData.client_id;
         setDynamicClientId(clientData.client_id);
       } else {
-        Alert.alert("Σφάλμα", "Ο Provider δεν υποστηρίζει Dynamic Registration.");
+        showMessage("Ο Provider δεν υποστηρίζει Dynamic Registration.");
       }
     } catch (error: any) {
       console.error("DCR Error:", error);
-      Alert.alert("Σφάλμα Σύνδεσης", error.message || "Αποτυχία επικοινωνίας με τον Provider.");
+      showMessage(error.message || "Αποτυχία επικοινωνίας με τον Provider.");
     } finally {
       setLoading(false);
       isDcrRunning.current = false;
@@ -386,7 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : await clearDoctorWebId(loggedInDoctorAmka);
 
     if (error) {
-      Alert.alert('Σφάλμα', 'Δεν ήταν δυνατή η αποδέσμευση του Pod. Δοκιμάστε ξανά.');
+      showMessage('Δεν ήταν δυνατή η αποδέσμευση του Pod. Δοκιμάστε ξανά.');
       return;
     }
 
@@ -401,28 +401,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout();
   };
 
-  const confirmSwitchPod = () => {
+  const confirmSwitchPod = async () => {
     const consequence = role === 'patient'
       ? 'Οι καταχωρήσεις που έχετε σήμερα μένουν στο παλιό Pod και δεν μεταφέρονται. Οι γιατροί που σας έχουν πρόσβαση θα την ξαναποκτήσουν μόλις συνδεθείτε στο νέο.'
       : 'Οι ασθενείς σας θα σας ξαναεμφανιστούν καθώς ο καθένας τους μπαίνει στην εφαρμογή και ενημερώνεται ο φάκελός του.';
 
-    Alert.alert(
-      'Σύνδεση με άλλο Pod',
-      `Θα αποσυνδεθείτε και θα χρειαστεί να συνδεθείτε ξανά, δηλώνοντας το νέο σας Pod.
+    const confirmed = await askConfirm({
+      message: `Θα αποσυνδεθείτε και θα χρειαστεί να συνδεθείτε ξανά, δηλώνοντας το νέο σας Pod.
 
 ${consequence}`,
-      [
-        { text: 'Ακύρωση', style: 'cancel' },
-        { text: 'Συνέχεια', style: 'destructive', onPress: switchPod },
-      ],
-    );
+      confirmText: 'Συνέχεια',
+      cancelText: 'Ακύρωση',
+    });
+    if (confirmed) switchPod();
   };
 
-  const confirmLogout = () => {
-    Alert.alert('Αποσύνδεση', 'Θέλετε να αποσυνδεθείτε;', [
-      { text: 'Ακύρωση', style: 'cancel' },
-      { text: 'Αποσύνδεση', style: 'destructive', onPress: logout },
-    ]);
+  const confirmLogout = async () => {
+    const confirmed = await askConfirm({
+      message: 'Θέλετε να αποσυνδεθείτε;',
+      confirmText: 'Αποσύνδεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (confirmed) logout();
   };
 
   return (

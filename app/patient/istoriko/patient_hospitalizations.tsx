@@ -17,6 +17,7 @@ import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId,
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
+import { showMessage } from '../../../utils/appMessage';
 
 const CATEGORY = 'Νοσηλίες';
 
@@ -123,7 +124,7 @@ export default function PatientHospitalizationsScreen() {
       const localUri = await downloadAttachment(item.url, fileName, accessToken);
       await openLocalFile(localUri, fileName);
     } catch (error: any) {
-      alert(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+      showMessage(error.message || 'Αποτυχία ανοίγματος αρχείου.');
     } finally {
       setDownloadingAttachment(null);
     }

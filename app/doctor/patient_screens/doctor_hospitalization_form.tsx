@@ -19,6 +19,7 @@ import { DateField } from '../../../components/DateField';
 import { validatePastDate, isoToDate } from '../../../utils/dateInput';
 import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
+import { showMessage } from '../../../utils/appMessage';
 
 interface PendingFile {
   name: string;
@@ -108,7 +109,7 @@ export default function DoctorHospitalizationFormScreen() {
         })),
       ]);
     } catch (error: any) {
-      alert(error.message || 'Αποτυχία επιλογής αρχείου.');
+      showMessage(error.message || 'Αποτυχία επιλογής αρχείου.');
     }
   };
 
@@ -118,30 +119,30 @@ export default function DoctorHospitalizationFormScreen() {
     if (!(await checkAccess())) return;
 
     if (!selectedCode || !hospital) {
-      alert("Παρακαλώ συμπληρώστε όλα τα πεδία!");
+      showMessage("Παρακαλώ συμπληρώστε όλα τα πεδία!");
       return;
     }
 
     const admissionError = validatePastDate(admissionDate, 'Ημερομηνία εισαγωγής');
     if (admissionError) {
-      alert(admissionError);
+      showMessage(admissionError);
       return;
     }
 
     const dischargeError = validatePastDate(dischargeDate, 'Ημερομηνία εξιτηρίου');
     if (dischargeError) {
-      alert(dischargeError);
+      showMessage(dischargeError);
       return;
     }
 
     // Το εξιτήριο δεν γίνεται να προηγείται της εισαγωγής.
     if (dischargeDate < admissionDate) {
-      alert("Η ημερομηνία εξιτηρίου δεν μπορεί να είναι πριν από την ημερομηνία εισαγωγής.");
+      showMessage("Η ημερομηνία εξιτηρίου δεν μπορεί να είναι πριν από την ημερομηνία εισαγωγής.");
       return;
     }
 
     if (!accessToken) {
-      alert("ΣΦΑΛΜΑ: Το Access Token λείπει!");
+      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;
     }
 
@@ -185,7 +186,7 @@ export default function DoctorHospitalizationFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      alert(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
     } finally {
       setSaving(false);
     }

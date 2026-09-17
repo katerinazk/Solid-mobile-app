@@ -4,6 +4,7 @@ import { ROUTES } from '../constants/routes';
 import { fetchAccessEntry } from '../services/access';
 import { ACCESS_READ_ONLY } from '../constants/accessTypes';
 import { useAuth } from './useAuth';
+import { showMessage } from '../utils/appMessage';
 
 // Κάθε πόσο ξαναρωτάμε τη βάση όσο ο γιατρός έχει ανοιχτή μια οθόνη του φακέλου.
 const POLL_INTERVAL_MS = 15000;
@@ -31,7 +32,7 @@ export function useDoctorAccessGuard(patientAmka: string, initialAccessType: str
 
     if (!data || !data.acl_synced) {
       kickedOut.current = true;
-      alert("Ο ασθενής κατάργησε την πρόσβασή σας στον φάκελό του.");
+      showMessage("Ο ασθενής κατάργησε την πρόσβασή σας στον φάκελό του.");
       router.replace(ROUTES.DOCTOR_HOME);
       return false;
     }
@@ -39,7 +40,7 @@ export function useDoctorAccessGuard(patientAmka: string, initialAccessType: str
     if (data.access_type !== accessTypeRef.current) {
       accessTypeRef.current = data.access_type;
       setAccessType(data.access_type);
-      alert(`Ο ασθενής άλλαξε τον τύπο πρόσβασης σε "${data.access_type}".`);
+      showMessage(`Ο ασθενής άλλαξε τον τύπο πρόσβασης σε "${data.access_type}".`);
       return false;
     }
 
