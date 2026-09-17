@@ -164,9 +164,36 @@ export async function deleteFile(url: string, accessToken: string): Promise<void
  * στον ίδιο ασθενή θα έγραφαν στο ίδιο αρχείο και η μία καταχώρηση θα έσβηνε την άλλη, χωρίς
  * να το πάρει είδηση κανείς. Το τυχαίο επίθεμα κάνει τη σύμπτωση πρακτικά αδύνατη.
  */
-export function newRecordFileName(prefix = ''): string {
+// Η σήμανση που μπαίνει στο όνομα του αρχείου, πάντα σε 13 ψηφία.
+//
+// Προτιμάμε την ιατρική ημερομηνία της εγγραφής αντί για τη στιγμή της καταχώρησης, ώστε η
+// σειρά των ονομάτων να συμπίπτει με τη σειρά που βλέπει ο χρήστης στην οθόνη. Έτσι η φόρτωση
+// μπορεί να κατεβάσει πρώτα ό,τι θα εμφανιστεί πρώτο, χωρίς να ανοίξει κανένα αρχείο.
+//
+// Η συμπλήρωση με μηδενικά είναι απαραίτητη: μια νοσηλία του 1995 δίνει δωδεκαψήφια χιλιοστά
+// και δεν θα την έβρισκε ο δεκατριαψήφιος αναγνώστης. Ημερομηνίες πριν το 1970 δίνουν αρνητικό
+// αριθμό και κρατούν το πρόσημό τους: αν τις μηδενίζαμε, μια νοσηλία του 1965 θα διαβαζόταν ως
+// 1970 και θα συγχεόταν με το μηδέν που σημαίνει "άγνωστη σήμανση".
+function recordStamp(clinicalDate?: string): string {
+  const parsed = clinicalDate ? new Date(clinicalDate).getTime() : NaN;
+  const stamp = Number.isNaN(parsed) ? Date.now() : parsed;
+  const sign = stamp < 0 ? '-' : '';
+  return sign + String(Math.abs(stamp)).padStart(13, '0');
+}
+
+/**
+ * Το όνομα μιας νέας εγγραφής.
+ *
+ * Το τυχαίο κομμάτι κρατά δύο καταχωρήσεις χωριστές όταν πέφτουν στην ίδια στιγμή - ή, τώρα
+ * που η σήμανση είναι ημέρα και όχι χιλιοστό, στην ίδια ημέρα.
+ *
+ * Καλείται μόνο για νέα αρχεία. Σε επεξεργασία το όνομα μένει ως έχει, ακόμα κι αν διορθωθεί
+ * η ημερομηνία: οι συνδέσεις μεταξύ εγγραφών κρατούν τη διεύθυνση, και η μετονομασία θα τις
+ * έσπαγε όλες.
+ */
+export function newRecordFileName(prefix = '', clinicalDate?: string): string {
   const random = Math.random().toString(36).slice(2, 10);
-  return `${prefix}${Date.now()}_${random}.json`;
+  return `${prefix}${recordStamp(clinicalDate)}_${random}.json`;
 }
 
 export async function saveFileContent(url: string, accessToken: string, content: string): Promise<void> {

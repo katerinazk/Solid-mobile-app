@@ -160,7 +160,9 @@ export default function DoctorHospitalizationFormScreen() {
         doctorAmka = loggedInDoctorAmka;
       }
 
-      const fileUrl = params.editUrl || newRecordFileName(folderUrl);
+      // Η ημερομηνία εισαγωγής είναι η μόνη πραγματικά ιατρική ημερομηνία που υπάρχει τη
+      // στιγμή της αποθήκευσης, οπότε αυτή μπαίνει στο όνομα αντί για τη στιγμή καταχώρησης.
+      const fileUrl = params.editUrl || newRecordFileName(folderUrl, admissionDate);
 
       // Τα συνημμένα ανεβαίνουν δίπλα στην εγγραφή, οπότε χρειάζονται το τελικό της URL.
       for (const file of pendingFiles) {

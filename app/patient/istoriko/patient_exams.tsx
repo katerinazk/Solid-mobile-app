@@ -15,7 +15,7 @@ import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord } from '../../../utils/podRecords';
+import { isCompleteRecord, createdAtFromUrl } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -45,12 +45,13 @@ interface Exam {
   parentName?: string;
 }
 
-// Οι εκκρεμείς εξετάσεις δεν είχαν ημερομηνία. Τα αρχεία όμως ονομάζονται με το timestamp της
-// στιγμής που δημιουργήθηκαν (Date.now().json), οπότε οι παλιές εγγραφές - που δεν έχουν
-// createdDate μέσα τους - παίρνουν την ημερομηνία από το ίδιο το όνομα του αρχείου.
+// Οι εκκρεμείς εξετάσεις δεν είχαν ημερομηνία. Τα αρχεία όμως ονομάζονται με τη στιγμή που
+// δημιουργήθηκαν, οπότε οι παλιές εγγραφές - που δεν έχουν createdDate μέσα τους - παίρνουν
+// την ημερομηνία από το ίδιο το όνομα του αρχείου.
 function createdDateFromUrl(url: string): string {
-  const timestamp = Number(url.split('/').pop()?.replace('.json', ''));
-  if (!timestamp) return '';
+  const timestamp = createdAtFromUrl(url);
+  // Το 0 είναι έγκυρη ημερομηνία, οπότε ο έλεγχος είναι για πεπερασμένο αριθμό.
+  if (!Number.isFinite(timestamp)) return '';
   const date = new Date(timestamp);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
