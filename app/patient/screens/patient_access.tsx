@@ -483,19 +483,11 @@ export default function PatientAccessScreen() {
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-              {/* Οι δύο ενέργειες της οθόνης ζουν δίπλα στον τίτλο, ως στρογγυλά εικονίδια:
-                  δίνω πρόσβαση σε γιατρό, και βλέπω ποιοι μου την έχουν ζητήσει. */}
+              {/* Δίπλα στον τίτλο μένει μόνο η προβολή των αιτημάτων. Η προσθήκη πρόσβασης
+                  γίνεται από την αναζήτηση: ο ασθενής βρίσκει τον γιατρό με το όνομά του και
+                  του τη δίνει από την ίδια την καρτέλα του αποτελέσματος. */}
               <View style={localStyles.titleRow}>
                 <Text style={localStyles.sectionTitle}>Προσβάσεις</Text>
-                <TouchableOpacity
-                  style={localStyles.circleButton}
-                  onPress={() => setIsAddAccessModalVisible(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Προσθήκη πρόσβασης σε γιατρό"
-                >
-                  <Ionicons name="add" size={26} color={COLORS.white} />
-                </TouchableOpacity>
-
                 <TouchableOpacity
                   style={localStyles.circleButton}
                   onPress={openRequestsModal}
@@ -512,7 +504,7 @@ export default function PatientAccessScreen() {
                   <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
                   <TextInput
                     style={localStyles.searchInput}
-                    placeholder="Όνομα, επώνυμο ή ΑΜΚΑ"
+                    placeholder="Τουλ. 3 χαρακτήρες..."
                     placeholderTextColor={COLORS.primary}
                     autoCorrect={false}
                     value={searchQuery}
@@ -583,12 +575,12 @@ export default function PatientAccessScreen() {
             <Text style={styles.addmodalTitle}>Νέα Πρόσβαση</Text>
 
             <Text style={loginStyles.inputLabel}>ΑΜΚΑ Γιατρού</Text>
+            {/* Κλειδωμένο: το ΑΜΚΑ έρχεται από τον γιατρό που διάλεξε ο ασθενής στην αναζήτηση.
+                Αν άλλαζε εδώ, η πρόσβαση θα πήγαινε σε άλλον γιατρό από αυτόν που είδε. */}
             <TextInput
-              style={loginStyles.loginInput}
-              placeholder="11 ψηφία"
-              keyboardType="numeric"
+              style={[loginStyles.loginInput, { color: COLORS.medium }]}
               value={newDoctorAmka}
-              onChangeText={setNewDoctorAmka}
+              editable={false}
             />
 
             <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
