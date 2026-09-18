@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl, SectionList, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl, SectionList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -12,6 +12,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -158,7 +160,9 @@ export default function PatientMedicationsScreen() {
     });
   };
   const [showPrevious, setShowPrevious] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  // Η αναζήτηση εμφανίζεται μόνο όταν η λίστα ξεπερνά το όριο εγγραφών - το ίδιο όριο
+  // με τις υπόλοιπες οθόνες ιστορικού.
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible } = useSearchField(medications.length);
   const [previousNewestFirst, setPreviousNewestFirst] = useState(true);
 
   const loadMedications = async (silent = false) => {
@@ -299,14 +303,14 @@ export default function PatientMedicationsScreen() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const query = searchQuery.trim().toLowerCase();
+    const query = normalizeForSearch(searchQuery);
     const active: Medication[] = [];
     const previous: Medication[] = [];
 
     for (const med of medications) {
       // Η αναζήτηση γίνεται στο όνομα του φαρμάκου, πριν τον διαχωρισμό σε ενεργά/προηγούμενα,
       // ώστε το φιλτράρισμα να ισχύει και στις δύο ενότητες.
-      if (query && !med.title?.toLowerCase().includes(query)) continue;
+      if (query && !normalizeForSearch(med.title || '').includes(query)) continue;
 
       // Το φάρμακο που δεν έχει ξεκινήσει ακόμα είναι τρέχουσα συνταγή, όχι περασμένη αγωγή.
       // Χωρίς αυτό θα έπεφτε στις προηγούμενες, αφού δεν έχει καθόλου ημερομηνία έναρξης.
@@ -385,19 +389,12 @@ export default function PatientMedicationsScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
-        <Text style={doctorStyles.dashboardLabel}>Αναζήτηση φαρμάκου:</Text>
-        <View style={doctorStyles.searchContainer}>
-          <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-          <TextInput
-            style={doctorStyles.searchInput}
-            placeholder="Αναζήτηση..."
-            placeholderTextColor={COLORS.primary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
+      <RecordSearchBar
+        label="Αναζήτηση φαρμάκου:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+      />
 
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />

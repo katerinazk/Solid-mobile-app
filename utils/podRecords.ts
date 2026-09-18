@@ -78,6 +78,17 @@ export function compareNewestFirst(aTime: number, bTime: number): number {
 }
 
 /**
+ * Η σημερινή ημέρα σε μορφή YYYY-MM-DD, κατά τοπική ώρα.
+ *
+ * Δεν χρησιμοποιείται το toISOString: εκείνο δίνει ώρα UTC, που μετά τις 3 τα ξημερώματα
+ * στην Ελλάδα γράφει την προηγούμενη ημέρα.
+ */
+export function todayIsoDate(): string {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+/**
  * Η ημερομηνία καταχώρησης από τη σήμανση του ονόματος αρχείου, σε μορφή YYYY-MM-DD.
  *
  * Κάποιες κατηγορίες - οι Αλλεργίες, και οι παλιές Εξετάσεις - δεν έχουν δικό τους πεδίο

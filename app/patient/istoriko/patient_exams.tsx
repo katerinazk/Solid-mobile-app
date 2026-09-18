@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, SectionList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -16,6 +16,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf, createdDateFromUrl } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -118,7 +120,6 @@ export default function PatientExamsScreen() {
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
-  const [searchQuery, setSearchQuery] = useState('');
   const [showCompleted, setShowCompleted] = useState(true);
   // Ό,τι έχει μείνει στη μνήμη από προηγούμενη επίσκεψη στην ίδια κατηγορία.
   const cachedRecords = getCachedRecords<Exam>(webId, CATEGORY) ?? [];
@@ -283,8 +284,12 @@ export default function PatientExamsScreen() {
     }
   };
 
+  // Η αναζήτηση εμφανίζεται μόνο όταν η λίστα ξεπερνά το όριο εγγραφών - το ίδιο όριο
+  // με τις υπόλοιπες οθόνες ιστορικού.
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible } = useSearchField(exams.length);
+
   const { pendingExams, completedExams } = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = normalizeForSearch(searchQuery);
     const matchesCategory = (e: Exam) => {
       if (selectedCategory === 'Όλες') return true;
       return e.type === selectedCategory;
@@ -293,7 +298,7 @@ export default function PatientExamsScreen() {
     // οι εξετάσεις αυτής της κατηγορίας - λειτουργεί μαζί με το επιλεγμένο φίλτρο, όχι αντί.
     const matchesSearch = (e: Exam) => {
       if (!query) return true;
-      return e.title?.toLowerCase().includes(query) || e.type?.toLowerCase().includes(query);
+      return normalizeForSearch(e.title || '').includes(query) || normalizeForSearch(e.type || '').includes(query);
     };
     const filtered = exams.filter((e) => matchesCategory(e) && matchesSearch(e));
     // Πιο πρόσφατες πρώτα σε κάθε ενότητα: οι εκκρεμείς κατά ημερομηνία καταχώρησης, οι
@@ -363,19 +368,12 @@ export default function PatientExamsScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ width: '70%', alignSelf: 'center', marginTop: SPACING.sectionGap, marginBottom: SPACING.groupGap }}>
-        <Text style={doctorStyles.dashboardLabel}>Αναζήτηση εξέτασης:</Text>
-        <View style={[doctorStyles.searchContainer, { marginHorizontal: 0 }]}>
-          <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-          <TextInput
-            style={doctorStyles.searchInput}
-            placeholder="Αναζήτηση..."
-            placeholderTextColor={COLORS.primary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
+      <RecordSearchBar
+        label="Αναζήτηση εξέτασης:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+      />
 
       <FilterScrollRow
         contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}

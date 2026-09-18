@@ -11,6 +11,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useRecordSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -132,12 +134,16 @@ export default function DoctorVaccinationsScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
+  // Η αναζήτηση πιάνει και τον αριθμό παρτίδας, που είναι ό,τι ζητείται σε ανάκληση παρτίδας.
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: foundVaccinations } =
+    useRecordSearch(vaccinations, (item) => [item.title, item.code, item.parentName, item.batchNumber]);
+
   const sortedVaccinations = useMemo(() => {
-    return [...vaccinations].sort((a, b) => {
+    return [...foundVaccinations].sort((a, b) => {
       const diff = new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime();
       return newestFirst ? diff : -diff;
     });
-  }, [vaccinations, newestFirst]);
+  }, [foundVaccinations, newestFirst]);
 
   const openForm = (item?: Vaccination) => {
     router.push({
@@ -186,9 +192,6 @@ export default function DoctorVaccinationsScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
   };
 
-  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
-  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
-
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
   const sections = useMemo(
     () => groupByYear(sortedVaccinations, (item) => timeOf(item.administeredDate)),
@@ -222,10 +225,20 @@ export default function DoctorVaccinationsScreen() {
         </TouchableOpacity>
       </View>
 
+      <RecordSearchBar
+        label="Αναζήτηση εμβολιασμού:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+        containerStyle={{ width: '70%', alignSelf: 'center', marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap }}
+      />
+
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : sortedVaccinations.length === 0 ? (
-        <Text style={styles.emptyText}>Δεν υπάρχουν εμβολιασμοί.</Text>
+        <Text style={styles.emptyText}>
+          {searching ? 'Δεν βρέθηκε εμβολιασμός με αυτά τα στοιχεία.' : 'Δεν υπάρχουν εμβολιασμοί.'}
+        </Text>
       ) : (
         <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}

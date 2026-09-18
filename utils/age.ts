@@ -10,8 +10,11 @@ export function calculateAge(birthDate: string): number {
   return age;
 }
 
-export function formatDate(isoString: string): string {
-  const d = new Date(isoString);
+export function formatDate(isoString?: string | null): string {
+  const d = new Date(isoString || '');
+  // Χωρίς αυτόν τον έλεγχο μια εγγραφή με κενή ή χαλασμένη ημερομηνία - π.χ. αρχείο που
+  // πρόσθεσε κάποιος χειροκίνητα στο Pod - εμφάνιζε "NaN/NaN/NaN" μέσα στην κάρτα.
+  if (Number.isNaN(d.getTime())) return '';
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();

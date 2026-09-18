@@ -10,7 +10,7 @@ import { ROUTES } from '../constants/routes';
 import { useAuth } from '../hooks/useAuth';
 import { fetchFileContent, downloadAttachment } from '../services/solidPod';
 import { openLocalFile } from '../utils/openLocalFile';
-import { isCompleteRecord } from '../utils/podRecords';
+import { isCompleteRecord, createdDateFromUrl } from '../utils/podRecords';
 import { fetchRelatedRecords, HistoryRecordSummary, CATEGORY_SINGULAR } from '../services/historyRecords';
 import { CodedCardTitle } from '../components/CodedCardTitle';
 import { formatDate } from '../utils/age';
@@ -118,6 +118,7 @@ export default function RecordDetailScreen() {
         break;
       case 'Αλλεργίες':
         add('Αντίδραση', record.reaction);
+        add('Ημ. Καταχώρησης', formatDate(record.createdDate || createdDateFromUrl(params.url)));
         break;
       case 'Νοσηλίες':
         add('Νοσοκομείο / Κλινική', record.hospitalClinic && `${record.hospitalClinic}${record.hospitalArea ? ` (${record.hospitalArea})` : ''}`);
@@ -137,7 +138,7 @@ export default function RecordDetailScreen() {
         break;
       case 'Εξετάσεις':
         add('Τύπος', record.type);
-        add('Ημ. Καταχώρησης', record.createdDate && formatDate(record.createdDate));
+        add('Ημ. Καταχώρησης', formatDate(record.createdDate || createdDateFromUrl(params.url)));
         add('Ημ. Αποτελέσματος', record.completedDate && formatDate(record.completedDate));
         break;
     }

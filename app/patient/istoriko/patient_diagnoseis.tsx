@@ -12,6 +12,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useRecordSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { fetchPatientByAmka } from '../../../services/patients';
@@ -122,21 +124,28 @@ export default function PatientDiagnoseisScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
-  const visibleDiagnoses = useMemo(() => {
-    const filtered = diagnoses.filter((d) => d.category === activeCategory);
-    return filtered.sort((a, b) => {
+  // Η αναζήτηση γίνεται μέσα στην επιλεγμένη καρτέλα και όχι σε όλες τις διαγνώσεις: έτσι
+  // και το όριο εμφάνισης του πεδίου κρίνεται από όσες βλέπει όντως ο χρήστης.
+  const categoryDiagnoses = useMemo(
+    () => diagnoses.filter((d) => d.category === activeCategory),
+    [diagnoses, activeCategory],
+  );
+
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: foundDiagnoses } =
+    useRecordSearch(categoryDiagnoses, (item) => [item.title, item.code, item.parentName]);
+
+  const visibleDiagnoses = useMemo(
+    () => [...foundDiagnoses].sort((a, b) => {
       const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
       return newestFirst ? diff : -diff;
-    });
-  }, [diagnoses, activeCategory, newestFirst]);
+    }),
+    [foundDiagnoses, newestFirst],
+  );
 
   // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
   const openDetail = (item: { url: string }) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Διαγνώσεις', webId } });
   };
-
-  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
-  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
 
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
   const sections = useMemo(
@@ -176,10 +185,20 @@ export default function PatientDiagnoseisScreen() {
         </Text>
       </TouchableOpacity>
 
+      <RecordSearchBar
+        label="Αναζήτηση διάγνωσης:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+        containerStyle={{ width: '70%', alignSelf: 'center', marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap }}
+      />
+
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : visibleDiagnoses.length === 0 ? (
-        <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν διαγνώσεις ακόμα.</Text>
+        <Text style={[styles.emptyText, { marginTop: 30 }]}>
+          {searching ? 'Δεν βρέθηκε διάγνωση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν διαγνώσεις ακόμα.'}
+        </Text>
       ) : (
         <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}

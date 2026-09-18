@@ -12,6 +12,8 @@ import { isCompleteRecord, compareNewestFirst, createdDateFromUrl, timeOf } from
 import { formatDate } from '../../../utils/age';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useRecordSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -27,8 +29,8 @@ interface Allergy {
   url: string;
   title: string;
   reaction: string;
-  // Ημερομηνία καταχώρησης. Δεν γράφεται μέσα στο αρχείο: προκύπτει από το όνομά του,
-  // που μπαίνει στη δημιουργία και δεν αλλάζει στην επεξεργασία.
+  // Ημερομηνία καταχώρησης. Γράφεται μέσα στο αρχείο από τη φόρμα. Για τις παλιές
+  // εγγραφές, που δεν την έχουν, προκύπτει από τη σήμανση του ονόματος αρχείου.
   createdDate: string;
   doctorName: string;
   doctorAmka: string;
@@ -89,7 +91,9 @@ export default function DoctorAllergiesScreen() {
               code: record.code,
               parentName: record.parentName,
               reaction: record.reaction,
-              createdDate: createdDateFromUrl(url),
+              // Οι εγγραφές που γράφτηκαν πριν μπει το πεδίο δεν έχουν ημερομηνία μέσα τους:
+              // για εκείνες τη βγάζουμε από τη σήμανση του ονόματος αρχείου.
+              createdDate: record.createdDate || createdDateFromUrl(url),
               doctorName: record.doctorName,
               doctorAmka: record.doctorAmka,
             } as Allergy;
@@ -142,6 +146,7 @@ export default function DoctorAllergiesScreen() {
           editTitle: item.title,
           editParentName: item.parentName,
           editReaction: item.reaction,
+          editCreatedDate: item.createdDate,
           editDoctorName: item.doctorName,
           editDoctorAmka: item.doctorAmka,
         } : {}),
@@ -174,13 +179,14 @@ export default function DoctorAllergiesScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Αλλεργίες', webId } });
   };
 
-  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
-  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
-  // Πιο πρόσφατες πρώτα. Οι αλλεργίες δεν έχουν δικό τους πεδίο ημερομηνίας, οπότε η σειρά
-  // βγαίνει από τη σήμανση του ονόματος αρχείου - την ίδια που ακολουθεί και η φόρτωση.
+  // Η αναζήτηση πιάνει όσα δείχνει η κάρτα: όνομα, κωδικό, κατηγορία κωδικού, αντίδραση.
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: foundAllergies } =
+    useRecordSearch(allergies, (item) => [item.title, item.code, item.parentName, item.reaction]);
+
+  // Πιο πρόσφατες πρώτα, κατά ημερομηνία καταχώρησης.
   const sortedAllergies = useMemo(
-    () => [...allergies].sort((a, b) => compareNewestFirst(timeOf(a.createdDate), timeOf(b.createdDate))),
-    [allergies],
+    () => [...foundAllergies].sort((a, b) => compareNewestFirst(timeOf(a.createdDate), timeOf(b.createdDate))),
+    [foundAllergies],
   );
 
   // Ομαδοποίηση ανά έτος, με βάση την ημερομηνία καταχώρησης.
@@ -188,7 +194,6 @@ export default function DoctorAllergiesScreen() {
     () => groupByYear(sortedAllergies, (item) => timeOf(item.createdDate)),
     [sortedAllergies],
   );
-
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -211,10 +216,19 @@ export default function DoctorAllergiesScreen() {
         )}
       </View>
 
+      <RecordSearchBar
+        label="Αναζήτηση αλλεργίας:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+      />
+
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : allergies.length === 0 ? (
-        <Text style={styles.emptyText}>Δεν υπάρχουν αλλεργίες.</Text>
+      ) : sortedAllergies.length === 0 ? (
+        <Text style={styles.emptyText}>
+          {searching ? 'Δεν βρέθηκε αλλεργία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν αλλεργίες.'}
+        </Text>
       ) : (
         <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}

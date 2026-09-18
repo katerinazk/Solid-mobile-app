@@ -5,6 +5,7 @@ import { loginStyles } from '../../constants/loginStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
 import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { todayIsoDate } from '../../utils/podRecords';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { MedicalCodePicker } from '../../components/MedicalCodePicker';
 import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
@@ -95,9 +96,6 @@ export default function ExamFormScreen() {
         doctorAmka = author.doctorAmka;
       }
 
-      const today = new Date();
-      const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
       // Όταν καταχωρεί ο γιατρός, η εξέταση μπαίνει πάντα ως εκκρεμής και την ολοκληρώνει ο
       // ασθενής ανεβάζοντας το αποτέλεσμα. Ο ασθενής όμως μπορεί να γράφει και εξέταση που
       // έχει ήδη κάνει, οπότε διαλέγει ο ίδιος.
@@ -115,10 +113,10 @@ export default function ExamFormScreen() {
         doctorAmka,
         // Η ημερομηνία και το αρχείο αποτελέσματος κρατιούνται μόνο όσο η εξέταση είναι
         // ολοκληρωμένη - αλλιώς θα έμενε ημερομηνία αποτελέσματος σε εκκρεμή εξέταση.
-        completedDate: status === 'completed' ? (params.editCompletedDate || todayIso) : undefined,
+        completedDate: status === 'completed' ? (params.editCompletedDate || todayIsoDate()) : undefined,
         resultFile: status === 'completed' ? params.editResultFile : undefined,
         // Στην επεξεργασία κρατάμε την αρχική ημερομηνία καταχώρησης, δεν τη μηδενίζουμε.
-        createdDate: params.editCreatedDate || todayIso,
+        createdDate: params.editCreatedDate || todayIsoDate(),
         links: links.length > 0 ? links : undefined,
       };
 

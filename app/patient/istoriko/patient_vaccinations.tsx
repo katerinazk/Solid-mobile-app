@@ -12,6 +12,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useRecordSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -121,12 +123,16 @@ export default function PatientVaccinationsScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
+  // Η αναζήτηση πιάνει και τον αριθμό παρτίδας, που είναι ό,τι ζητείται σε ανάκληση παρτίδας.
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: foundVaccinations } =
+    useRecordSearch(vaccinations, (item) => [item.title, item.code, item.parentName, item.batchNumber]);
+
   const sortedVaccinations = useMemo(() => {
-    return [...vaccinations].sort((a, b) => {
+    return [...foundVaccinations].sort((a, b) => {
       const diff = new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime();
       return newestFirst ? diff : -diff;
     });
-  }, [vaccinations, newestFirst]);
+  }, [foundVaccinations, newestFirst]);
 
   // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
   // Ο ασθενής καταχωρεί στον ΔΙΚΟ ΤΟΥ φάκελο, οπότε δεν περνάμε ΑΜΚΑ ούτε τύπο πρόσβασης:
@@ -139,9 +145,6 @@ export default function PatientVaccinationsScreen() {
   const openDetail = (item: { url: string }) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
   };
-
-  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
-  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
 
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
   const sections = useMemo(
@@ -172,10 +175,20 @@ export default function PatientVaccinationsScreen() {
         </Text>
       </TouchableOpacity>
 
+      <RecordSearchBar
+        label="Αναζήτηση εμβολιασμού:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+        containerStyle={{ width: '70%', alignSelf: 'center', marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap }}
+      />
+
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : sortedVaccinations.length === 0 ? (
-        <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν εμβολιασμοί ακόμα.</Text>
+        <Text style={[styles.emptyText, { marginTop: 30 }]}>
+          {searching ? 'Δεν βρέθηκε εμβολιασμός με αυτά τα στοιχεία.' : 'Δεν υπάρχουν εμβολιασμοί ακόμα.'}
+        </Text>
       ) : (
         <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, SectionList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -12,6 +12,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf, createdDateFromUrl } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -106,7 +108,6 @@ export default function DoctorExamsScreen() {
   const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
 
   const [selectedCategory, setSelectedCategory] = useState('Όλες');
-  const [searchQuery, setSearchQuery] = useState('');
   const [showCompleted, setShowCompleted] = useState(true);
 
   // Ό,τι έχει μείνει στη μνήμη από προηγούμενη επίσκεψη στην ίδια κατηγορία.
@@ -198,15 +199,19 @@ export default function DoctorExamsScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
+  // Η αναζήτηση εμφανίζεται μόνο όταν η λίστα ξεπερνά το όριο εγγραφών - το ίδιο όριο
+  // με τις υπόλοιπες οθόνες ιστορικού.
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible } = useSearchField(exams.length);
+
   const { pendingExams, completedExams } = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = normalizeForSearch(searchQuery);
     const matchesCategory = (e: Exam) => {
       if (selectedCategory === 'Όλες') return true;
       return e.type === selectedCategory;
     };
     const matchesSearch = (e: Exam) => {
       if (!query) return true;
-      return e.title?.toLowerCase().includes(query) || e.type?.toLowerCase().includes(query);
+      return normalizeForSearch(e.title || '').includes(query) || normalizeForSearch(e.type || '').includes(query);
     };
     const filtered = exams.filter((e) => matchesCategory(e) && matchesSearch(e));
     // Πιο πρόσφατες πρώτα σε κάθε ενότητα: οι εκκρεμείς κατά ημερομηνία καταχώρησης, οι
@@ -321,19 +326,13 @@ export default function DoctorExamsScreen() {
 
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
-      <View style={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.groupGap }}>
-        <Text style={doctorStyles.dashboardLabel}>Αναζήτηση εξέτασης:</Text>
-        <View style={[doctorStyles.searchContainer, { marginHorizontal: 0 }]}>
-          <Ionicons name="search" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-          <TextInput
-            style={doctorStyles.searchInput}
-            placeholder="Αναζήτηση..."
-            placeholderTextColor={COLORS.primary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
+      <RecordSearchBar
+        label="Αναζήτηση εξέτασης:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+        containerStyle={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.groupGap }}
+      />
 
       <FilterScrollRow
         contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}

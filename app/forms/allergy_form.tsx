@@ -6,6 +6,7 @@ import { loginStyles } from '../../constants/loginStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
 import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { todayIsoDate } from '../../utils/podRecords';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { MedicalCodePicker } from '../../components/MedicalCodePicker';
 import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
@@ -23,6 +24,7 @@ export default function AllergyFormScreen() {
     editTitle?: string;
     editParentName?: string;
     editReaction?: string;
+    editCreatedDate?: string;
     editDoctorName?: string;
     editDoctorAmka?: string;
   }>();
@@ -71,6 +73,9 @@ export default function AllergyFormScreen() {
         code: selectedCode.code,
         parentName: selectedCode.parent_name || undefined,
         reaction: reaction.trim(),
+        // Η ημερομηνία καταχώρησης γράφεται μέσα στην εγγραφή, ώστε να τη βλέπει και όποιο
+        // άλλο εργαλείο διαβάσει το Pod του ασθενή. Στην επεξεργασία κρατάμε την αρχική.
+        createdDate: params.editCreatedDate || todayIsoDate(),
         doctorName,
         doctorAmka,
       };

@@ -12,6 +12,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { useRecordSearch } from '../../../utils/recordSearch';
+import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -145,14 +147,15 @@ export default function PatientHospitalizationsScreen() {
     }
   };
 
-  // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
-  // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
+  // Η αναζήτηση πιάνει και το νοσοκομείο με την πόλη του, εκτός από την αιτία νοσηλείας.
+  const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: foundHospitalizations } =
+    useRecordSearch(hospitalizations, (item) => [item.title, item.code, item.parentName, item.hospitalClinic, item.hospitalArea]);
+
   // Πιο πρόσφατη ημερομηνία εισαγωγής πρώτη.
   const sortedHospitalizations = useMemo(
-    () => [...hospitalizations].sort((a, b) => compareNewestFirst(timeOf(a.admissionDate), timeOf(b.admissionDate))),
-    [hospitalizations],
+    () => [...foundHospitalizations].sort((a, b) => compareNewestFirst(timeOf(a.admissionDate), timeOf(b.admissionDate))),
+    [foundHospitalizations],
   );
-
 
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
   const sections = useMemo(
@@ -171,10 +174,19 @@ export default function PatientHospitalizationsScreen() {
         <Text style={doctorStyles.historyTitle}>Νοσηλίες</Text>
       </View>
 
+      <RecordSearchBar
+        label="Αναζήτηση νοσηλείας:"
+        value={searchQuery}
+        onChange={setSearchQuery}
+        visible={searchVisible}
+      />
+
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : hospitalizations.length === 0 ? (
-        <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν νοσηλίες ακόμα.</Text>
+      ) : sortedHospitalizations.length === 0 ? (
+        <Text style={[styles.emptyText, { marginTop: 30 }]}>
+          {searching ? 'Δεν βρέθηκε νοσηλεία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν νοσηλίες ακόμα.'}
+        </Text>
       ) : (
         <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
