@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl, SectionList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -51,6 +51,85 @@ interface Medication {
 // κάνει, περνάει αμέσως στην κανονική ενεργή αγωγή, ό,τι ημερομηνία κι αν έχει.
 function isPending(item: Medication): boolean {
   return item.started === false;
+}
+
+// Η κάρτα φαρμάκου που έχει ήδη ξεκινήσει, ίδια και για την τρέχουσα και για την προηγούμενη
+// αγωγή: η μόνη διαφορά των δύο ενοτήτων είναι αν η αγωγή τελείωσε, όχι το τι δείχνει η κάρτα.
+function MedicationCard({ item, doctorDisplayName, onOpen }: {
+  item: Medication;
+  doctorDisplayName: string;
+  onOpen: (item: Medication) => void;
+}) {
+  return (
+    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
+      <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+      {!!item.route && (
+        <Text style={doctorStyles.diagnosisCardDetail}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+        </Text>
+      )}
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// Το φάρμακο που συνταγογραφήθηκε αλλά δεν έχει πατηθεί ακόμα "Έναρξη". Δεν έχει ημερομηνία
+// έναρξης να δείξει, και κρατά τα δύο κουμπιά ενέργειας.
+function PendingMedicationCard({ item, doctorDisplayName, onOpen, onStart, onDelete }: {
+  item: Medication;
+  doctorDisplayName: string;
+  onOpen: (item: Medication) => void;
+  onStart: (item: Medication) => void;
+  onDelete: (item: Medication) => void;
+}) {
+  return (
+    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
+      <View style={doctorStyles.diagnosisCardHeader}>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+        <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
+      </View>
+      {!!item.route && (
+        <Text style={doctorStyles.diagnosisCardDetail}>
+          <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+        </Text>
+      )}
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
+      </Text>
+
+      <View style={{ flexDirection: 'row', marginTop: 12 }}>
+        <TouchableOpacity
+          style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginRight: 8, marginBottom: 0 }]}
+          onPress={() => onStart(item)}
+        >
+          <Text style={doctorStyles.diagnosisSortButtonText}>Έναρξη</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
+          onPress={() => onDelete(item)}
+        >
+          <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 export default function PatientMedicationsScreen() {
@@ -261,12 +340,33 @@ export default function PatientMedicationsScreen() {
     [previousMedications],
   );
 
+  const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
+
+  // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας, ώστε ο τίτλος κάθε ενότητας να μένει
+  // κολλημένος στην κορυφή όσο κυλάει το περιεχόμενό της.
+  const sections = useMemo(() => {
+    const result: { kind: 'active' | 'toggle' | 'year'; title: string; data: Medication[] }[] = [
+      { kind: 'active', title: 'Ενεργή Αγωγή', data: activeMedications },
+    ];
+
+    // Χωρίς προηγούμενη αγωγή δεν δείχνουμε ούτε τον τίτλο.
+    if (previousMedications.length > 0) {
+      result.push({ kind: 'toggle', title: 'Προηγούμενη Αγωγή', data: [] });
+      if (previousSectionOpen) {
+        for (const group of previousSections) {
+          result.push({ kind: 'year', title: group.title, data: group.data });
+        }
+      }
+    }
+
+    return result;
+  }, [activeMedications, previousMedications, previousSections, previousSectionOpen]);
+
   // Όσο υπάρχει αναζήτηση ανοίγουμε μόνοι μας την "Προηγούμενη Αγωγή", αλλιώς τα αποτελέσματα
   // που βρίσκονται εκεί θα έμεναν κρυμμένα μέσα στην κλειστή ενότητα.
   // Πέντε φάρμακα ανά σελίδα σε κάθε ενότητα. Οι δύο ενότητες σελιδοποιούνται χωριστά,
   // ώστε να μη μετακινεί η μία τα περιεχόμενα της άλλης.
 
-  const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -302,136 +402,80 @@ export default function PatientMedicationsScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : (
-        <ScrollView
+        <SectionList
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-        >
-          <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Ενεργή Αγωγή</Text>
+          sections={sections}
+          keyExtractor={(item) => item.url}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => {
+            if (section.kind === 'year') return <YearSectionHeader title={section.title} />;
 
-          {activeMedications.length === 0 ? (
-            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
-              {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν ενεργές αγωγές.'}
-            </Text>
-          ) : (
-            activeMedications.map((item) =>
-              isPending(item) ? (
-                <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
-                  <View style={doctorStyles.diagnosisCardHeader}>
-                    <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                    <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
-                  </View>
-                  {!!item.route && (
-                    <Text style={doctorStyles.diagnosisCardDetail}>
-                      <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
-                    </Text>
-                  )}
-                  <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
-                  </Text>
-                  <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-                  </Text>
-                  <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
-                  </Text>
-
-                  <View style={{ flexDirection: 'row', marginTop: 12 }}>
-                    <TouchableOpacity
-                      style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginRight: 8, marginBottom: 0 }]}
-                      onPress={() => handleStartMedication(item)}
-                    >
-                      <Text style={doctorStyles.diagnosisSortButtonText}>Έναρξη</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
-                      onPress={() => handleDeleteMedication(item)}
-                    >
-                      <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
-                    </TouchableOpacity>
-                  </View>
+            if (section.kind === 'toggle') {
+              return (
+                <TouchableOpacity style={localStyles.stickyHeader} onPress={() => setShowPrevious((prev) => !prev)}>
+                  <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+                  <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
-                  <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                  {!!item.route && (
-                    <Text style={doctorStyles.diagnosisCardDetail}>
-                      <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
-                    </Text>
-                  )}
-                  <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
-                  </Text>
-                  <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
-                  </Text>
-                  <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
-                  </Text>
-                  <Text style={doctorStyles.diagnosisCardDetail}>
-                    <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+              );
+            }
+
+            return (
+              <View style={localStyles.stickyHeader}>
+                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ενεργή Αγωγή</Text>
+              </View>
+            );
+          }}
+          renderSectionFooter={({ section }) => {
+            if (section.kind === 'active' && activeMedications.length === 0) {
+              return (
+                <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
+                  {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν ενεργές αγωγές.'}
+                </Text>
+              );
+            }
+
+            // Η ταξινόμηση αφορά ΟΛΗ την προηγούμενη αγωγή, γι' αυτό κάθεται κάτω από τον
+            // τίτλο της ενότητας και όχι μέσα σε κάποια χρονιά.
+            if (section.kind === 'toggle' && previousSectionOpen) {
+              return (
+                <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setPreviousNewestFirst((prev) => !prev)}>
+                  <Text style={doctorStyles.diagnosisSortButtonText}>
+                    ↕ {previousNewestFirst ? 'Νεότερα προς Παλαιότερα' : 'Παλαιότερα προς Νεότερα'}
                   </Text>
                 </TouchableOpacity>
-              )
+              );
+            }
+
+            return null;
+          }}
+          renderItem={({ item, section }) => (
+            section.kind === 'active' && isPending(item) ? (
+              <PendingMedicationCard
+                item={item}
+                doctorDisplayName={displayDoctorName(item)}
+                onOpen={openDetail}
+                onStart={handleStartMedication}
+                onDelete={handleDeleteMedication}
+              />
+            ) : (
+              <MedicationCard item={item} doctorDisplayName={displayDoctorName(item)} onOpen={openDetail} />
             )
           )}
-
-
-          {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
-              σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
-          {previousMedications.length > 0 && (
-            <>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
-                onPress={() => setShowPrevious((prev) => !prev)}
-              >
-                <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
-                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
-              </TouchableOpacity>
-
-              {previousSectionOpen && (
-                <View style={{ marginTop: 12 }}>
-                  <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setPreviousNewestFirst((prev) => !prev)}>
-                    <Text style={doctorStyles.diagnosisSortButtonText}>
-                      ↕ {previousNewestFirst ? 'Νεότερα προς Παλαιότερα' : 'Παλαιότερα προς Νεότερα'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {previousSections.map((section) => (
-                    <View key={section.title}>
-                      <YearSectionHeader title={section.title} />
-                      {section.data.map((item) => {
-                        return (
-                          <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
-                            <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                            {!!item.route && (
-                              <Text style={doctorStyles.diagnosisCardDetail}>
-                                <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
-                              </Text>
-                            )}
-                            <Text style={doctorStyles.diagnosisCardDetail}>
-                              <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
-                            </Text>
-                            <Text style={doctorStyles.diagnosisCardDetail}>
-                              <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
-                            </Text>
-                            <Text style={doctorStyles.diagnosisCardDetail}>
-                              <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
-                            </Text>
-                            <Text style={doctorStyles.diagnosisCardDetail}>
-                              <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  ))}
-
-                </View>
-              )}
-            </>
-          )}
-        </ScrollView>
+        />
       )}
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  // Οι κολλημένες κεφαλίδες ΠΡΕΠΕΙ να έχουν αδιαφανές φόντο, αλλιώς οι κάρτες φαίνονται
+  // να περνούν από πίσω τους καθώς κυλάει η λίστα.
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.light,
+    paddingHorizontal: SPACING.sideMargin,
+    paddingVertical: SPACING.groupGap,
+  },
+});

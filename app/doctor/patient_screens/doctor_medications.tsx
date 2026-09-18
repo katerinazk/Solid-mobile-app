@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -278,12 +278,34 @@ export default function DoctorMedicationsScreen() {
     [previousMedications],
   );
 
+  const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
+
+  // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας. Χρειάζεται λίστα και όχι απλή κυλιόμενη
+  // περιοχή, ώστε ο τίτλος κάθε ενότητας να μένει κολλημένος στην κορυφή όσο κυλάει το
+  // περιεχόμενό της.
+  const sections = useMemo(() => {
+    const result: { kind: 'active' | 'toggle' | 'year'; title: string; data: Medication[] }[] = [
+      { kind: 'active', title: 'Ενεργή Αγωγή', data: activeMedications },
+    ];
+
+    // Χωρίς προηγούμενη αγωγή δεν δείχνουμε ούτε τον τίτλο.
+    if (previousMedications.length > 0) {
+      result.push({ kind: 'toggle', title: 'Προηγούμενη Αγωγή', data: [] });
+      if (previousSectionOpen) {
+        for (const group of previousSections) {
+          result.push({ kind: 'year', title: group.title, data: group.data });
+        }
+      }
+    }
+
+    return result;
+  }, [activeMedications, previousMedications, previousSections, previousSectionOpen]);
+
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και την "Προηγούμενη Αγωγή" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
   // Πέντε φάρμακα ανά σελίδα σε κάθε ενότητα. Οι δύο ενότητες σελιδοποιούνται χωριστά,
   // ώστε να μη μετακινεί η μία τα περιεχόμενα της άλλης.
 
-  const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -323,46 +345,60 @@ export default function DoctorMedicationsScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : (
-        <ScrollView
+        <SectionList
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-        >
-          <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Ενεργή Αγωγή</Text>
+          sections={sections}
+          keyExtractor={(item) => item.url}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => {
+            if (section.kind === 'year') return <YearSectionHeader title={section.title} />;
 
-          {activeMedications.length === 0 ? (
-            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
-          ) : (
-            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
+            if (section.kind === 'toggle') {
+              return (
+                <TouchableOpacity style={localStyles.stickyHeader} onPress={() => setShowPrevious((prev) => !prev)}>
+                  <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+                  <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <View style={localStyles.stickyHeader}>
+                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ενεργή Αγωγή</Text>
+              </View>
+            );
+          }}
+          renderSectionFooter={({ section }) => (
+            section.kind === 'active' && activeMedications.length === 0 ? (
+              <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
+            ) : null
           )}
-
-
-          {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
-              σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
-          {previousMedications.length > 0 && (
-            <>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10 }}
-                onPress={() => setShowPrevious((prev) => !prev)}
-              >
-                <Ionicons name={previousSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
-                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Προηγούμενη Αγωγή</Text>
-              </TouchableOpacity>
-
-              {previousSectionOpen && (
-                <View style={{ marginTop: 12 }}>
-                  {previousSections.map((section) => (
-                    <View key={section.title}>
-                      <YearSectionHeader title={section.title} />
-                      {section.data.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)}
-                    </View>
-                  ))}
-
-                </View>
-              )}
-            </>
+          renderItem={({ item, section }) => (
+            <MedicationCard
+              item={item}
+              doctorDisplayName={displayDoctorName(item)}
+              loggedInDoctorAmka={loggedInDoctorAmka}
+              allowEdit={section.kind === 'active' && !isReadOnly}
+              onEdit={openForm}
+              onDelete={handleDeleteMedication}
+              onOpen={openDetail}
+            />
           )}
-        </ScrollView>
+        />
       )}
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  // Οι κολλημένες κεφαλίδες ΠΡΕΠΕΙ να έχουν αδιαφανές φόντο, αλλιώς οι κάρτες φαίνονται
+  // να περνούν από πίσω τους καθώς κυλάει η λίστα.
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.light,
+    paddingHorizontal: SPACING.sideMargin,
+    paddingVertical: SPACING.groupGap,
+  },
+});

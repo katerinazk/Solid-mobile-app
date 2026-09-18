@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ScrollView, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -240,11 +240,34 @@ export default function DoctorExamsScreen() {
     [completedExams],
   );
 
+  const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
+
+  // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας. Χρειάζεται λίστα και όχι απλή κυλιόμενη
+  // περιοχή, ώστε ο τίτλος κάθε ενότητας να μένει κολλημένος στην κορυφή όσο κυλάει το
+  // περιεχόμενό της. Ο τύπος κάθε ενότητας λέει τι ζωγραφίζεται ως κεφαλίδα και ως κάρτα.
+  const sections = useMemo(() => {
+    const result: { kind: 'pending' | 'toggle' | 'year'; title: string; data: Exam[] }[] = [
+      { kind: 'pending', title: 'Εκκρεμείς', data: pendingExams },
+    ];
+
+    // Χωρίς ολοκληρωμένες δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει σε άδειο
+    // περιεχόμενο δεν προσφέρει τίποτα στον χρήστη.
+    if (completedExams.length > 0) {
+      result.push({ kind: 'toggle', title: 'Ολοκληρωμένες', data: [] });
+      if (completedSectionOpen) {
+        for (const group of completedSections) {
+          result.push({ kind: 'year', title: group.title, data: group.data });
+        }
+      }
+    }
+
+    return result;
+  }, [pendingExams, completedExams, completedSections, completedSectionOpen]);
+
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και τις "Ολοκληρωμένες" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
   // Πέντε εξετάσεις ανά σελίδα σε κάθε ενότητα, χωριστά η μία από την άλλη.
 
-  const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
 
   const openDetail = (item: Exam) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
@@ -351,51 +374,61 @@ export default function DoctorExamsScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : (
-        <ScrollView
+        <SectionList
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-        >
-          <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, paddingHorizontal: SPACING.sideMargin }]}>Εκκρεμείς</Text>
+          sections={sections}
+          keyExtractor={(item) => item.url}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => {
+            if (section.kind === 'year') return <YearSectionHeader title={section.title} />;
 
-          {pendingExams.length === 0 ? (
-            <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
-          ) : (
-            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />)
+            if (section.kind === 'toggle') {
+              return (
+                <TouchableOpacity
+                  style={localStyles.stickyHeader}
+                  onPress={() => setShowCompleted((prev) => !prev)}
+                >
+                  <Ionicons name={completedSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
+                  <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ολοκληρωμένες</Text>
+                </TouchableOpacity>
+              );
+            }
+
+            return (
+              <View style={localStyles.stickyHeader}>
+                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Εκκρεμείς</Text>
+              </View>
+            );
+          }}
+          renderSectionFooter={({ section }) => (
+            section.kind === 'pending' && pendingExams.length === 0 ? (
+              <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
+            ) : null
           )}
-
-
-          {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
-              σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
-          {completedExams.length > 0 && (
-            <>
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap }}
-                onPress={() => setShowCompleted((prev) => !prev)}
-              >
-                <Ionicons name={completedSectionOpen ? 'chevron-down' : 'chevron-forward'} size={20} color={COLORS.primary} style={{ marginRight: 6 }} />
-                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ολοκληρωμένες</Text>
-              </TouchableOpacity>
-
-              {completedSectionOpen && (
-                <View style={{ marginTop: 12 }}>
-                  {completedSections.map((section) => (
-                    <View key={section.title}>
-                      <YearSectionHeader title={section.title} />
-                      {section.data.map((item) => <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />)}
-                    </View>
-                  ))}
-
-                </View>
-              )}
-            </>
+          renderItem={({ item, section }) => (
+            section.kind === 'year' ? (
+              <CompletedExamCard item={item} onOpen={openDetail} />
+            ) : (
+              <PendingExamCard item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />
+            )
           )}
-        </ScrollView>
+        />
       )}
     </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
+  // Οι κολλημένες κεφαλίδες ΠΡΕΠΕΙ να έχουν αδιαφανές φόντο, αλλιώς οι κάρτες φαίνονται
+  // να περνούν από πίσω τους καθώς κυλάει η λίστα.
+  stickyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.light,
+    paddingHorizontal: SPACING.sideMargin,
+    paddingVertical: SPACING.groupGap,
+  },
   // Σταθερό ύψος και χωρίς συρρίκνωση. Χωρίς αυτό, η λωρίδα των φίλτρων πιέζεται όταν
   // στενεύει ο κατακόρυφος χώρος και τα κουμπιά κόβονται από μια αόρατη γραμμή.
   categoryBar: {
