@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../constants/designSystem';
 import { Dialog, setDialogHandler } from '../utils/appMessage';
@@ -12,6 +12,7 @@ import { Dialog, setDialogHandler } from '../utils/appMessage';
  */
 export function AppMessageHost() {
   const [queue, setQueue] = useState<Dialog[]>([]);
+  const [text, setText] = useState('');
 
   useEffect(() => {
     setDialogHandler((dialog) => setQueue((prev) => [...prev, dialog]));
@@ -20,11 +21,18 @@ export function AppMessageHost() {
 
   const current = queue[0];
 
+  // Το πεδίο αδειάζει σε κάθε νέα ερώτηση: αλλιώς η απάντηση της προηγούμενης θα εμφανιζόταν
+  // ήδη γραμμένη μέσα στην επόμενη.
+  useEffect(() => {
+    setText('');
+  }, [current]);
+
   // Κλείνοντας μια ερώτηση απαντάμε πάντα κάτι: αλλιώς η ροή που περιμένει δεν συνεχίζει ποτέ.
-  const close = useCallback((confirmed: boolean) => {
+  const close = useCallback((answer: boolean | string | null) => {
     setQueue((prev) => {
       const [first, ...rest] = prev;
-      if (first?.kind === 'confirm') first.resolve(confirmed);
+      if (first?.kind === 'confirm') first.resolve(answer === true);
+      if (first?.kind === 'prompt') first.resolve(typeof answer === 'string' ? answer : null);
       return rest;
     });
   }, []);
@@ -34,10 +42,37 @@ export function AppMessageHost() {
       <View style={localStyles.overlay}>
         <View style={localStyles.panel}>
           <Text style={localStyles.message}>
-            {current?.kind === 'confirm' ? current.options.message : current?.message}
+            {current?.kind === 'message' ? current.message : current?.options.message}
           </Text>
 
-          {current?.kind === 'confirm' ? (
+          {current?.kind === 'prompt' ? (
+            <>
+              <TextInput
+                style={localStyles.input}
+                value={text}
+                onChangeText={setText}
+                placeholder={current.options.placeholder}
+                placeholderTextColor={COLORS.medium}
+                multiline
+                autoFocus
+              />
+              <View style={localStyles.buttonRow}>
+                <TouchableOpacity style={localStyles.cancelButton} onPress={() => close(null)} accessibilityRole="button">
+                  <Text style={localStyles.cancelButtonText}>{current.options.cancelText || 'Ακύρωση'}</Text>
+                </TouchableOpacity>
+                {/* Χωρίς αιτιολογία δεν προχωράει: η σήμανση χωρίς λόγο δεν λέει τίποτα σε
+                    όποιον διαβάσει την εγγραφή αργότερα. */}
+                <TouchableOpacity
+                  style={[localStyles.confirmButton, !text.trim() && localStyles.disabledButton]}
+                  onPress={() => close(text.trim())}
+                  disabled={!text.trim()}
+                  accessibilityRole="button"
+                >
+                  <Text style={localStyles.confirmButtonText}>{current.options.confirmText || 'Καταχώρηση'}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : current?.kind === 'confirm' ? (
             <View style={localStyles.buttonRow}>
               <TouchableOpacity style={localStyles.cancelButton} onPress={() => close(false)} accessibilityRole="button">
                 <Text style={localStyles.cancelButtonText}>{current.options.cancelText || 'Όχι'}</Text>
@@ -119,4 +154,19 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   confirmButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText, textAlign: 'center' },
+  // Το κουμπί μένει ορατό όταν δεν επιτρέπεται ακόμα, αντί να εξαφανίζεται: ο χρήστης βλέπει
+  // ότι υπάρχει συνέχεια και ότι του λείπει κάτι για να τη φτάσει.
+  disabledButton: { opacity: 0.4 },
+  input: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.medium,
+    borderRadius: 15,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    fontSize: TYPOGRAPHY.bodyText,
+    color: COLORS.text,
+    marginBottom: SPACING.sectionGap,
+  },
 });

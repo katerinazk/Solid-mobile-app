@@ -15,9 +15,20 @@ export interface ConfirmOptions {
   cancelText?: string;
 }
 
+export interface TextPromptOptions {
+  message: string;
+  /** Το κείμενο μέσα στο άδειο πεδίο. */
+  placeholder?: string;
+  /** Το κείμενο του κουμπιού που προχωράει. Προεπιλογή "Καταχώρηση". */
+  confirmText?: string;
+  /** Το κείμενο του κουμπιού που ακυρώνει. Προεπιλογή "Ακύρωση". */
+  cancelText?: string;
+}
+
 export type Dialog =
   | { kind: 'message'; message: string }
-  | { kind: 'confirm'; options: ConfirmOptions; resolve: (confirmed: boolean) => void };
+  | { kind: 'confirm'; options: ConfirmOptions; resolve: (confirmed: boolean) => void }
+  | { kind: 'prompt'; options: TextPromptOptions; resolve: (text: string | null) => void };
 
 type DialogHandler = (dialog: Dialog) => void;
 
@@ -50,4 +61,16 @@ export function askConfirm(options: ConfirmOptions): Promise<boolean> {
     return Promise.resolve(false);
   }
   return new Promise((resolve) => handler!({ kind: 'confirm', options, resolve }));
+}
+
+/**
+ * Ζητάει ένα σύντομο κείμενο και περιμένει την απάντηση. Επιστρέφει null όταν ο χρήστης
+ * ακυρώσει - ώστε το "δεν απάντησε" να ξεχωρίζει από το "απάντησε κενό".
+ */
+export function askText(options: TextPromptOptions): Promise<string | null> {
+  if (!handler) {
+    console.warn('Ερώτηση χωρίς παράθυρο:', options.message);
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => handler!({ kind: 'prompt', options, resolve }));
 }

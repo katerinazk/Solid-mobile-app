@@ -16,13 +16,19 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf, createdDateFromUrl } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
+import { retractRecord } from '../../../services/recordRevisions';
+import { resolveRecordAuthor } from '../../../utils/recordAuthor';
+import { RecordCardActions } from '../../../components/RecordCardActions';
+import { saveRecordEdit } from '../../../services/recordRevisions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -30,6 +36,8 @@ const CATEGORY = 'Εξετάσεις';
 
 interface Exam {
   url: string;
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - σημανθεί δηλαδή ως λανθασμένη.
+  retraction?: Retraction;
   title: string;
   type: string;
   status: 'pending' | 'completed';
@@ -48,12 +56,13 @@ interface Exam {
 }
 
 
-function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelete, onOpen }: { item: Exam; doctorDisplayName: string; uploading: boolean; onUpload: (item: Exam) => void; onDelete: (item: Exam) => void; onOpen: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, uploading, canRetract, onUpload, onRetract, onOpen }: { item: Exam; doctorDisplayName: string; uploading: boolean; canRetract: boolean; onUpload: (item: Exam) => void; onRetract: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (
     // Η κάρτα ανοίγει την αναλυτική προβολή. Τα κουμπιά μέσα της κρατούν το δικό τους πάτημα.
-    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
+    <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+        <RecordCardActions visible={canRetract} onRetract={() => onRetract(item)} />
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
@@ -67,27 +76,25 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
 
-      <TouchableOpacity
-        style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginTop: 12 }]}
-        onPress={() => onUpload(item)}
-        disabled={uploading}
-      >
-        {uploading ? (
-          <ActivityIndicator size="small" color={COLORS.white} />
-        ) : (
-          <>
-            <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
-            <Text style={doctorStyles.diagnosisSortButtonText}>Μεταφόρτωση Αποτελεσμάτων</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {/* Σε ανακληθείσα παραπομπή δεν ανεβαίνει αποτέλεσμα: η εξέταση έχει αποσυρθεί. */}
+      {!item.retraction && (
+        <TouchableOpacity
+          style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginTop: 12 }]}
+          onPress={() => onUpload(item)}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <>
+              <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
+              <Text style={doctorStyles.diagnosisSortButtonText}>Μεταφόρτωση Αποτελεσμάτων</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
 
-      <TouchableOpacity
-        style={[doctorStyles.diagnosisSortButton, { marginHorizontal: 0, marginBottom: 0 }]}
-        onPress={() => onDelete(item)}
-      >
-        <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
-      </TouchableOpacity>
+      <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
   );
 }
@@ -95,7 +102,7 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
 function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) => void }) {
   return (
     <TouchableOpacity
-      style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}
+      style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }, item.retraction && retractedCardStyle]}
       onPress={() => onOpen(item)}
     >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
@@ -107,6 +114,7 @@ function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) 
         <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Αποτελέσματος: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
         </Text>
+        <RetractedNote retraction={item.retraction} />
         </View>
       <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
     </TouchableOpacity>
@@ -114,7 +122,7 @@ function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) 
 }
 
 export default function PatientExamsScreen() {
-  const { accessToken, activePatientFolderUrl } = useAuth();
+  const { accessToken, activePatientFolderUrl, loggedInPatientAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const webId = getOwnerWebId(activePatientFolderUrl);
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
@@ -171,6 +179,7 @@ export default function PatientExamsScreen() {
             if (!isCompleteRecord('Εξετάσεις', record)) return null;
             return {
               url,
+              retraction: parseRetraction(record),
               title: record.title,
               code: record.code,
               parentName: record.parentName,
@@ -254,7 +263,10 @@ export default function PatientExamsScreen() {
         parentName: item.parentName,
       };
 
-      await saveFileContent(item.url, accessToken, JSON.stringify(record));
+      // Το ανέβασμα ξαναγράφει ολόκληρη την εγγραφή του γιατρού, οπότε κρατάμε την
+      // προηγούμενη μορφή της και υπογράφουμε ποιος την άλλαξε.
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      await saveRecordEdit(item.url, accessToken, record, author);
 
       updateExams((prev) => prev.map((e) => e.url === item.url ? { ...e, status: 'completed', completedDate, resultFile: asset.name } : e));
     } catch (error: any) {
@@ -268,19 +280,23 @@ export default function PatientExamsScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
-  const handleDeleteExam = async (item: Exam) => {
-    const confirmed = await askConfirm({
-      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
-      confirmText: "Διαγραφή",
-      cancelText: "Ακύρωση",
+  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή, και ο ασθενής ανακαλεί μόνο ό,τι
+  // καταχώρησε ο ίδιος: η παραπομπή ή η συνταγή του γιατρού δεν είναι δική του να την
+  // αποσύρει, αλλιώς ο φάκελος παύει να είναι αξιόπιστος για τον επόμενο γιατρό.
+  const handleRetractExam = async (item: Exam) => {
+    const reason = await askText({
+      message: 'Ανάκληση: η εξέταση δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      placeholder: 'π.χ. την καταχώρησα δύο φορές',
+      confirmText: 'Ανάκληση',
     });
-    if (!confirmed) return;
+    if (!reason) return;
 
     try {
-      await deleteFile(item.url, accessToken);
-      updateExams((prev) => prev.filter((e) => e.url !== item.url));
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      const retraction = await retractRecord(item.url, accessToken, author, reason);
+      updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction } : e)));
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία διαγραφής.");
+      showMessage(error.message || 'Αποτυχία ανάκλησης.');
     }
   };
 
@@ -439,7 +455,8 @@ export default function PatientExamsScreen() {
                 doctorDisplayName={displayDoctorName(item)}
                 uploading={uploadingFor === item.url}
                 onUpload={handleUploadResult}
-                onDelete={handleDeleteExam}
+                canRetract={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                onRetract={handleRetractExam}
                 onOpen={openDetail}
               />
             )

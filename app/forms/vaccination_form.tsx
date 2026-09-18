@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
 import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
+import { saveRecordEdit } from '../../services/recordRevisions';
 import { MedicalCodePicker } from '../../components/MedicalCodePicker';
 import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
 import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
@@ -83,7 +84,15 @@ export default function VaccinationFormScreen() {
       };
 
       const fileUrl = params.editUrl || newRecordFileName(folderUrl);
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+      // Η διόρθωση δεν γράφει απλώς από πάνω: κρατά την προηγούμενη μορφή μέσα στο ίδιο
+      // αρχείο, μαζί με το ποιος τη διόρθωσε και πότε. Έτσι η επεξεργασία παύει να είναι
+      // εξίσου καταστροφική με τη διαγραφή.
+      if (params.editUrl) {
+        const editor = await resolveRecordAuthor(role, loggedInDoctorAmka, loggedInPatientAmka);
+        await saveRecordEdit(fileUrl, accessToken, record, editor);
+      } else {
+        await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+      }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();

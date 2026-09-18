@@ -133,6 +133,19 @@ export async function fetchFileContent(url: string, accessToken: string): Promis
   const prefetchedText = takeContent(url);
   if (prefetchedText !== undefined) return prefetchedText;
 
+  return fetchFileContentFresh(url, accessToken);
+}
+
+/**
+ * Το ίδιο, αλλά αγνοεί ό,τι έχει προφορτωθεί - και το πετάει από τη μνήμη.
+ *
+ * Το χρησιμοποιούν οι ροές που διαβάζουν ΓΙΑ ΝΑ ΞΑΝΑΓΡΑΨΟΥΝ: η διόρθωση και η ανάκληση. Εκεί
+ * μια παλιά εικόνα του αρχείου δεν είναι απλώς ανακρίβεια - θα έσβηνε ό,τι έγραψε στο μεταξύ
+ * άλλος γιατρός με πρόσβαση στον ίδιο φάκελο.
+ */
+export async function fetchFileContentFresh(url: string, accessToken: string): Promise<string> {
+  takeContent(url);
+
   const dpopToken = await createDpopToken('GET', url);
   const response = await fetch(url, {
     method: 'GET',
@@ -151,21 +164,11 @@ export async function fetchFileContent(url: string, accessToken: string): Promis
   return text;
 }
 
-export async function deleteFile(url: string, accessToken: string): Promise<void> {
-  const dpopToken = await createDpopToken('DELETE', url);
-  const response = await fetch(url, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `DPoP ${accessToken}`,
-      'DPoP': dpopToken,
-    },
-  });
-
-  if (!response.ok) {
-    throwIfAccessDenied(response.status);
-    throw new Error('Σφάλμα διαγραφής: ' + response.status);
-  }
-}
+// Συνάρτηση διαγραφής αρχείου ΔΕΝ υπάρχει, και δεν είναι παράλειψη.
+//
+// Η εφαρμογή δεν σβήνει ποτέ ιατρική εγγραφή: η λανθασμένη σημαίνεται ως ανακληθείσα και
+// μένει στον φάκελο (utils/recordRevision.ts). Ο ασθενής παραμένει φυσικά κύριος του Pod του
+// και μπορεί να σβήσει ό,τι θέλει με άλλο εργαλείο Solid - αλλά όχι από εδώ.
 
 /**
  * Μοναδικό όνομα αρχείου για νέα εγγραφή ιστορικού.

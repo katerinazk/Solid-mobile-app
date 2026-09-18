@@ -19,6 +19,8 @@ import { DateField } from '../../components/DateField';
 import { validatePastDate, isoToDate } from '../../utils/dateInput';
 import { RecordLinkPicker } from '../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
+import { resolveRecordAuthor } from '../../utils/recordAuthor';
+import { saveRecordEdit } from '../../services/recordRevisions';
 import { showMessage } from '../../utils/appMessage';
 
 interface PendingFile {
@@ -58,7 +60,7 @@ export default function HospitalizationFormScreen() {
     editLinks?: string;
   }>();
 
-  const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { accessToken, loggedInDoctorAmka, role, loggedInPatientAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
   const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Νοσηλίες') : '';
 
@@ -183,7 +185,15 @@ export default function HospitalizationFormScreen() {
         links: links.length > 0 ? links : undefined,
       };
 
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+      // Η διόρθωση δεν γράφει απλώς από πάνω: κρατά την προηγούμενη μορφή μέσα στο ίδιο
+      // αρχείο, μαζί με το ποιος τη διόρθωσε και πότε. Έτσι η επεξεργασία παύει να είναι
+      // εξίσου καταστροφική με τη διαγραφή.
+      if (params.editUrl) {
+        const editor = await resolveRecordAuthor(role, loggedInDoctorAmka, loggedInPatientAmka);
+        await saveRecordEdit(fileUrl, accessToken, record, editor);
+      } else {
+        await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+      }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();

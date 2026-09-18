@@ -12,6 +12,11 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf, createdDateFromUrl } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
+import { retractRecord } from '../../../services/recordRevisions';
+import { resolveRecordAuthor } from '../../../utils/recordAuthor';
+import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
@@ -19,10 +24,10 @@ import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { FilterScrollRow } from '../../../components/FilterScrollRow';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
-import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -30,6 +35,8 @@ const CATEGORY = 'Εξετάσεις';
 
 interface Exam {
   url: string;
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - σημανθεί δηλαδή ως λανθασμένη.
+  retraction?: Retraction;
   title: string;
   type: string;
   status: 'pending' | 'completed';
@@ -47,22 +54,17 @@ interface Exam {
 }
 
 
-function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onDelete, onOpen }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void; onOpen: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onRetract, onOpen }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onRetract: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (
     // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
-    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
+    <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-        {!isReadOnly && item.doctorAmka === loggedInDoctorAmka && (
-          <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity onPress={() => onEdit(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-              <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => onDelete(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-              <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
-            </TouchableOpacity>
-          </View>
-        )}
+        <RecordCardActions
+          visible={!isReadOnly && item.doctorAmka === loggedInDoctorAmka && !item.retraction}
+          onEdit={() => onEdit(item)}
+          onRetract={() => onRetract(item)}
+        />
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
@@ -75,6 +77,7 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
+      <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
   );
 }
@@ -82,7 +85,7 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
 function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) => void }) {
   return (
     <TouchableOpacity
-      style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }]}
+      style={[doctorStyles.diagnosisCard, { flexDirection: 'row', alignItems: 'center' }, item.retraction && retractedCardStyle]}
       onPress={() => onOpen(item)}
     >
       <Ionicons name="link-outline" size={22} color={COLORS.primary} style={{ marginRight: 12 }} />
@@ -94,6 +97,7 @@ function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) 
         <Text style={[doctorStyles.diagnosisCardDetail, { marginTop: 2 }]}>
           <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Αποτελέσματος: </Text>{item.completedDate ? formatDate(item.completedDate) : ''}
         </Text>
+        <RetractedNote retraction={item.retraction} />
         </View>
       <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
     </TouchableOpacity>
@@ -151,6 +155,7 @@ export default function DoctorExamsScreen() {
             if (!isCompleteRecord('Εξετάσεις', record)) return null;
             return {
               url,
+              retraction: parseRetraction(record),
               title: record.title,
               code: record.code,
               parentName: record.parentName,
@@ -293,23 +298,26 @@ export default function DoctorExamsScreen() {
     });
   };
 
-  const handleDeleteExam = async (item: Exam) => {
+  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή. Η λανθασμένη ΣΗΜΑΙΝΕΤΑΙ ως ανακληθείσα
+  // και μένει ορατή: αλλιώς δεν θα φαινόταν ούτε ότι γράφτηκε ποτέ ούτε γιατί αποσύρθηκε.
+  const handleRetractExam = async (item: Exam) => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    const confirmed = await askConfirm({
-      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξέταση;",
-      confirmText: "Διαγραφή",
-      cancelText: "Ακύρωση",
+    const reason = await askText({
+      message: 'Ανάκληση: η εξέταση δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      placeholder: 'π.χ. παραγγέλθηκε σε λάθος ασθενή',
+      confirmText: 'Ανάκληση',
     });
-    if (!confirmed) return;
+    if (!reason) return;
 
     try {
-      await deleteFile(item.url, accessToken);
-      updateExams((prev) => prev.filter((e) => e.url !== item.url));
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      const retraction = await retractRecord(item.url, accessToken, author, reason);
+      updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction } : e)));
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία διαγραφής.");
+      showMessage(error.message || 'Αποτυχία ανάκλησης.');
     }
   };
 
@@ -399,7 +407,7 @@ export default function DoctorExamsScreen() {
             section.kind === 'year' ? (
               <CompletedExamCard item={item} onOpen={openDetail} />
             ) : (
-              <PendingExamCard item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />
+              <PendingExamCard item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onRetract={handleRetractExam} onOpen={openDetail} />
             )
           )}
         />

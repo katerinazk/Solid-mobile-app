@@ -10,16 +10,21 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
+import { retractRecord } from '../../../services/recordRevisions';
+import { resolveRecordAuthor } from '../../../utils/recordAuthor';
+import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
-import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
 import { useDoctorNames, formatDoctorLastNameOnly } from '../../../hooks/useDoctorNames';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -27,6 +32,8 @@ type Category = 'adult' | 'child';
 
 interface Diagnosis {
   url: string;
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - σημανθεί δηλαδή ως λανθασμένη.
+  retraction?: Retraction;
   title: string;
   date: string;
   doctorName: string;
@@ -90,7 +97,7 @@ export default function DoctorDiagnoseisScreen() {
             const record = JSON.parse(content);
             // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
             if (!isCompleteRecord('Διαγνώσεις', record)) return null;
-            return { url, title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
+            return { url, retraction: parseRetraction(record), title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
           } catch {
             return null;
           }
@@ -169,23 +176,26 @@ export default function DoctorDiagnoseisScreen() {
     });
   };
 
-  const handleDeleteDiagnosis = async (item: Diagnosis) => {
+  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή. Η λανθασμένη ΣΗΜΑΙΝΕΤΑΙ ως ανακληθείσα
+  // και μένει ορατή: αλλιώς δεν θα φαινόταν ούτε ότι γράφτηκε ποτέ ούτε γιατί αποσύρθηκε.
+  const handleRetractDiagnosis = async (item: Diagnosis) => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    const confirmed = await askConfirm({
-      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη διάγνωση;",
-      confirmText: "Διαγραφή",
-      cancelText: "Ακύρωση",
+    const reason = await askText({
+      message: 'Ανάκληση: η διάγνωση δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      placeholder: 'π.χ. καταχωρήθηκε σε λάθος ασθενή',
+      confirmText: 'Ανάκληση',
     });
-    if (!confirmed) return;
+    if (!reason) return;
 
     try {
-      await deleteFile(item.url, accessToken);
-      updateDiagnoses((prev) => prev.filter((d) => d.url !== item.url));
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      const retraction = await retractRecord(item.url, accessToken, author, reason);
+      updateDiagnoses((prev) => prev.map((d) => (d.url === item.url ? { ...d, retraction } : d)));
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία διαγραφής.");
+      showMessage(error.message || 'Αποτυχία ανάκλησης.');
     }
   };
 
@@ -265,20 +275,15 @@ export default function DoctorDiagnoseisScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
+            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
-                {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && (
-                  <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => openForm(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                      <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteDiagnosis(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                      <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  </View>
-                )}
+                <RecordCardActions
+                  visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && !item.retraction}
+                  onEdit={() => openForm(item)}
+                  onRetract={() => handleRetractDiagnosis(item)}
+                />
               </View>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
@@ -286,6 +291,7 @@ export default function DoctorDiagnoseisScreen() {
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
               </Text>
+              <RetractedNote retraction={item.retraction} />
             </TouchableOpacity>
           )}
         />

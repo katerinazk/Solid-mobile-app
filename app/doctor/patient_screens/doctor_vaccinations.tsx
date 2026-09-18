@@ -11,15 +11,20 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
+import { retractRecord } from '../../../services/recordRevisions';
+import { resolveRecordAuthor } from '../../../utils/recordAuthor';
+import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -27,6 +32,8 @@ const CATEGORY = 'Εμβολιασμοί';
 
 interface Vaccination {
   url: string;
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - σημανθεί δηλαδή ως λανθασμένη.
+  retraction?: Retraction;
   title: string;
   doctorName: string;
   doctorAmka: string;
@@ -89,6 +96,7 @@ export default function DoctorVaccinationsScreen() {
             if (!isCompleteRecord('Εμβολιασμοί', record)) return null;
             return {
               url,
+              retraction: parseRetraction(record),
               title: record.title,
               code: record.code,
               parentName: record.parentName,
@@ -167,23 +175,26 @@ export default function DoctorVaccinationsScreen() {
     });
   };
 
-  const handleDeleteVaccination = async (item: Vaccination) => {
+  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή. Η λανθασμένη ΣΗΜΑΙΝΕΤΑΙ ως ανακληθείσα
+  // και μένει ορατή: αλλιώς δεν θα φαινόταν ούτε ότι γράφτηκε ποτέ ούτε γιατί αποσύρθηκε.
+  const handleRetractVaccination = async (item: Vaccination) => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    const confirmed = await askConfirm({
-      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον εμβολιασμό;",
-      confirmText: "Διαγραφή",
-      cancelText: "Ακύρωση",
+    const reason = await askText({
+      message: 'Ανάκληση: ο εμβολιασμός δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      placeholder: 'π.χ. καταχωρήθηκε σε λάθος ασθενή',
+      confirmText: 'Ανάκληση',
     });
-    if (!confirmed) return;
+    if (!reason) return;
 
     try {
-      await deleteFile(item.url, accessToken);
-      updateVaccinations((prev) => prev.filter((v) => v.url !== item.url));
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      const retraction = await retractRecord(item.url, accessToken, author, reason);
+      updateVaccinations((prev) => prev.map((v) => (v.url === item.url ? { ...v, retraction } : v)));
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία διαγραφής.");
+      showMessage(error.message || 'Αποτυχία ανάκλησης.');
     }
   };
 
@@ -248,19 +259,14 @@ export default function DoctorVaccinationsScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
+            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
-                  <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => openForm(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                      <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteVaccination(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                      <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  </View>
-                )}
+                <RecordCardActions
+                  visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && !item.retraction}
+                  onEdit={() => openForm(item)}
+                  onRetract={() => handleRetractVaccination(item)}
+                />
               </View>
 
               <Text style={doctorStyles.diagnosisCardDetail}>
@@ -275,6 +281,7 @@ export default function DoctorVaccinationsScreen() {
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
               </Text>
+              <RetractedNote retraction={item.retraction} />
             </TouchableOpacity>
           )}
         />

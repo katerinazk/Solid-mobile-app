@@ -12,15 +12,21 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
+import { retractRecord } from '../../../services/recordRevisions';
+import { resolveRecordAuthor } from '../../../utils/recordAuthor';
+import { RecordCardActions } from '../../../components/RecordCardActions';
+import { saveRecordEdit } from '../../../services/recordRevisions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -28,6 +34,8 @@ const CATEGORY = 'Φάρμακα';
 
 interface Medication {
   url: string;
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - σημανθεί δηλαδή ως λανθασμένη.
+  retraction?: Retraction;
   title: string;
   dosage: string;
   // Τρόπος χορήγησης (χάπι, ενέσιμο, ...). Λείπει από τις εγγραφές πριν υπάρξει το πεδίο.
@@ -57,14 +65,19 @@ function isPending(item: Medication): boolean {
 
 // Η κάρτα φαρμάκου που έχει ήδη ξεκινήσει, ίδια και για την τρέχουσα και για την προηγούμενη
 // αγωγή: η μόνη διαφορά των δύο ενοτήτων είναι αν η αγωγή τελείωσε, όχι το τι δείχνει η κάρτα.
-function MedicationCard({ item, doctorDisplayName, onOpen }: {
+function MedicationCard({ item, doctorDisplayName, canRetract, onOpen, onRetract }: {
   item: Medication;
   doctorDisplayName: string;
+  canRetract: boolean;
   onOpen: (item: Medication) => void;
+  onRetract: (item: Medication) => void;
 }) {
   return (
-    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
-      <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+    <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
+      <View style={doctorStyles.diagnosisCardHeader}>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+        <RecordCardActions visible={canRetract} onRetract={() => onRetract(item)} />
+      </View>
       {!!item.route && (
         <Text style={doctorStyles.diagnosisCardDetail}>
           <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
@@ -82,21 +95,23 @@ function MedicationCard({ item, doctorDisplayName, onOpen }: {
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
+      <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
   );
 }
 
 // Το φάρμακο που συνταγογραφήθηκε αλλά δεν έχει πατηθεί ακόμα "Έναρξη". Δεν έχει ημερομηνία
 // έναρξης να δείξει, και κρατά τα δύο κουμπιά ενέργειας.
-function PendingMedicationCard({ item, doctorDisplayName, onOpen, onStart, onDelete }: {
+function PendingMedicationCard({ item, doctorDisplayName, canRetract, onOpen, onStart, onRetract }: {
   item: Medication;
   doctorDisplayName: string;
   onOpen: (item: Medication) => void;
   onStart: (item: Medication) => void;
-  onDelete: (item: Medication) => void;
+  canRetract: boolean;
+  onRetract: (item: Medication) => void;
 }) {
   return (
-    <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => onOpen(item)}>
+    <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         <Text style={{ color: COLORS.danger, fontWeight: 'bold', fontSize: TYPOGRAPHY.secondaryText }}>ΕΚΚΡΕΜΕΣ</Text>
@@ -116,26 +131,32 @@ function PendingMedicationCard({ item, doctorDisplayName, onOpen, onStart, onDel
         <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
       </Text>
 
+      {/* Ανακληθείσα συνταγή δεν ξεκινά: η αγωγή έχει αποσυρθεί από όποιον την έγραψε. */}
       <View style={{ flexDirection: 'row', marginTop: 12 }}>
-        <TouchableOpacity
-          style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginRight: 8, marginBottom: 0 }]}
-          onPress={() => onStart(item)}
-        >
-          <Text style={doctorStyles.diagnosisSortButtonText}>Έναρξη</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
-          onPress={() => onDelete(item)}
-        >
-          <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
-        </TouchableOpacity>
+        {!item.retraction && (
+          <TouchableOpacity
+            style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginRight: 8, marginBottom: 0 }]}
+            onPress={() => onStart(item)}
+          >
+            <Text style={doctorStyles.diagnosisSortButtonText}>Έναρξη</Text>
+          </TouchableOpacity>
+        )}
+        {canRetract && (
+          <TouchableOpacity
+            style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
+            onPress={() => onRetract(item)}
+          >
+            <Text style={doctorStyles.diagnosisSortButtonText}>Ανάκληση</Text>
+          </TouchableOpacity>
+        )}
       </View>
+      <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
   );
 }
 
 export default function PatientMedicationsScreen() {
-  const { accessToken, activePatientFolderUrl } = useAuth();
+  const { accessToken, activePatientFolderUrl, loggedInPatientAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const webId = getOwnerWebId(activePatientFolderUrl);
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
@@ -194,6 +215,7 @@ export default function PatientMedicationsScreen() {
             if (!isCompleteRecord('Φάρμακα', record)) return null;
             return {
               url,
+              retraction: parseRetraction(record),
               title: record.title,
               code: record.code,
               parentName: record.parentName,
@@ -275,7 +297,10 @@ export default function PatientMedicationsScreen() {
         started: true,
       };
 
-      await saveFileContent(item.url, accessToken, JSON.stringify(record));
+      // Η έναρξη ξαναγράφει ολόκληρη την εγγραφή του γιατρού, οπότε κρατάμε την
+      // προηγούμενη μορφή της και υπογράφουμε ποιος την άλλαξε.
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      await saveRecordEdit(item.url, accessToken, record, author);
 
       updateMedications((prev) => prev.map((m) => m.url === item.url ? { ...m, startDate, started: true } : m));
     } catch (error: any) {
@@ -283,19 +308,23 @@ export default function PatientMedicationsScreen() {
     }
   };
 
-  const handleDeleteMedication = async (item: Medication) => {
-    const confirmed = await askConfirm({
-      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το φάρμακο;",
-      confirmText: "Διαγραφή",
-      cancelText: "Ακύρωση",
+  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή, και ο ασθενής ανακαλεί μόνο ό,τι
+  // καταχώρησε ο ίδιος: η παραπομπή ή η συνταγή του γιατρού δεν είναι δική του να την
+  // αποσύρει, αλλιώς ο φάκελος παύει να είναι αξιόπιστος για τον επόμενο γιατρό.
+  const handleRetractMedication = async (item: Medication) => {
+    const reason = await askText({
+      message: 'Ανάκληση: η αγωγή δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      placeholder: 'π.χ. την καταχώρησα δύο φορές',
+      confirmText: 'Ανάκληση',
     });
-    if (!confirmed) return;
+    if (!reason) return;
 
     try {
-      await deleteFile(item.url, accessToken);
-      updateMedications((prev) => prev.filter((m) => m.url !== item.url));
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      const retraction = await retractRecord(item.url, accessToken, author, reason);
+      updateMedications((prev) => prev.map((m) => (m.url === item.url ? { ...m, retraction } : m)));
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία διαγραφής.");
+      showMessage(error.message || 'Αποτυχία ανάκλησης.');
     }
   };
 
@@ -452,11 +481,18 @@ export default function PatientMedicationsScreen() {
                 item={item}
                 doctorDisplayName={displayDoctorName(item)}
                 onOpen={openDetail}
+                canRetract={item.doctorAmka === loggedInPatientAmka && !item.retraction}
                 onStart={handleStartMedication}
-                onDelete={handleDeleteMedication}
+                onRetract={handleRetractMedication}
               />
             ) : (
-              <MedicationCard item={item} doctorDisplayName={displayDoctorName(item)} onOpen={openDetail} />
+              <MedicationCard
+                item={item}
+                doctorDisplayName={displayDoctorName(item)}
+                canRetract={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                onOpen={openDetail}
+                onRetract={handleRetractMedication}
+              />
             )
           )}
         />

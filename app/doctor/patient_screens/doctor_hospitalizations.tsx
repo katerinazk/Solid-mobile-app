@@ -11,17 +11,22 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
+import { retractRecord } from '../../../services/recordRevisions';
+import { resolveRecordAuthor } from '../../../utils/recordAuthor';
+import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { listFolderFilesOrEmpty, fetchFileContent, deleteFile, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -29,6 +34,8 @@ const CATEGORY = 'Νοσηλίες';
 
 interface Hospitalization {
   url: string;
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - σημανθεί δηλαδή ως λανθασμένη.
+  retraction?: Retraction;
   title: string;
   hospitalClinic: string;
   doctorName: string;
@@ -95,6 +102,7 @@ export default function DoctorHospitalizationsScreen() {
             if (!isCompleteRecord('Νοσηλίες', record)) return null;
             return {
               url,
+              retraction: parseRetraction(record),
               title: record.title,
               code: record.code,
               parentName: record.parentName,
@@ -173,23 +181,26 @@ export default function DoctorHospitalizationsScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
-  const handleDeleteHospitalization = async (item: Hospitalization) => {
+  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή. Η λανθασμένη ΣΗΜΑΙΝΕΤΑΙ ως ανακληθείσα
+  // και μένει ορατή: αλλιώς δεν θα φαινόταν ούτε ότι γράφτηκε ποτέ ούτε γιατί αποσύρθηκε.
+  const handleRetractHospitalization = async (item: Hospitalization) => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
     // η ενέργεια ακυρώνεται.
     if (!(await checkAccess())) return;
 
-    const confirmed = await askConfirm({
-      message: "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη νοσηλία;",
-      confirmText: "Διαγραφή",
-      cancelText: "Ακύρωση",
+    const reason = await askText({
+      message: 'Ανάκληση: η νοσηλία δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      placeholder: 'π.χ. καταχωρήθηκε σε λάθος ασθενή',
+      confirmText: 'Ανάκληση',
     });
-    if (!confirmed) return;
+    if (!reason) return;
 
     try {
-      await deleteFile(item.url, accessToken);
-      updateHospitalizations((prev) => prev.filter((h) => h.url !== item.url));
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      const retraction = await retractRecord(item.url, accessToken, author, reason);
+      updateHospitalizations((prev) => prev.map((h) => (h.url === item.url ? { ...h, retraction } : h)));
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία διαγραφής.");
+      showMessage(error.message || 'Αποτυχία ανάκλησης.');
     }
   };
 
@@ -264,19 +275,14 @@ export default function DoctorHospitalizationsScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
+            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
               <View style={doctorStyles.diagnosisCardHeader}>
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                {!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && (
-                  <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => openForm(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                      <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteHospitalization(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                      <Ionicons name="trash-outline" size={22} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  </View>
-                )}
+                <RecordCardActions
+                  visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && !item.retraction}
+                  onEdit={() => openForm(item)}
+                  onRetract={() => handleRetractHospitalization(item)}
+                />
               </View>
 
               <Text style={doctorStyles.diagnosisCardDetail}>
@@ -299,6 +305,7 @@ export default function DoctorHospitalizationsScreen() {
                 <Ionicons name="link-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
                 <Text style={doctorStyles.diagnosisSortButtonText}>Συνημμένα Αρχεία</Text>
               </TouchableOpacity>
+              <RetractedNote retraction={item.retraction} />
             </TouchableOpacity>
           )}
         />

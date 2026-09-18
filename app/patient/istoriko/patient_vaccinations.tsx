@@ -12,6 +12,12 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
+import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
+import { RecordCardActions } from '../../../components/RecordCardActions';
+import { retractRecord } from '../../../services/recordRevisions';
+import { resolveRecordAuthor } from '../../../utils/recordAuthor';
+import { askText, showMessage } from '../../../utils/appMessage';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
@@ -25,6 +31,8 @@ const CATEGORY = 'Εμβολιασμοί';
 
 interface Vaccination {
   url: string;
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - σημανθεί δηλαδή ως λανθασμένη.
+  retraction?: Retraction;
   title: string;
   doctorName: string;
   doctorAmka: string;
@@ -38,7 +46,7 @@ interface Vaccination {
 }
 
 export default function PatientVaccinationsScreen() {
-  const { accessToken, activePatientFolderUrl } = useAuth();
+  const { accessToken, activePatientFolderUrl, loggedInPatientAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const webId = getOwnerWebId(activePatientFolderUrl);
   const folderUrl = getCategoryFolderUrl(webId, CATEGORY);
@@ -52,6 +60,16 @@ export default function PatientVaccinationsScreen() {
   // Ξεκινάμε από ό,τι έχει μείνει στη μνήμη: η οθόνη εμφανίζεται αμέσως και το Pod
   // ξαναδιαβάζεται στο παρασκήνιο για να φανεί τυχόν αλλαγή.
   const [vaccinations, setVaccinations] = useState<Vaccination[]>(cachedRecords);
+
+  // Η ανάκληση αλλάζει τη λίστα χωρίς να ξαναδιαβαστεί το Pod. Περνά από εδώ ώστε η μνήμη
+  // να μη μείνει με την προηγούμενη εικόνα της εγγραφής.
+  const updateVaccinations = (change: (prev: Vaccination[]) => Vaccination[]) => {
+    setVaccinations((prev) => {
+      const next = change(prev);
+      setCachedRecords(webId, CATEGORY, next);
+      return next;
+    });
+  };
   const [newestFirst, setNewestFirst] = useState(true);
 
   const loadVaccinations = async (silent = false) => {
@@ -83,6 +101,7 @@ export default function PatientVaccinationsScreen() {
             if (!isCompleteRecord('Εμβολιασμοί', record)) return null;
             return {
               url,
+              retraction: parseRetraction(record),
               title: record.title,
               code: record.code,
               parentName: record.parentName,
@@ -142,6 +161,25 @@ export default function PatientVaccinationsScreen() {
     router.push({ pathname: ROUTES.VACCINATION_FORM, params: { webId } });
   };
 
+  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή. Η λανθασμένη ΣΗΜΑΙΝΕΤΑΙ ως ανακληθείσα
+  // και μένει ορατή: αλλιώς δεν θα φαινόταν ούτε ότι γράφτηκε ποτέ ούτε γιατί αποσύρθηκε.
+  const handleRetractVaccination = async (item: Vaccination) => {
+    const reason = await askText({
+      message: 'Ανάκληση: ο εμβολιασμός δεν διαγράφεται, σημαίνεται ως αποσυρμένος. Για ποιον λόγο;',
+      placeholder: 'π.χ. τον καταχώρησα δύο φορές',
+      confirmText: 'Ανάκληση',
+    });
+    if (!reason) return;
+
+    try {
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      const retraction = await retractRecord(item.url, accessToken, author, reason);
+      updateVaccinations((prev) => prev.map((v) => (v.url === item.url ? { ...v, retraction } : v)));
+    } catch (error: any) {
+      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+    }
+  };
+
   const openDetail = (item: { url: string }) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
   };
@@ -198,8 +236,16 @@ export default function PatientVaccinationsScreen() {
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
-            <TouchableOpacity style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
-              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
+              <View style={doctorStyles.diagnosisCardHeader}>
+                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                {/* Ο ασθενής ανακαλεί μόνο ό,τι καταχώρησε ο ίδιος: εγγραφή γιατρού δεν την
+                    αγγίζει, αλλιώς ο φάκελος παύει να είναι αξιόπιστος για τον επόμενο γιατρό. */}
+                <RecordCardActions
+                  visible={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                  onRetract={() => handleRetractVaccination(item)}
+                />
+              </View>
 
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
@@ -213,6 +259,7 @@ export default function PatientVaccinationsScreen() {
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
               </Text>
+              <RetractedNote retraction={item.retraction} />
             </TouchableOpacity>
           )}
         />

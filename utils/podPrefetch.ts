@@ -51,6 +51,9 @@ export async function prefetchAllCategories(webId: string, accessToken: string):
     // όχι από το Pod, και χωρίς αυτά η κάρτα έδειχνε πρώτα το παλιό αποθηκευμένο όνομα και
     // το διόρθωνε μετά - τρεμόπαιγμα σε κάθε είσοδο.
     const doctorAmkas: string[] = [];
+    // Οι ανακληθείσες εγγραφές μένουν στον φάκελο, αλλά δεν είναι ενεργό ιστορικό: δεν
+    // πρέπει να φουσκώνουν το νούμερο της αρχικής οθόνης.
+    let retracted = 0;
 
     await Promise.all(
       jsonFiles.map(async (url) => {
@@ -58,8 +61,9 @@ export async function prefetchAllCategories(webId: string, accessToken: string):
           const text = await fetchFileContent(url, accessToken);
           putContent(url, text);
           try {
-            const amka = JSON.parse(text)?.doctorAmka;
-            if (amka) doctorAmkas.push(String(amka));
+            const record = JSON.parse(text);
+            if (record?.doctorAmka) doctorAmkas.push(String(record.doctorAmka));
+            if (record?.retracted?.at) retracted += 1;
           } catch {
             // Αρχείο που δεν είναι έγκυρο JSON - το αγνοούμε εδώ, το φιλτράρει η οθόνη.
           }
@@ -70,6 +74,10 @@ export async function prefetchAllCategories(webId: string, accessToken: string):
     );
 
     ensureDoctors(doctorAmkas);
+
+    // Διόρθωση του νούμερου τώρα που ξέρουμε τι περιέχουν τα αρχεία. Το πρώτο νούμερο
+    // στάλθηκε πριν διαβαστούν, για να μην περιμένει η αρχική οθόνη.
+    if (retracted > 0) setCount(webId, category, jsonFiles.length - retracted);
   }
 
   markPrefetchDone(webId);
