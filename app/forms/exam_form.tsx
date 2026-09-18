@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { loginStyles } from '../../../constants/loginStyles';
-import { useAuth } from '../../../hooks/useAuth';
-import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
-import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { SelectField } from '../../../components/SelectField';
-import { EXAM_TYPES } from '../../../constants/medicalOptions';
-import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
-import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
-import { showMessage } from '../../../utils/appMessage';
+import { loginStyles } from '../../constants/loginStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
+import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { resolveRecordAuthor } from '../../utils/recordAuthor';
+import { MedicalCodePicker } from '../../components/MedicalCodePicker';
+import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
+import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
+import { SelectField } from '../../components/SelectField';
+import { EXAM_TYPES, EXAM_STATUS_OPTIONS, EXAM_STATUS_PENDING, EXAM_STATUS_COMPLETED } from '../../constants/medicalOptions';
+import { RecordLinkPicker } from '../../components/RecordLinkPicker';
+import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
+import { showMessage } from '../../utils/appMessage';
 
-export default function DoctorExamFormScreen() {
+export default function ExamFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
@@ -36,7 +36,7 @@ export default function DoctorExamFormScreen() {
     editDoctorAmka?: string;
   }>();
 
-  const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { accessToken, loggedInDoctorAmka, role, loggedInPatientAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
   const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Εξετάσεις') : '';
 
@@ -46,6 +46,10 @@ export default function DoctorExamFormScreen() {
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
   const [type, setType] = useState(params.editType || '');
+  // Μόνο ο ασθενής επιλέγει κατάσταση. Ο γιατρός παραγγέλνει εξέταση, δεν την εκτελεί.
+  const [statusLabel, setStatusLabel] = useState(
+    params.editStatus === 'completed' ? EXAM_STATUS_COMPLETED : EXAM_STATUS_PENDING
+  );
   const [links, setLinks] = useState<LinkedRecord[]>(parseLinkedRecords(params.editLinks));
   const [saving, setSaving] = useState(false);
 
@@ -86,28 +90,33 @@ export default function DoctorExamFormScreen() {
       let doctorName = params.editDoctorName || '';
       let doctorAmka = params.editDoctorAmka || '';
       if (!isEditing) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData
-          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-          : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
+        const author = await resolveRecordAuthor(role, loggedInDoctorAmka, loggedInPatientAmka);
+        doctorName = author.doctorName;
+        doctorAmka = author.doctorAmka;
       }
 
       const today = new Date();
       const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      // Όταν καταχωρεί ο γιατρός, η εξέταση μπαίνει πάντα ως εκκρεμής και την ολοκληρώνει ο
+      // ασθενής ανεβάζοντας το αποτέλεσμα. Ο ασθενής όμως μπορεί να γράφει και εξέταση που
+      // έχει ήδη κάνει, οπότε διαλέγει ο ίδιος.
+      const status: 'pending' | 'completed' = role === 'patient'
+        ? (statusLabel === EXAM_STATUS_COMPLETED ? 'completed' : 'pending')
+        : ((params.editStatus as 'pending' | 'completed') || 'pending');
 
       const record = {
         title: selectedCode.name,
         code: selectedCode.code,
         parentName: selectedCode.parent_name || undefined,
         type,
-        // Η ολοκλήρωση γίνεται από τον ασθενή, ανεβάζοντας το αποτέλεσμα - εδώ απλώς
-        // διατηρούμε ό,τι ισχύει ήδη.
-        status: (params.editStatus as 'pending' | 'completed') || 'pending',
+        status,
         doctorName,
         doctorAmka,
-        completedDate: params.editCompletedDate,
-        resultFile: params.editResultFile,
+        // Η ημερομηνία και το αρχείο αποτελέσματος κρατιούνται μόνο όσο η εξέταση είναι
+        // ολοκληρωμένη - αλλιώς θα έμενε ημερομηνία αποτελέσματος σε εκκρεμή εξέταση.
+        completedDate: status === 'completed' ? (params.editCompletedDate || todayIso) : undefined,
+        resultFile: status === 'completed' ? params.editResultFile : undefined,
         // Στην επεξεργασία κρατάμε την αρχική ημερομηνία καταχώρησης, δεν τη μηδενίζουμε.
         createdDate: params.editCreatedDate || todayIso,
         links: links.length > 0 ? links : undefined,
@@ -126,7 +135,7 @@ export default function DoctorExamFormScreen() {
   };
 
   return (
-    <DoctorFormScreen
+    <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέα Εξέταση'}
       amka={params.amka}
       saving={saving}
@@ -149,6 +158,15 @@ export default function DoctorExamFormScreen() {
         placeholder="Επιλέξτε τύπο"
       />
 
+      {role === 'patient' && (
+        <SelectField
+          label="Κατάσταση"
+          value={statusLabel}
+          onChange={setStatusLabel}
+          options={EXAM_STATUS_OPTIONS}
+        />
+      )}
+
       <RecordLinkPicker
         webId={params.webId}
         accessToken={accessToken}
@@ -156,6 +174,6 @@ export default function DoctorExamFormScreen() {
         value={links}
         onChange={setLinks}
       />
-    </DoctorFormScreen>
+    </RecordFormScreen>
   );
 }

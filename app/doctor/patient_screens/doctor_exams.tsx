@@ -248,7 +248,7 @@ export default function DoctorExamsScreen() {
 
   const openForm = (item?: Exam) => {
     router.push({
-      pathname: ROUTES.DOCTOR_EXAM_FORM,
+      pathname: ROUTES.EXAM_FORM,
       params: {
         amka,
         webId,

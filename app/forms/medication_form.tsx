@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { loginStyles } from '../../../constants/loginStyles';
-import { useAuth } from '../../../hooks/useAuth';
-import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
-import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { SelectField } from '../../../components/SelectField';
-import { ADMINISTRATION_ROUTES, matchAdministrationRoute } from '../../../constants/medicalOptions';
-import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
-import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
-import { showMessage } from '../../../utils/appMessage';
+import { loginStyles } from '../../constants/loginStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
+import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { resolveRecordAuthor } from '../../utils/recordAuthor';
+import { MedicalCodePicker } from '../../components/MedicalCodePicker';
+import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
+import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
+import { SelectField } from '../../components/SelectField';
+import { ADMINISTRATION_ROUTES, matchAdministrationRoute } from '../../constants/medicalOptions';
+import { RecordLinkPicker } from '../../components/RecordLinkPicker';
+import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
+import { showMessage } from '../../utils/appMessage';
 
-export default function DoctorMedicationFormScreen() {
+export default function MedicationFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
@@ -38,7 +38,7 @@ export default function DoctorMedicationFormScreen() {
     editDoctorAmka?: string;
   }>();
 
-  const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { accessToken, loggedInDoctorAmka, role, loggedInPatientAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
   const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Φάρμακα') : '';
 
@@ -113,11 +113,9 @@ export default function DoctorMedicationFormScreen() {
       let doctorAmka = params.editDoctorAmka || '';
       let startDate = params.editStartDate || '';
       if (!isEditing) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData
-          ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
-          : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
+        const author = await resolveRecordAuthor(role, loggedInDoctorAmka, loggedInPatientAmka);
+        doctorName = author.doctorName;
+        doctorAmka = author.doctorAmka;
         // Η ημερομηνία έναρξης μένει κενή: τη συμπληρώνει ο ασθενής όταν πατήσει "Έναρξη"
         // στη δική του οθόνη. Πριν από αυτό δεν έχει αρχίσει καμία αγωγή.
         startDate = '';
@@ -157,7 +155,7 @@ export default function DoctorMedicationFormScreen() {
   };
 
   return (
-    <DoctorFormScreen
+    <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέο Φάρμακο'}
       amka={params.amka}
       saving={saving}
@@ -211,6 +209,6 @@ export default function DoctorMedicationFormScreen() {
         value={links}
         onChange={setLinks}
       />
-    </DoctorFormScreen>
+    </RecordFormScreen>
   );
 }

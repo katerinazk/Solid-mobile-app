@@ -129,6 +129,13 @@ export default function PatientVaccinationsScreen() {
   }, [vaccinations, newestFirst]);
 
   // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
+  // Ο ασθενής καταχωρεί στον ΔΙΚΟ ΤΟΥ φάκελο, οπότε δεν περνάμε ΑΜΚΑ ούτε τύπο πρόσβασης:
+  // δεν υπάρχει καταχώρηση πρόσβασης να ελεγχθεί. Είναι η ίδια φόρμα που χρησιμοποιεί ο
+  // γιατρός - αναγνωρίζει από τον ρόλο ότι γράφει ο ασθενής και υπογράφει "κος/κα" αντί "Δρ.".
+  const openAddForm = () => {
+    router.push({ pathname: ROUTES.VACCINATION_FORM, params: { webId } });
+  };
+
   const openDetail = (item: { url: string }) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
   };
@@ -146,6 +153,12 @@ export default function PatientVaccinationsScreen() {
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>Εμβολιασμοί</Text>
+      </View>
+
+      <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
+          <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={[doctorStyles.diagnosisSortButton, { marginTop: SPACING.sectionGap }]} onPress={() => setNewestFirst((prev) => !prev)}>

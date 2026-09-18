@@ -3,7 +3,7 @@ import { Text, View, TouchableOpacity, StyleSheet, StyleProp, TextStyle } from '
 import { COLORS } from '../constants/colors';
 import { loginStyles } from '../constants/loginStyles';
 import { TYPOGRAPHY } from '../constants/designSystem';
-import { formStyles } from './DoctorFormScreen';
+import { formStyles } from './RecordFormScreen';
 
 interface Props {
   label: string;

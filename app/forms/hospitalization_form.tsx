@@ -3,23 +3,23 @@ import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import { COLORS } from '../../../constants/colors';
-import { doctorStyles } from '../../../constants/doctorStyles';
-import { loginStyles } from '../../../constants/loginStyles';
-import { useAuth } from '../../../hooks/useAuth';
-import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, uploadAttachment, newRecordFileName } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
-import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { HospitalPicker } from '../../../components/HospitalPicker';
-import { Hospital, hospitalFromRecord } from '../../../services/hospitals';
-import { DateField } from '../../../components/DateField';
-import { validatePastDate, isoToDate } from '../../../utils/dateInput';
-import { RecordLinkPicker } from '../../../components/RecordLinkPicker';
-import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../../services/historyRecords';
-import { showMessage } from '../../../utils/appMessage';
+import { COLORS } from '../../constants/colors';
+import { doctorStyles } from '../../constants/doctorStyles';
+import { loginStyles } from '../../constants/loginStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
+import { saveFileContent, getCategoryFolderUrl, uploadAttachment, newRecordFileName } from '../../services/solidPod';
+import { fetchDoctorByAmka } from '../../services/doctors';
+import { MedicalCodePicker } from '../../components/MedicalCodePicker';
+import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
+import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
+import { HospitalPicker } from '../../components/HospitalPicker';
+import { Hospital, hospitalFromRecord } from '../../services/hospitals';
+import { DateField } from '../../components/DateField';
+import { validatePastDate, isoToDate } from '../../utils/dateInput';
+import { RecordLinkPicker } from '../../components/RecordLinkPicker';
+import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
+import { showMessage } from '../../utils/appMessage';
 
 interface PendingFile {
   name: string;
@@ -38,7 +38,7 @@ function parseAttachments(raw?: string): string[] {
   }
 }
 
-export default function DoctorHospitalizationFormScreen() {
+export default function HospitalizationFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
@@ -195,7 +195,7 @@ export default function DoctorHospitalizationFormScreen() {
   };
 
   return (
-    <DoctorFormScreen
+    <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέα Νοσηλία'}
       amka={params.amka}
       saving={saving}
@@ -267,6 +267,6 @@ export default function DoctorHospitalizationFormScreen() {
           onChange={setLinks}
         />
       </View>
-    </DoctorFormScreen>
+    </RecordFormScreen>
   );
 }

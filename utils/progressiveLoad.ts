@@ -34,9 +34,6 @@ export async function loadProgressively<T>({ urls, parse, compare, onPartial }: 
   // Η σειρά προκύπτει από το όνομα του αρχείου, χωρίς να χρειαστεί να διαβαστεί κανένα.
   const ordered = [...urls].sort((a, b) => createdAtFromUrl(b) - createdAtFromUrl(a));
 
-  // ΠΡΟΣΩΡΙΝΟ: μέτρηση για να βρεθεί πού πάει ο χρόνος. Αφαιρείται μόλις απαντηθεί.
-  const t0 = Date.now();
-
   const collected: T[] = [];
   let lastFlush = 0;
 
@@ -65,7 +62,6 @@ export async function loadProgressively<T>({ urls, parse, compare, onPartial }: 
   // Φάση 1: οι πιο πρόσφατες. Τις περιμένουμε μαζί και τις δείχνουμε με μία κίνηση, ώστε η
   // πρώτη σελίδα να εμφανιστεί γεμάτη αντί να χτίζεται εγγραφή προς εγγραφή μπροστά στα μάτια.
   await Promise.all(ordered.slice(0, FIRST_BATCH_SIZE).map((url) => read(url, false)));
-  if (__DEV__) console.log(`[ΧΡΟΝΟΣ] 1η φάση: ${Date.now() - t0}ms για ${Math.min(urls.length, FIRST_BATCH_SIZE)} αρχεία (σύνολο ${urls.length})`);
   if (onPartial && collected.length > 0) {
     lastFlush = Date.now();
     onPartial(snapshot());
@@ -73,8 +69,6 @@ export async function loadProgressively<T>({ urls, parse, compare, onPartial }: 
 
   // Φάση 2: όλες οι υπόλοιπες, σταδιακά από κάτω.
   await Promise.all(ordered.slice(FIRST_BATCH_SIZE).map((url) => read(url, true)));
-
-  if (__DEV__) console.log(`[ΧΡΟΝΟΣ] όλες οι φάσεις: ${Date.now() - t0}ms για ${urls.length} αρχεία`);
 
   return snapshot();
 }

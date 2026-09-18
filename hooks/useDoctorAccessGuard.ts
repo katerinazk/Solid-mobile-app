@@ -15,7 +15,12 @@ const POLL_INTERVAL_MS = 15000;
 // φύλακας ξαναρωτάει τη βάση σε κάθε εστίαση της οθόνης, ανά τακτά διαστήματα, και πριν από
 // κάθε εγγραφή (checkAccess), ώστε να μη γράφεται τίποτα με δικαίωμα που δεν ισχύει πια.
 export function useDoctorAccessGuard(patientAmka: string, initialAccessType: string) {
-  const { loggedInDoctorAmka } = useAuth();
+  const { role, loggedInDoctorAmka } = useAuth();
+
+  // Τις ίδιες φόρμες τις χρησιμοποιεί και ο ασθενής για τον εαυτό του. Εκεί δεν υπάρχει
+  // καταχώρηση πρόσβασης να ελεγχθεί - ο φάκελος είναι δικός του - και ο έλεγχος θα τον
+  // πετούσε έξω στην αρχική του γιατρού. Οπότε ο φρουρός απενεργοποιείται.
+  const guarded = role === 'doctor';
   const [accessType, setAccessType] = useState(initialAccessType);
   // Κρατάμε και σε ref ώστε η checkAccess να μην αλλάζει ταυτότητα σε κάθε αλλαγή τύπου -
   // αλλιώς το useFocusEffect θα ξανάτρεχε άσκοπα.
@@ -23,6 +28,7 @@ export function useDoctorAccessGuard(patientAmka: string, initialAccessType: str
   const kickedOut = useRef(false);
 
   const checkAccess = useCallback(async (): Promise<boolean> => {
+    if (!guarded) return true;
     if (kickedOut.current) return false;
 
     const { data, error } = await fetchAccessEntry(patientAmka, loggedInDoctorAmka);
@@ -49,10 +55,11 @@ export function useDoctorAccessGuard(patientAmka: string, initialAccessType: str
 
   useFocusEffect(
     useCallback(() => {
+      if (!guarded) return;
       checkAccess();
       const timer = setInterval(checkAccess, POLL_INTERVAL_MS);
       return () => clearInterval(timer);
-    }, [checkAccess])
+    }, [checkAccess, guarded])
   );
 
   return { accessType, isReadOnly: accessType === ACCESS_READ_ONLY, checkAccess };

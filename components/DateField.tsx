@@ -6,7 +6,7 @@ import { COLORS } from '../constants/colors';
 import { sharedStyles } from '../constants/sharedStyles';
 import { loginStyles } from '../constants/loginStyles';
 import { TYPOGRAPHY, SPACING } from '../constants/designSystem';
-import { formStyles } from './DoctorFormScreen';
+import { formStyles } from './RecordFormScreen';
 import { isoToDate, dateToIso } from '../utils/dateInput';
 
 interface Props {

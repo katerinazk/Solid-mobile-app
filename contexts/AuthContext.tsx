@@ -264,18 +264,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Όταν έχουμε το δυναμικό Client ID και το request είναι έτοιμο, ανοίγουμε τον browser
   useEffect(() => {
-    // ΠΡΟΣΩΡΙΝΟ: δείχνει τι φεύγει πραγματικά προς το /authorize.
-    if (__DEV__ && dynamicClientId) {
-      console.log('[ΕΛΕΓΧΟΣ] αναμενόμενο client_id:', dynamicClientId,
-        '| στο request:', request ? (request.clientId || '(άδειο)') : '(κανένα request)');
-      console.log('[ΕΛΕΓΧΟΣ] redirectUri:', redirectUri);
-      if (request && discoveryDocument) {
-        request.makeAuthUrlAsync(discoveryDocument)
-          .then((u) => console.log('[ΕΛΕΓΧΟΣ] πλήρης διεύθυνση:', u))
-          .catch((e) => console.log('[ΕΛΕΓΧΟΣ] απέτυχε η κατασκευή:', String(e)));
-      }
-    }
-
     // Το request χτίζεται ΑΣΥΓΧΡΟΝΑ από το useAuthRequest. Αν ανοίξουμε τον browser με
     // ένα request που φτιάχτηκε όσο το clientId ήταν ακόμα άδειο, το αίτημα φεύγει με άδειο
     // client_id και ο solid-server απαντά 403 Forbidden. Γι' αυτό περιμένουμε μέχρι το

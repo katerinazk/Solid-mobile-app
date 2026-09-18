@@ -193,7 +193,7 @@ export default function DoctorMedicationsScreen() {
 
   const openForm = (item?: Medication) => {
     router.push({
-      pathname: ROUTES.DOCTOR_MEDICATION_FORM,
+      pathname: ROUTES.MEDICATION_FORM,
       params: {
         amka,
         webId,

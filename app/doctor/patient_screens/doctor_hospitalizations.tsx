@@ -144,7 +144,7 @@ export default function DoctorHospitalizationsScreen() {
 
   const openForm = (item?: Hospitalization) => {
     router.push({
-      pathname: ROUTES.DOCTOR_HOSPITALIZATION_FORM,
+      pathname: ROUTES.HOSPITALIZATION_FORM,
       params: {
         amka,
         webId,

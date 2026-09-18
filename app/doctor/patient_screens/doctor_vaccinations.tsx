@@ -141,7 +141,7 @@ export default function DoctorVaccinationsScreen() {
 
   const openForm = (item?: Vaccination) => {
     router.push({
-      pathname: ROUTES.DOCTOR_VACCINATION_FORM,
+      pathname: ROUTES.VACCINATION_FORM,
       params: {
         amka,
         webId,

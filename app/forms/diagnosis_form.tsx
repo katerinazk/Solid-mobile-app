@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { Text } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { loginStyles } from '../../../constants/loginStyles';
-import { useAuth } from '../../../hooks/useAuth';
-import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
-import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { showMessage } from '../../../utils/appMessage';
+import { loginStyles } from '../../constants/loginStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
+import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { fetchDoctorByAmka } from '../../services/doctors';
+import { MedicalCodePicker } from '../../components/MedicalCodePicker';
+import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
+import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
+import { showMessage } from '../../utils/appMessage';
 
-export default function DoctorDiagnosisFormScreen() {
+export default function DiagnosisFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
@@ -89,7 +89,7 @@ export default function DoctorDiagnosisFormScreen() {
   };
 
   return (
-    <DoctorFormScreen
+    <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέα Διάγνωση'}
       amka={params.amka}
       saving={saving}
@@ -103,6 +103,6 @@ export default function DoctorDiagnosisFormScreen() {
         inputStyle={[loginStyles.loginInput, formStyles.input]}
         resultsMaxHeight={PICKER_RESULTS_HEIGHT}
       />
-    </DoctorFormScreen>
+    </RecordFormScreen>
   );
 }

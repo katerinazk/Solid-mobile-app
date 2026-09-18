@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { Text, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { loginStyles } from '../../../constants/loginStyles';
-import { useAuth } from '../../../hooks/useAuth';
-import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
-import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { dateToIso } from '../../../utils/dateInput';
-import { showMessage } from '../../../utils/appMessage';
+import { loginStyles } from '../../constants/loginStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
+import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { resolveRecordAuthor } from '../../utils/recordAuthor';
+import { MedicalCodePicker } from '../../components/MedicalCodePicker';
+import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
+import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
+import { dateToIso } from '../../utils/dateInput';
+import { showMessage } from '../../utils/appMessage';
 
-export default function DoctorVaccinationFormScreen() {
+export default function VaccinationFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
@@ -29,7 +29,7 @@ export default function DoctorVaccinationFormScreen() {
     editDoctorAmka?: string;
   }>();
 
-  const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { accessToken, loggedInDoctorAmka, role, loggedInPatientAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
   const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Εμβολιασμοί') : '';
 
@@ -64,9 +64,9 @@ export default function DoctorVaccinationFormScreen() {
       let doctorName = params.editDoctorName || '';
       let doctorAmka = params.editDoctorAmka || '';
       if (!isEditing) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})` : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
+        const author = await resolveRecordAuthor(role, loggedInDoctorAmka, loggedInPatientAmka);
+        doctorName = author.doctorName;
+        doctorAmka = author.doctorAmka;
       }
 
       const record = {
@@ -95,7 +95,7 @@ export default function DoctorVaccinationFormScreen() {
   };
 
   return (
-    <DoctorFormScreen
+    <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέος Εμβολιασμός'}
       amka={params.amka}
       saving={saving}
@@ -121,6 +121,6 @@ export default function DoctorVaccinationFormScreen() {
         value={doseNumber}
         onChangeText={(text) => setDoseNumber(text.replace(/[^0-9]/g, '').slice(0, 2))}
       />
-    </DoctorFormScreen>
+    </RecordFormScreen>
   );
 }

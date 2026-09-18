@@ -218,6 +218,13 @@ export default function PatientExamsScreen() {
 
   const { refreshing, onRefresh } = usePodAutoRefresh(loadExams);
 
+  // Ο ασθενής καταχωρεί στον ΔΙΚΟ ΤΟΥ φάκελο, οπότε δεν περνάμε ΑΜΚΑ ούτε τύπο πρόσβασης:
+  // δεν υπάρχει καταχώρηση πρόσβασης να ελεγχθεί. Είναι η ίδια φόρμα που χρησιμοποιεί ο
+  // γιατρός - αναγνωρίζει από τον ρόλο ότι γράφει ο ασθενής και υπογράφει "κος/κα" αντί "Δρ.".
+  const openAddForm = () => {
+    router.push({ pathname: ROUTES.EXAM_FORM, params: { webId } });
+  };
+
   const displayDoctorName = (item: Exam) => {
     const info = getDoctorInfo(item.doctorAmka);
     return info ? formatDoctorName(info) : item.doctorName;
@@ -331,6 +338,12 @@ export default function PatientExamsScreen() {
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>Εξετάσεις</Text>
+      </View>
+
+      <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
+          <Text style={styles.addButtonText}>+ Προσθήκη Εξέτασης</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={{ width: '70%', alignSelf: 'center', marginTop: SPACING.sectionGap, marginBottom: SPACING.groupGap }}>

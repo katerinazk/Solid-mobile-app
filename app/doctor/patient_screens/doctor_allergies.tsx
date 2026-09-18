@@ -126,7 +126,7 @@ export default function DoctorAllergiesScreen() {
 
   const openForm = (item?: Allergy) => {
     router.push({
-      pathname: ROUTES.DOCTOR_ALLERGY_FORM,
+      pathname: ROUTES.ALLERGY_FORM,
       params: {
         amka,
         webId,

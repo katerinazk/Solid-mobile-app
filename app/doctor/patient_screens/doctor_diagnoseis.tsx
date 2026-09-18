@@ -139,7 +139,7 @@ export default function DoctorDiagnoseisScreen() {
 
   const openForm = (item?: Diagnosis) => {
     router.push({
-      pathname: ROUTES.DOCTOR_DIAGNOSIS_FORM,
+      pathname: ROUTES.DIAGNOSIS_FORM,
       params: {
         amka,
         webId,

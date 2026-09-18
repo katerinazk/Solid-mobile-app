@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Modal, StyleSheet, RefreshControl } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { loginStyles } from '../../../constants/loginStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { usePagination } from '../../../hooks/usePagination';
 import { Pagination } from '../../../components/Pagination';
@@ -14,8 +13,7 @@ import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, createdAtFromUrl } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
-import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, newRecordFileName } from '../../../services/solidPod';
-import { fetchPatientByAmka } from '../../../services/patients';
+import { listFolderFiles, fetchFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
@@ -60,18 +58,6 @@ export default function PatientAllergiesScreen() {
       return next;
     });
   };
-  const [patientInfo, setPatientInfo] = useState<{ last_name: string; sex: string | null } | null>(null);
-
-  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [editingAllergy, setEditingAllergy] = useState<Allergy | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [formTitle, setFormTitle] = useState('');
-  const [formReaction, setFormReaction] = useState('');
-
-  useEffect(() => {
-    fetchPatientByAmka(loggedInPatientAmka).then(({ data }) => setPatientInfo(data)).catch(() => {});
-  }, []);
-
   const loadAllergies = async (silent = false) => {
     try {
       if (!silent && allergies.length === 0) setLoading(true);
@@ -139,70 +125,30 @@ export default function PatientAllergiesScreen() {
     return info ? formatDoctorName(info) : item.doctorName;
   };
 
-  const resetForm = () => {
-    setFormTitle('');
-    setFormReaction('');
+  // Η καταχώρηση γίνεται πλέον στην ίδια οθόνη-φόρμα που χρησιμοποιεί ο γιατρός, ώστε ο
+  // ασθενής να διαλέγει κι αυτός κωδικό από τον διεθνή κατάλογο.
+  //
+  // Πριν, η οθόνη είχε δικό της παράθυρο με ελεύθερο κείμενο. Η αλλεργία αποθηκευόταν χωρίς
+  // πεδίο code, ο έλεγχος πληρότητας την απέρριπτε ως ελλιπή στην επόμενη ανάγνωση του Pod,
+  // και έτσι εξαφανιζόταν μόνη της λίγο μετά την καταχώρηση.
+  const openAddForm = () => {
+    router.push({ pathname: ROUTES.ALLERGY_FORM, params: { webId } });
   };
 
-  const openAddModal = () => {
-    setEditingAllergy(null);
-    resetForm();
-    setIsAddModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setIsAddModalVisible(false);
-    setEditingAllergy(null);
-  };
-
-  const handleEditAllergy = (item: Allergy) => {
-    setEditingAllergy(item);
-    setFormTitle(item.title);
-    setFormReaction(item.reaction);
-    setIsAddModalVisible(true);
-  };
-
-  const handleSaveAllergy = async () => {
-    if (!formTitle.trim() || !formReaction.trim()) {
-      showMessage("Παρακαλώ συμπληρώστε όλα τα πεδία!");
-      return;
-    }
-
-    if (!accessToken) {
-      showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      let doctorName = editingAllergy?.doctorName || '';
-      let doctorAmka = editingAllergy?.doctorAmka || '';
-      if (!editingAllergy) {
-        // Ο ασθενής καταχωρεί μόνος του την αλλεργία - "κος/κα" αντί για "Δρ.".
-        const salutation = patientInfo?.sex?.trim().toLowerCase().startsWith('γυναίκ') ? 'κα' : 'κος';
-        doctorName = `${salutation} ${patientInfo?.last_name || ''}`.trim();
-        doctorAmka = loggedInPatientAmka;
-      }
-
-      const record = { title: formTitle.trim(), reaction: formReaction.trim(), doctorName, doctorAmka };
-
-      const fileUrl = editingAllergy ? editingAllergy.url : newRecordFileName(folderUrl);
-      await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
-
-      if (editingAllergy) {
-        updateAllergies((prev) => prev.map((a) => a.url === fileUrl ? { url: fileUrl, ...record } : a));
-      } else {
-        updateAllergies((prev) => [{ url: fileUrl, ...record }, ...prev]);
-      }
-
-      closeModal();
-      resetForm();
-    } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
-    } finally {
-      setSaving(false);
-    }
+  const openEditForm = (item: Allergy) => {
+    router.push({
+      pathname: ROUTES.ALLERGY_FORM,
+      params: {
+        webId,
+        editUrl: item.url,
+        editCode: item.code,
+        editTitle: item.title,
+        editParentName: item.parentName,
+        editReaction: item.reaction,
+        editDoctorName: item.doctorName,
+        editDoctorAmka: item.doctorAmka,
+      },
+    });
   };
 
   const handleDeleteAllergy = async (item: Allergy) => {
@@ -249,7 +195,7 @@ export default function PatientAllergiesScreen() {
       </View>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
           <Text style={styles.addButtonText}>+ Προσθήκη Αλλεργίας</Text>
         </TouchableOpacity>
       </View>
@@ -271,7 +217,7 @@ export default function PatientAllergiesScreen() {
                 <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
                 {item.doctorAmka === loggedInPatientAmka && (
                   <View style={{ flexDirection: 'row' }}>
-                    <TouchableOpacity onPress={() => handleEditAllergy(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                    <TouchableOpacity onPress={() => openEditForm(item)} style={{ marginRight: 15 }} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
                       <Ionicons name="pencil-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteAllergy(item)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
@@ -292,56 +238,6 @@ export default function PatientAllergiesScreen() {
         />
       )}
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={isAddModalVisible}
-        onRequestClose={closeModal}
-      >
-        <View style={styles.addmodalOverlay}>
-          <View style={styles.addmodalContent}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={[styles.addmodalTitle, { marginBottom: 0 }]}>
-                {editingAllergy ? 'Επεξεργασία Αλλεργίας' : 'Νέα Αλλεργία'}
-              </Text>
-              <TouchableOpacity
-                onPress={closeModal}
-                hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}
-              >
-                <Ionicons name="close" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={loginStyles.inputLabel}>Όνομα</Text>
-            <TextInput style={[loginStyles.loginInput, localStyles.input]} value={formTitle} onChangeText={setFormTitle} />
-
-            <Text style={loginStyles.inputLabel}>Αντίδραση</Text>
-            <TextInput
-              style={[styles.textArea, localStyles.input, { height: 130 }]}
-              multiline
-              value={formReaction}
-              onChangeText={setFormReaction}
-            />
-
-            <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
-              onPress={handleSaveAllergy}
-              disabled={saving}
-            >
-              {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.addButtonText}>Εντάξει</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
-
-const localStyles = StyleSheet.create({
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.medium,
-    borderRadius: 20,
-  },
-});

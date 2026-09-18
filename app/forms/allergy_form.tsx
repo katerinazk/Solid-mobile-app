@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { Text, TextInput } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { sharedStyles as styles } from '../../../constants/sharedStyles';
-import { loginStyles } from '../../../constants/loginStyles';
-import { useAuth } from '../../../hooks/useAuth';
-import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../../services/solidPod';
-import { fetchDoctorByAmka } from '../../../services/doctors';
-import { MedicalCodePicker } from '../../../components/MedicalCodePicker';
-import { DoctorFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../../components/DoctorFormScreen';
-import { MedicalCode, codeFromRecord } from '../../../services/medicalCodes';
-import { showMessage } from '../../../utils/appMessage';
+import { sharedStyles as styles } from '../../constants/sharedStyles';
+import { loginStyles } from '../../constants/loginStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
+import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { resolveRecordAuthor } from '../../utils/recordAuthor';
+import { MedicalCodePicker } from '../../components/MedicalCodePicker';
+import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
+import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
+import { showMessage } from '../../utils/appMessage';
 
-export default function DoctorAllergyFormScreen() {
+export default function AllergyFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
     webId: string;
@@ -27,7 +27,7 @@ export default function DoctorAllergyFormScreen() {
     editDoctorAmka?: string;
   }>();
 
-  const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { accessToken, loggedInDoctorAmka, role, loggedInPatientAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
   const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Αλλεργίες') : '';
 
@@ -61,9 +61,9 @@ export default function DoctorAllergyFormScreen() {
       let doctorName = params.editDoctorName || '';
       let doctorAmka = params.editDoctorAmka || '';
       if (!isEditing) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
-        doctorName = doctorData ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})` : 'Δρ.';
-        doctorAmka = loggedInDoctorAmka;
+        const author = await resolveRecordAuthor(role, loggedInDoctorAmka, loggedInPatientAmka);
+        doctorName = author.doctorName;
+        doctorAmka = author.doctorAmka;
       }
 
       const record = {
@@ -88,7 +88,7 @@ export default function DoctorAllergyFormScreen() {
   };
 
   return (
-    <DoctorFormScreen
+    <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέα Αλλεργία'}
       amka={params.amka}
       saving={saving}
@@ -110,6 +110,6 @@ export default function DoctorAllergyFormScreen() {
         value={reaction}
         onChangeText={setReaction}
       />
-    </DoctorFormScreen>
+    </RecordFormScreen>
   );
 }

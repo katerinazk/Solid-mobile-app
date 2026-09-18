@@ -43,3 +43,9 @@ export function matchAdministrationRoute(catalogRoute: string): string | null {
 
 // Τα φίλτρα στις οθόνες εξετάσεων: οι ίδιοι τύποι, με το "Όλες" μπροστά.
 export const EXAM_FILTERS = ['Όλες', ...EXAM_TYPES] as const;
+
+// Οι δύο καταστάσεις εξέτασης όπως τις διαλέγει ο ασθενής όταν καταχωρεί μόνος του: μπορεί
+// να γράφει είτε εξέταση που του ζητήθηκε, είτε εξέταση που έχει ήδη κάνει.
+export const EXAM_STATUS_PENDING = 'Εκκρεμής';
+export const EXAM_STATUS_COMPLETED = 'Ολοκληρωμένη';
+export const EXAM_STATUS_OPTIONS = [EXAM_STATUS_PENDING, EXAM_STATUS_COMPLETED] as const;
