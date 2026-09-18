@@ -7,8 +7,6 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
-import { usePagination } from '../../../hooks/usePagination';
-import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, createdAtFromUrl } from '../../../utils/podRecords';
@@ -181,7 +179,6 @@ export default function PatientAllergiesScreen() {
     [allergies],
   );
 
-  const { pageItems, page, pageCount, setPage } = usePagination(sortedAllergies);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -207,8 +204,7 @@ export default function PatientAllergiesScreen() {
       ) : (
         <FlatList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          data={pageItems}
-          ListFooterComponent={<Pagination page={page} pageCount={pageCount} onChange={setPage} />}
+          data={sortedAllergies}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (

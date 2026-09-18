@@ -7,11 +7,11 @@ import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING, TYPOGRAPHY } from '../../../constants/designSystem';
-import { usePagination } from '../../../hooks/usePagination';
-import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord } from '../../../utils/podRecords';
+import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
+import { groupByYear } from '../../../utils/groupByYear';
+import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -255,12 +255,16 @@ export default function PatientMedicationsScreen() {
     return { activeMedications: active, previousMedications: previous };
   }, [medications, previousNewestFirst, searchQuery]);
 
+  // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.
+  const previousSections = useMemo(
+    () => groupByYear(previousMedications, (item) => timeOf(item.startDate)),
+    [previousMedications],
+  );
+
   // Όσο υπάρχει αναζήτηση ανοίγουμε μόνοι μας την "Προηγούμενη Αγωγή", αλλιώς τα αποτελέσματα
   // που βρίσκονται εκεί θα έμεναν κρυμμένα μέσα στην κλειστή ενότητα.
   // Πέντε φάρμακα ανά σελίδα σε κάθε ενότητα. Οι δύο ενότητες σελιδοποιούνται χωριστά,
   // ώστε να μη μετακινεί η μία τα περιεχόμενα της άλλης.
-  const activePager = usePagination(activeMedications);
-  const previousPager = usePagination(previousMedications);
 
   const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
@@ -309,7 +313,7 @@ export default function PatientMedicationsScreen() {
               {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν ενεργές αγωγές.'}
             </Text>
           ) : (
-            activePager.pageItems.map((item) =>
+            activeMedications.map((item) =>
               isPending(item) ? (
                 <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
                   <View style={doctorStyles.diagnosisCardHeader}>
@@ -371,7 +375,6 @@ export default function PatientMedicationsScreen() {
             )
           )}
 
-          <Pagination page={activePager.page} pageCount={activePager.pageCount} onChange={activePager.setPage} />
 
           {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
               σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
@@ -393,32 +396,36 @@ export default function PatientMedicationsScreen() {
                     </Text>
                   </TouchableOpacity>
 
-                  {previousPager.pageItems.map((item) => {
-                    return (
-                      <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
-                        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                        {!!item.route && (
-                          <Text style={doctorStyles.diagnosisCardDetail}>
-                            <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
-                          </Text>
-                        )}
-                        <Text style={doctorStyles.diagnosisCardDetail}>
-                          <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
-                        </Text>
-                        <Text style={doctorStyles.diagnosisCardDetail}>
-                          <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
-                        </Text>
-                        <Text style={doctorStyles.diagnosisCardDetail}>
-                          <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
-                        </Text>
-                        <Text style={doctorStyles.diagnosisCardDetail}>
-                          <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {previousSections.map((section) => (
+                    <View key={section.title}>
+                      <YearSectionHeader title={section.title} />
+                      {section.data.map((item) => {
+                        return (
+                          <TouchableOpacity key={item.url} style={doctorStyles.diagnosisCard} onPress={() => openDetail(item)}>
+                            <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                            {!!item.route && (
+                              <Text style={doctorStyles.diagnosisCardDetail}>
+                                <Text style={doctorStyles.diagnosisCardLabel}>Τρόπος Χορήγησης: </Text>{item.route}
+                              </Text>
+                            )}
+                            <Text style={doctorStyles.diagnosisCardDetail}>
+                              <Text style={doctorStyles.diagnosisCardLabel}>Δοσολογία: </Text>{item.dosage}
+                            </Text>
+                            <Text style={doctorStyles.diagnosisCardDetail}>
+                              <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Έναρξης: </Text>{formatDate(item.startDate)}
+                            </Text>
+                            <Text style={doctorStyles.diagnosisCardDetail}>
+                              <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
+                            </Text>
+                            <Text style={doctorStyles.diagnosisCardDetail}>
+                              <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
 
-                  <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
                 </View>
               )}
             </>

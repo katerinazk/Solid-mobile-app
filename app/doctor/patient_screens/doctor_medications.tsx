@@ -6,11 +6,11 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
-import { usePagination } from '../../../hooks/usePagination';
-import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
+import { groupByYear } from '../../../utils/groupByYear';
+import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -272,12 +272,16 @@ export default function DoctorMedicationsScreen() {
     return { activeMedications: active, previousMedications: previous };
   }, [medications, searchQuery]);
 
+  // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.
+  const previousSections = useMemo(
+    () => groupByYear(previousMedications, (item) => timeOf(item.startDate)),
+    [previousMedications],
+  );
+
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και την "Προηγούμενη Αγωγή" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
   // Πέντε φάρμακα ανά σελίδα σε κάθε ενότητα. Οι δύο ενότητες σελιδοποιούνται χωριστά,
   // ώστε να μη μετακινεί η μία τα περιεχόμενα της άλλης.
-  const activePager = usePagination(activeMedications);
-  const previousPager = usePagination(previousMedications);
 
   const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
@@ -328,10 +332,9 @@ export default function DoctorMedicationsScreen() {
           {activeMedications.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
           ) : (
-            activePager.pageItems.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
+            activeMedications.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={!isReadOnly} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)
           )}
 
-          <Pagination page={activePager.page} pageCount={activePager.pageCount} onChange={activePager.setPage} />
 
           {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
               σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
@@ -347,9 +350,13 @@ export default function DoctorMedicationsScreen() {
 
               {previousSectionOpen && (
                 <View style={{ marginTop: 12 }}>
-                  {previousPager.pageItems.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)}
+                  {previousSections.map((section) => (
+                    <View key={section.title}>
+                      <YearSectionHeader title={section.title} />
+                      {section.data.map((item) => <MedicationCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} allowEdit={false} onEdit={openForm} onDelete={handleDeleteMedication} onOpen={openDetail} />)}
+                    </View>
+                  ))}
 
-                  <Pagination page={previousPager.page} pageCount={previousPager.pageCount} onChange={previousPager.setPage} />
                 </View>
               )}
             </>

@@ -6,12 +6,12 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
-import { usePagination } from '../../../hooks/usePagination';
-import { Pagination } from '../../../components/Pagination';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf } from '../../../utils/podRecords';
+import { groupByYear } from '../../../utils/groupByYear';
+import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -234,11 +234,15 @@ export default function DoctorExamsScreen() {
     };
   }, [exams, selectedCategory, searchQuery]);
 
+  // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.
+  const completedSections = useMemo(
+    () => groupByYear(completedExams, (item) => timeOf(item.completedDate || item.createdDate)),
+    [completedExams],
+  );
+
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και τις "Ολοκληρωμένες" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
   // Πέντε εξετάσεις ανά σελίδα σε κάθε ενότητα, χωριστά η μία από την άλλη.
-  const pendingPager = usePagination(pendingExams);
-  const completedPager = usePagination(completedExams);
 
   const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
 
@@ -356,10 +360,9 @@ export default function DoctorExamsScreen() {
           {pendingExams.length === 0 ? (
             <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
           ) : (
-            pendingPager.pageItems.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />)
+            pendingExams.map((item) => <PendingExamCard key={item.url} item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onDelete={handleDeleteExam} onOpen={openDetail} />)
           )}
 
-          <Pagination page={pendingPager.page} pageCount={pendingPager.pageCount} onChange={pendingPager.setPage} />
 
           {/* Χωρίς εγγραφές δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει
               σε άδειο περιεχόμενο δεν προσφέρει τίποτα στον χρήστη. */}
@@ -375,9 +378,13 @@ export default function DoctorExamsScreen() {
 
               {completedSectionOpen && (
                 <View style={{ marginTop: 12 }}>
-                  {completedPager.pageItems.map((item) => <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />)}
+                  {completedSections.map((section) => (
+                    <View key={section.title}>
+                      <YearSectionHeader title={section.title} />
+                      {section.data.map((item) => <CompletedExamCard key={item.url} item={item} onOpen={openDetail} />)}
+                    </View>
+                  ))}
 
-                  <Pagination page={completedPager.page} pageCount={completedPager.pageCount} onChange={completedPager.setPage} />
                 </View>
               )}
             </>

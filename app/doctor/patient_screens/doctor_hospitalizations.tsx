@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
-import { usePagination } from '../../../hooks/usePagination';
-import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
+import { groupByYear } from '../../../utils/groupByYear';
+import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -211,7 +211,12 @@ export default function DoctorHospitalizationsScreen() {
     [hospitalizations],
   );
 
-  const { pageItems, page, pageCount, setPage } = usePagination(sortedHospitalizations);
+
+  // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
+  const sections = useMemo(
+    () => groupByYear(sortedHospitalizations, (item) => timeOf(item.admissionDate)),
+    [sortedHospitalizations],
+  );
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -239,10 +244,11 @@ export default function DoctorHospitalizationsScreen() {
       ) : hospitalizations.length === 0 ? (
         <Text style={styles.emptyText}>Δεν υπάρχουν νοσηλίες.</Text>
       ) : (
-        <FlatList
+        <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          data={pageItems}
-          ListFooterComponent={<Pagination page={page} pageCount={pageCount} onChange={setPage} />}
+          sections={sections}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
