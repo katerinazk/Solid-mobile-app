@@ -10,7 +10,7 @@ import { usePagination } from '../../../hooks/usePagination';
 import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord } from '../../../utils/podRecords';
+import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -263,6 +263,11 @@ export default function DoctorMedicationsScreen() {
         previous.push(med);
       }
     }
+
+    // Ίδια σειρά με την οθόνη του ασθενή: τα εκκρεμή πρώτα στην τρέχουσα αγωγή, και οι
+    // προηγούμενες με την πιο πρόσφατη έναρξη πρώτη.
+    active.sort((a, b) => Number(b.started === false) - Number(a.started === false));
+    previous.sort((a, b) => compareNewestFirst(timeOf(a.startDate), timeOf(b.startDate)));
 
     return { activeMedications: active, previousMedications: previous };
   }, [medications, searchQuery]);

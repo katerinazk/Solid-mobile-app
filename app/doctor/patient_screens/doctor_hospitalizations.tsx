@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -10,7 +10,7 @@ import { usePagination } from '../../../hooks/usePagination';
 import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord } from '../../../utils/podRecords';
+import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -205,7 +205,13 @@ export default function DoctorHospitalizationsScreen() {
 
   // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
   // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
-  const { pageItems, page, pageCount, setPage } = usePagination(hospitalizations);
+  // Πιο πρόσφατη ημερομηνία εισαγωγής πρώτη.
+  const sortedHospitalizations = useMemo(
+    () => [...hospitalizations].sort((a, b) => compareNewestFirst(timeOf(a.admissionDate), timeOf(b.admissionDate))),
+    [hospitalizations],
+  );
+
+  const { pageItems, page, pageCount, setPage } = usePagination(sortedHospitalizations);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>

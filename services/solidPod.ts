@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { createDpopToken } from '../utils/dpop';
+import { takeListing, takeContent } from '../utils/podPrefetchStore';
 import { ACCESS_FULL, grantsPodAccess } from '../constants/accessTypes';
 
 // Ανακατασκευάζει το WebID του ασθενή-ιδιοκτήτη από το URL του δημόσιου φακέλου του
@@ -45,6 +46,10 @@ export function getCategoryFolderUrl(webId: string, category: string): string {
 // κατηγορίες. Μέχρι τότε, μια οθόνη ιστορικού απλά βλέπει ότι ο φάκελος δεν υπάρχει ακόμα.
 
 export async function listFolderFiles(folderUrl: string, accessToken: string): Promise<string[]> {
+  // Αν ο κατάλογος προφορτώθηκε στη σύνδεση, απαντάμε από τη μνήμη χωρίς αίτημα.
+  const prefetchedFiles = takeListing(folderUrl);
+  if (prefetchedFiles) return prefetchedFiles;
+
   // ΠΡΟΣΩΡΙΝΟ: χωρίζει τον χρόνο υπογραφής από τον χρόνο δικτύου, για να φανεί ποιος φταίει.
   const tSign = Date.now();
   const dpopToken = await createDpopToken('GET', folderUrl);
@@ -131,6 +136,10 @@ export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: str
 }
 
 export async function fetchFileContent(url: string, accessToken: string): Promise<string> {
+  // Το ίδιο και για το περιεχόμενο: προφορτωμένο αρχείο δεν ξανακατεβαίνει.
+  const prefetchedText = takeContent(url);
+  if (prefetchedText !== undefined) return prefetchedText;
+
   // ΠΡΟΣΩΡΙΝΟ: χωρίζει τον χρόνο υπογραφής από τον χρόνο δικτύου, για να φανεί ποιος φταίει.
   const tSign = Date.now();
   const dpopToken = await createDpopToken('GET', url);

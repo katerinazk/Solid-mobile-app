@@ -12,6 +12,13 @@ import { listFolderFiles, getCategoryFolderUrl, getOwnerWebId, syncPodAcl } from
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { markAccessAclSynced } from '../../../services/access';
 import { grantsPodAccess } from '../../../constants/accessTypes';
+import {
+  getCount,
+  setCount,
+  countsAge,
+  subscribeCounts,
+  isPrefetchRunning,
+} from '../../../utils/podPrefetchStore';
 
 // Οι ετικέτες κατηγοριών αντιστοιχούν 1-1 στα ονόματα των φακέλων ιστορικού στο Pod του
 // ασθενή (Κατηγορίες.tsx), ώστε να μπορούμε να μετρήσουμε πόσες εγγραφές έχει η καθεμία.
@@ -23,6 +30,31 @@ const CATEGORIES: { label: string; route: string }[] = [
   { label: 'Νοσηλίες', route: ROUTES.PATIENT_HOSPITALIZATIONS },
   { label: 'Εμβολιασμοί', route: ROUTES.PATIENT_VACCINATIONS },
 ];
+
+// Μετά από τόση ώρα τα νούμερα θεωρούνται παλιά και ξαναμετρώνται στο παρασκήνιο, χωρίς να
+// σβήσουν από την οθόνη στο μεταξύ.
+const COUNTS_MAX_AGE_MS = 30000;
+
+// Μετρά τις εγγραφές μιας κατηγορίας. Είναι πλέον ΕΦΕΔΡΕΙΑ: κανονικά τα νούμερα έρχονται από
+// την προφόρτωση της σύνδεσης. Χρειάζεται όταν δεν έτρεξε προφόρτωση (π.χ. επιστροφή στην
+// οθόνη πολύ αργότερα) ή όταν κάποια κατηγορία απέτυχε να προφορτωθεί.
+async function countCategory(webId: string, category: string, accessToken: string): Promise<number> {
+  const folderUrl = getCategoryFolderUrl(webId, category);
+  let files: string[];
+  try {
+    files = await listFolderFiles(folderUrl, accessToken);
+  } catch {
+    try {
+      // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      files = await listFolderFiles(folderUrl, accessToken);
+    } catch {
+      // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - καμία εγγραφή.
+      return 0;
+    }
+  }
+  return files.filter((url) => url.endsWith('.json')).length;
+}
 
 function chunkPairs<T>(items: T[]): T[][] {
   const rows: T[][] = [];
@@ -76,36 +108,43 @@ export default function PatientHomeScreen() {
     })();
   }, []);
 
+  // Τα νούμερα έρχονται από την προφόρτωση που ξεκινά στη σύνδεση. Πριν, η οθόνη έκανε μόνη
+  // της τις ίδιες έξι αναζητήσεις φακέλων: το δίκτυο πληρωνόταν δύο φορές και τα νούμερα
+  // εμφανίζονταν όλα μαζί στο τέλος. Πλέον εμφανίζονται ένα-ένα καθώς έρχονται.
   useEffect(() => {
     const webId = getOwnerWebId(activePatientFolderUrl);
     if (!webId) return;
 
-    (async () => {
-      const entries = await Promise.all(
-        CATEGORIES.map(async ({ label }) => {
-          const folderUrl = getCategoryFolderUrl(webId, label);
-          try {
-            let files: string[];
-            try {
-              files = await listFolderFiles(folderUrl, accessToken);
-            } catch {
-              try {
-                // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
-                await new Promise((resolve) => setTimeout(resolve, 800));
-                files = await listFolderFiles(folderUrl, accessToken);
-              } catch {
-                // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - καμία εγγραφή.
-                files = [];
-              }
-            }
-            return [label, files.filter((url) => url.endsWith('.json')).length] as const;
-          } catch {
-            return [label, 0] as const;
-          }
-        })
-      );
-      setCounts(Object.fromEntries(entries));
-    })();
+    const readStore = () => {
+      const fromStore: Record<string, number> = {};
+      for (const { label } of CATEGORIES) {
+        const total = getCount(webId, label);
+        if (total !== undefined) fromStore[label] = total;
+      }
+      setCounts(fromStore);
+      return fromStore;
+    };
+
+    const unsubscribe = subscribeCounts(readStore);
+    const known = readStore();
+
+    // Όσο τρέχει η προφόρτωση δεν μετράμε τίποτα μόνοι μας: θα διπλασιάζαμε τα αιτήματα για
+    // το ίδιο αποτέλεσμα. Τα νούμερα θα έρθουν μέσω της συνδρομής.
+    if (!isPrefetchRunning(webId)) {
+      const missing = CATEGORIES.filter(({ label }) => known[label] === undefined);
+      const stale = countsAge() > COUNTS_MAX_AGE_MS;
+      const toCount = missing.length > 0 ? missing : (stale ? CATEGORIES : []);
+
+      toCount.forEach(({ label }) => {
+        countCategory(webId, label, accessToken)
+          .then((total) => setCount(webId, label, total))
+          .catch(() => {
+            // Αν αποτύχει, η κατηγορία μένει χωρίς νούμερο - δεν δείχνουμε σφάλμα.
+          });
+      });
+    }
+
+    return unsubscribe;
   }, [activePatientFolderUrl, accessToken]);
 
   const salutation = patient?.sex?.trim().toLowerCase().startsWith('γυναίκ') ? 'κυρία' : 'κύριε';

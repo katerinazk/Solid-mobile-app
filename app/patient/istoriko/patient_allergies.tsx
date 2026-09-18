@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Text, View, FlatList, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, Modal, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -12,7 +12,7 @@ import { usePagination } from '../../../hooks/usePagination';
 import { Pagination } from '../../../components/Pagination';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord } from '../../../utils/podRecords';
+import { isCompleteRecord, compareNewestFirst, createdAtFromUrl } from '../../../utils/podRecords';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId, newRecordFileName } from '../../../services/solidPod';
 import { fetchPatientByAmka } from '../../../services/patients';
@@ -228,7 +228,14 @@ export default function PatientAllergiesScreen() {
 
   // Πέντε καταχωρήσεις ανά σελίδα. Η σελιδοποίηση εφαρμόζεται σε ό,τι βλέπει τελικά ο
   // χρήστης, δηλαδή μετά από φίλτρα και ταξινόμηση.
-  const { pageItems, page, pageCount, setPage } = usePagination(allergies);
+  // Πιο πρόσφατες πρώτα. Οι αλλεργίες δεν έχουν δικό τους πεδίο ημερομηνίας, οπότε η σειρά
+  // βγαίνει από τη σήμανση του ονόματος αρχείου - την ίδια που ακολουθεί και η φόρτωση.
+  const sortedAllergies = useMemo(
+    () => [...allergies].sort((a, b) => compareNewestFirst(createdAtFromUrl(a.url), createdAtFromUrl(b.url))),
+    [allergies],
+  );
+
+  const { pageItems, page, pageCount, setPage } = usePagination(sortedAllergies);
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>

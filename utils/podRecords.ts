@@ -51,3 +51,28 @@ export function createdAtFromUrl(url: string): number {
   const match = name.match(/(-?\d{13})/);
   return match ? Number(match[1]) : Number.NEGATIVE_INFINITY;
 }
+
+/**
+ * Χρόνος από πεδίο ημερομηνίας εγγραφής. Επιστρέφει -Infinity όταν το πεδίο λείπει ή δεν
+ * διαβάζεται, ώστε το άγνωστο να ξεχωρίζει από την 1η Ιανουαρίου 1970.
+ */
+export function timeOf(value?: string | null): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+/**
+ * Συγκριτής "πιο πρόσφατο πρώτα", με τις άγνωστες ημερομηνίες πάντα στο τέλος.
+ *
+ * Χρειάζεται ξεχωριστή συνάρτηση επειδή η αφαίρεση δύο -Infinity δίνει NaN, που αφήνει τη
+ * σειρά απροσδιόριστη: δύο εγγραφές χωρίς ημερομηνία θα άλλαζαν θέση σε κάθε ταξινόμηση.
+ */
+export function compareNewestFirst(aTime: number, bTime: number): number {
+  const aKnown = Number.isFinite(aTime);
+  const bKnown = Number.isFinite(bTime);
+  if (!aKnown && !bKnown) return 0;
+  if (!aKnown) return 1;
+  if (!bKnown) return -1;
+  return bTime - aTime;
+}

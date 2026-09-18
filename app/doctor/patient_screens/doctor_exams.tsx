@@ -11,7 +11,7 @@ import { Pagination } from '../../../components/Pagination';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord, createdAtFromUrl } from '../../../utils/podRecords';
+import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf } from '../../../utils/podRecords';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -219,9 +219,18 @@ export default function DoctorExamsScreen() {
       return e.title?.toLowerCase().includes(query) || e.type?.toLowerCase().includes(query);
     };
     const filtered = exams.filter((e) => matchesCategory(e) && matchesSearch(e));
+    // Πιο πρόσφατες πρώτα σε κάθε ενότητα: οι εκκρεμείς κατά ημερομηνία καταχώρησης, οι
+    // ολοκληρωμένες κατά ημερομηνία αποτελέσματος με εφεδρεία την καταχώρηση.
     return {
-      pendingExams: filtered.filter((e) => e.status === 'pending'),
-      completedExams: filtered.filter((e) => e.status === 'completed'),
+      pendingExams: filtered
+        .filter((e) => e.status === 'pending')
+        .sort((a, b) => compareNewestFirst(timeOf(a.createdDate), timeOf(b.createdDate))),
+      completedExams: filtered
+        .filter((e) => e.status === 'completed')
+        .sort((a, b) => compareNewestFirst(
+          timeOf(a.completedDate || a.createdDate),
+          timeOf(b.completedDate || b.createdDate),
+        )),
     };
   }, [exams, selectedCategory, searchQuery]);
 

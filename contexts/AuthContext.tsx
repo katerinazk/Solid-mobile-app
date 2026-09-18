@@ -9,6 +9,9 @@ import { clearPatientWebId } from '../services/patients';
 import { clearDoctorWebId } from '../services/doctors';
 import { resetAclSyncForPatient, resetAclSyncForDoctor } from '../services/access';
 import { clearRecordCache } from '../utils/recordCache';
+import { prefetchAllCategories } from '../utils/podPrefetch';
+import { clearPodPrefetch } from '../utils/podPrefetchStore';
+import { clearDoctorCache } from '../utils/doctorCache';
 import { askConfirm, showMessage } from '../utils/appMessage';
 
 type Role = 'doctor' | 'patient';
@@ -232,6 +235,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (verified) {
                 setIsLoggedIn(true);
                 router.replace(ROUTES.PATIENT_HOME);
+
+                // Κατεβάζουμε όλο το ιστορικό στο παρασκήνιο, ώστε οι κατηγορίες να
+                // ανοίγουν ακαριαία. Δεν το περιμένουμε: αν αποτύχει, οι οθόνες
+                // ρωτούν το Pod κανονικά όπως πριν.
+                prefetchAllCategories(webId, tokenData.access_token).catch(() => {});
               }
             } else if (role === 'doctor') {
               const verified = await handleDoctorLoginVerification(webId);
@@ -390,6 +398,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Οι εγγραφές του Pod μένουν μόνο στη μνήμη. Τις σβήνουμε εδώ, ώστε ο επόμενος χρήστης
     // της συσκευής να μην μπορεί να δει ιστορικό του προηγούμενου.
     clearRecordCache();
+    clearPodPrefetch();
+    clearDoctorCache();
     setIsLoggedIn(false);
     setRole(null);
     setAccessToken('');

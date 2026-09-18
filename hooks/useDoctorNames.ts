@@ -1,44 +1,24 @@
-import { useRef, useState, useCallback } from 'react';
-import { fetchDoctorByAmka } from '../services/doctors';
+import { useCallback, useEffect, useState } from 'react';
+import { DoctorInfo, ensureDoctors, getDoctor, subscribeDoctors } from '../utils/doctorCache';
 
-export interface DoctorInfo {
-  first_name: string;
-  last_name: string;
-  specialty: string | null;
-}
+export type { DoctorInfo };
 
-// Cache με τα τρέχοντα στοιχεία των γιατρών (ΑΜΚΑ -> στοιχεία). Κάθε καταχώρηση ιστορικού
-// αποθηκεύει στο Pod ένα "στιγμιότυπο" του ονόματος/ειδικότητας του γιατρού τη στιγμή που
-// έγινε (doctorName), το οποίο δεν αλλάζει ποτέ μόνο του. Αυτό το hook επιτρέπει στις οθόνες
-// ιστορικού να δείχνουν αντ' αυτού το ΤΡΕΧΟΝ όνομα/ειδικότητα, ώστε αν ο γιατρός αλλάξει τα
-// στοιχεία του στο προφίλ του, οι παλιές καταχωρήσεις να ενημερωθούν αυτόματα παντού.
+// Λεπτό περίβλημα πάνω από την κοινή μνήμη ονομάτων ([[utils/doctorCache]]). Η μνήμη είναι
+// σκόπιμα ΕΞΩ από το component: αλλιώς κάθε άνοιγμα οθόνης ξανάρχιζε από το μηδέν και το
+// όνομα του γιατρού τρεμόπαιζε, εμφανιζόμενο πρώτα στην παλιά αποθηκευμένη μορφή του.
+//
+// Το hook κάνει μόνο δύο πράγματα: ζητά ό,τι λείπει, και ξαναζωγραφίζει την οθόνη όταν
+// έρθει απάντηση για οποιονδήποτε γιατρό.
 export function useDoctorNames() {
-  const [doctors, setDoctors] = useState<Record<string, DoctorInfo | null>>({});
-  const pendingRef = useRef<Set<string>>(new Set());
-  const knownRef = useRef<Set<string>>(new Set());
+  const [, setVersion] = useState(0);
+
+  useEffect(() => subscribeDoctors(() => setVersion((v) => v + 1)), []);
 
   const ensureDoctorInfo = useCallback((amkas: (string | undefined | null)[]) => {
-    const toFetch = Array.from(new Set(amkas.filter((a): a is string => !!a)))
-      .filter((amka) => !knownRef.current.has(amka) && !pendingRef.current.has(amka));
-
-    if (toFetch.length === 0) return;
-    toFetch.forEach((amka) => pendingRef.current.add(amka));
-
-    toFetch.forEach(async (amka) => {
-      let info: DoctorInfo | null = null;
-      try {
-        const { data } = await fetchDoctorByAmka(amka);
-        if (data) info = { first_name: data.first_name, last_name: data.last_name, specialty: data.specialty };
-      } catch {
-        // Αν αποτύχει η αναζήτηση, θα συνεχίσει να φαίνεται το αποθηκευμένο στιγμιότυπο (fallback).
-      }
-      knownRef.current.add(amka);
-      pendingRef.current.delete(amka);
-      setDoctors((prev) => ({ ...prev, [amka]: info }));
-    });
+    ensureDoctors(amkas);
   }, []);
 
-  const getDoctorInfo = useCallback((amka?: string | null) => (amka ? doctors[amka] : undefined), [doctors]);
+  const getDoctorInfo = useCallback((amka?: string | null) => getDoctor(amka), []);
 
   return { ensureDoctorInfo, getDoctorInfo };
 }
