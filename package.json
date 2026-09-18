@@ -11,6 +11,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@inrupt/solid-client": "^3.0.0",
+    "@noble/curves": "^2.4.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@supabase/supabase-js": "^2.101.1",
