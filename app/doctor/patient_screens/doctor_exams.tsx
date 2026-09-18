@@ -9,7 +9,7 @@ import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { EXAM_FILTERS as CATEGORIES } from '../../../constants/medicalOptions';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf } from '../../../utils/podRecords';
+import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf, createdDateFromUrl } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
@@ -44,16 +44,6 @@ interface Exam {
   parentName?: string;
 }
 
-// Οι εκκρεμείς εξετάσεις δεν είχαν ημερομηνία. Τα αρχεία όμως ονομάζονται με τη στιγμή που
-// δημιουργήθηκαν, οπότε οι παλιές εγγραφές - που δεν έχουν createdDate μέσα τους - παίρνουν
-// την ημερομηνία από το ίδιο το όνομα του αρχείου.
-function createdDateFromUrl(url: string): string {
-  const timestamp = createdAtFromUrl(url);
-  // Το 0 είναι έγκυρη ημερομηνία, οπότε ο έλεγχος είναι για πεπερασμένο αριθμό.
-  if (!Number.isFinite(timestamp)) return '';
-  const date = new Date(timestamp);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onDelete, onOpen }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onDelete: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (

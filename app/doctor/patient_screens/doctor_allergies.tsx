@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -8,7 +8,10 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord, compareNewestFirst, createdAtFromUrl } from '../../../utils/podRecords';
+import { isCompleteRecord, compareNewestFirst, createdDateFromUrl, timeOf } from '../../../utils/podRecords';
+import { formatDate } from '../../../utils/age';
+import { groupByYear } from '../../../utils/groupByYear';
+import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -24,6 +27,9 @@ interface Allergy {
   url: string;
   title: string;
   reaction: string;
+  // Ημερομηνία καταχώρησης. Δεν γράφεται μέσα στο αρχείο: προκύπτει από το όνομά του,
+  // που μπαίνει στη δημιουργία και δεν αλλάζει στην επεξεργασία.
+  createdDate: string;
   doctorName: string;
   doctorAmka: string;
   // Κωδικός ICD-10 ή ATC. Λείπει από τις παλιές εγγραφές ελεύθερου κειμένου.
@@ -83,6 +89,7 @@ export default function DoctorAllergiesScreen() {
               code: record.code,
               parentName: record.parentName,
               reaction: record.reaction,
+              createdDate: createdDateFromUrl(url),
               doctorName: record.doctorName,
               doctorAmka: record.doctorAmka,
             } as Allergy;
@@ -172,8 +179,14 @@ export default function DoctorAllergiesScreen() {
   // Πιο πρόσφατες πρώτα. Οι αλλεργίες δεν έχουν δικό τους πεδίο ημερομηνίας, οπότε η σειρά
   // βγαίνει από τη σήμανση του ονόματος αρχείου - την ίδια που ακολουθεί και η φόρτωση.
   const sortedAllergies = useMemo(
-    () => [...allergies].sort((a, b) => compareNewestFirst(createdAtFromUrl(a.url), createdAtFromUrl(b.url))),
+    () => [...allergies].sort((a, b) => compareNewestFirst(timeOf(a.createdDate), timeOf(b.createdDate))),
     [allergies],
+  );
+
+  // Ομαδοποίηση ανά έτος, με βάση την ημερομηνία καταχώρησης.
+  const sections = useMemo(
+    () => groupByYear(sortedAllergies, (item) => timeOf(item.createdDate)),
+    [sortedAllergies],
   );
 
 
@@ -203,9 +216,11 @@ export default function DoctorAllergiesScreen() {
       ) : allergies.length === 0 ? (
         <Text style={styles.emptyText}>Δεν υπάρχουν αλλεργίες.</Text>
       ) : (
-        <FlatList
+        <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          data={sortedAllergies}
+          sections={sections}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
@@ -226,6 +241,9 @@ export default function DoctorAllergiesScreen() {
 
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Αντίδραση: </Text>{item.reaction}
+              </Text>
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}

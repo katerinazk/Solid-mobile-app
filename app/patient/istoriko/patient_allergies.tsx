@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, FlatList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -9,7 +9,10 @@ import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
-import { isCompleteRecord, compareNewestFirst, createdAtFromUrl } from '../../../utils/podRecords';
+import { isCompleteRecord, compareNewestFirst, createdDateFromUrl, timeOf } from '../../../utils/podRecords';
+import { formatDate } from '../../../utils/age';
+import { groupByYear } from '../../../utils/groupByYear';
+import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, deleteFile, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -23,6 +26,9 @@ interface Allergy {
   url: string;
   title: string;
   reaction: string;
+  // Ημερομηνία καταχώρησης. Δεν γράφεται μέσα στο αρχείο: προκύπτει από το όνομά του,
+  // που μπαίνει στη δημιουργία και δεν αλλάζει στην επεξεργασία.
+  createdDate: string;
   doctorName: string;
   doctorAmka: string;
   // Κωδικός του διεθνούς προτύπου (ICD-10 / ATC / LOINC) και η κατηγορία στην οποία ανήκει,
@@ -89,6 +95,7 @@ export default function PatientAllergiesScreen() {
               code: record.code,
               parentName: record.parentName,
               reaction: record.reaction,
+              createdDate: createdDateFromUrl(url),
               doctorName: record.doctorName,
               doctorAmka: record.doctorAmka,
             } as Allergy;
@@ -175,8 +182,14 @@ export default function PatientAllergiesScreen() {
   // Πιο πρόσφατες πρώτα. Οι αλλεργίες δεν έχουν δικό τους πεδίο ημερομηνίας, οπότε η σειρά
   // βγαίνει από τη σήμανση του ονόματος αρχείου - την ίδια που ακολουθεί και η φόρτωση.
   const sortedAllergies = useMemo(
-    () => [...allergies].sort((a, b) => compareNewestFirst(createdAtFromUrl(a.url), createdAtFromUrl(b.url))),
+    () => [...allergies].sort((a, b) => compareNewestFirst(timeOf(a.createdDate), timeOf(b.createdDate))),
     [allergies],
+  );
+
+  // Ομαδοποίηση ανά έτος, με βάση την ημερομηνία καταχώρησης.
+  const sections = useMemo(
+    () => groupByYear(sortedAllergies, (item) => timeOf(item.createdDate)),
+    [sortedAllergies],
   );
 
 
@@ -202,9 +215,11 @@ export default function PatientAllergiesScreen() {
       ) : allergies.length === 0 ? (
         <Text style={[styles.emptyText, { marginTop: 30 }]}>Δεν υπάρχουν αλλεργίες ακόμα.</Text>
       ) : (
-        <FlatList
+        <SectionList
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          data={sortedAllergies}
+          sections={sections}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
           keyExtractor={(item) => item.url}
           contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
           renderItem={({ item }) => (
@@ -225,6 +240,9 @@ export default function PatientAllergiesScreen() {
 
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Αντίδραση: </Text>{item.reaction}
+              </Text>
+              <Text style={doctorStyles.diagnosisCardDetail}>
+                <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
               </Text>
               <Text style={doctorStyles.diagnosisCardDetail}>
                 <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}

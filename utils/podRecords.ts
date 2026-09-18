@@ -76,3 +76,18 @@ export function compareNewestFirst(aTime: number, bTime: number): number {
   if (!bKnown) return -1;
   return bTime - aTime;
 }
+
+/**
+ * Η ημερομηνία καταχώρησης από τη σήμανση του ονόματος αρχείου, σε μορφή YYYY-MM-DD.
+ *
+ * Κάποιες κατηγορίες - οι Αλλεργίες, και οι παλιές Εξετάσεις - δεν έχουν δικό τους πεδίο
+ * ημερομηνίας. Το αρχείο όμως ονομάζεται με τη στιγμή που δημιουργήθηκε, και το όνομα δεν
+ * αλλάζει στην επεξεργασία, οπότε η ημερομηνία μένει σταθερή.
+ */
+export function createdDateFromUrl(url: string): string {
+  const timestamp = createdAtFromUrl(url);
+  // Το 0 είναι έγκυρη ημερομηνία, οπότε ο έλεγχος είναι για πεπερασμένο αριθμό.
+  if (!Number.isFinite(timestamp)) return '';
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
