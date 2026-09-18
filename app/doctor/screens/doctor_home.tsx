@@ -242,22 +242,16 @@ export default function DoctorHomeScreen() {
           <View style={{ paddingHorizontal: SPACING.sideMargin }}>
             <View style={localStyles.accessTitleRow}>
               <Text style={styles.dashboardTitle}>Προσβάσεις</Text>
-              <TouchableOpacity
-                style={localStyles.circleButton}
-                onPress={() => openRequestModal('')}
-                accessibilityRole="button"
-                accessibilityLabel="Αίτημα πρόσβασης"
-              >
-                <Ionicons name="add" size={26} color={COLORS.white} />
-              </TouchableOpacity>
-
+              {/* Δίπλα στον τίτλο μένει μόνο η προβολή των αιτημάτων, όπως και στις Προσβάσεις
+                  του ασθενή - ίδιο εικονίδιο, ίδια θέση. Το αίτημα πρόσβασης γίνεται από την
+                  αναζήτηση: ο γιατρός βρίσκει τον ασθενή και το στέλνει από την καρτέλα του. */}
               <TouchableOpacity
                 style={localStyles.circleButton}
                 onPress={() => setIsSentRequestsModalVisible(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Απεσταλμένα αιτήματα"
               >
-                <Ionicons name="paper-plane-outline" size={22} color={COLORS.white} />
+                <Ionicons name="mail-unread-outline" size={22} color={COLORS.white} />
               </TouchableOpacity>
             </View>
             {loading ? (
