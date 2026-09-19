@@ -1,54 +1,105 @@
-import React from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../../constants/colors';
-import { sharedStyles } from '../../../constants/sharedStyles';
-import { doctorStyles as styles } from '../../../constants/doctorStyles';
-import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
-import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
+import { fetchDoctorByAmka, updateDoctor } from '../../../services/doctors';
+import { AccountScreen, AccountField } from '../../../components/AccountScreen';
+import { showMessage } from '../../../utils/appMessage';
 
-export default function DoctorSettingsScreen() {
-  const { confirmLogout, confirmSwitchPod } = useAuth();
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <DoctorHeader />
-
-      <View style={{ flex: 1 }} />
-
-      <View style={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
-        <TouchableOpacity style={localStyles.secondaryButton} onPress={confirmSwitchPod}>
-          <Ionicons name="swap-horizontal-outline" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
-          <Text style={localStyles.secondaryButtonText}>Σύνδεση με άλλο Pod</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[sharedStyles.addButton, { borderRadius: 25, flexDirection: 'row', marginBottom: 0 }]}
-          onPress={confirmLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
-          <Text style={sharedStyles.addButtonText}>Αποσύνδεση</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
+interface DoctorProfile {
+  first_name: string;
+  last_name: string;
+  amka: string;
+  specialty: string | null;
+  phone: string | null;
+  email: string | null;
 }
 
-const localStyles = StyleSheet.create({
-  // Δευτερεύουσα ενέργεια: περιγραμμένη αντί για γεμάτη, ώστε να μην ανταγωνίζεται οπτικά
-  // την αποσύνδεση ακριβώς από κάτω.
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: TOUCH.buttonHeight,
-    borderRadius: 25,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.white,
-    marginBottom: SPACING.groupGap,
-  },
-  secondaryButtonText: { color: COLORS.primary, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
-});
+export default function DoctorAccountScreen() {
+  const { loggedInDoctorAmka } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formFirstName, setFormFirstName] = useState('');
+  const [formLastName, setFormLastName] = useState('');
+  const [formSpecialty, setFormSpecialty] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+
+  const loadDoctor = async () => {
+    try {
+      setLoading(true);
+      const { data } = await fetchDoctorByAmka(loggedInDoctorAmka);
+      setDoctor(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDoctor();
+  }, []);
+
+  const startEditing = () => {
+    if (!doctor) return;
+    setFormFirstName(doctor.first_name || '');
+    setFormLastName(doctor.last_name || '');
+    setFormSpecialty(doctor.specialty || '');
+    setFormPhone(doctor.phone || '');
+    setFormEmail(doctor.email || '');
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!formFirstName.trim() || !formLastName.trim()) {
+      showMessage("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα και Επίθετο.");
+      return;
+    }
+    try {
+      setSaving(true);
+      const { error } = await updateDoctor(loggedInDoctorAmka, {
+        first_name: formFirstName.trim(),
+        last_name: formLastName.trim(),
+        specialty: formSpecialty.trim(),
+        phone: formPhone.trim(),
+        email: formEmail.trim(),
+      });
+
+      if (error) {
+        showMessage("Σφάλμα αποθήκευσης: " + error.message);
+        return;
+      }
+
+      await loadDoctor();
+      setIsEditing(false);
+    } catch (error) {
+      showMessage("Απρόσμενο σφάλμα.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Το ΑΜΚΑ δεν έχει "form": σε αυτό κρέμονται οι πρόσβασεις που του έδωσαν οι ασθενείς και
+  // η υπογραφή κάθε εγγραφής που έχει καταχωρήσει.
+  const fields: AccountField[] = [
+    { label: 'Όνομα', value: doctor?.first_name || '', form: { value: formFirstName, onChange: setFormFirstName } },
+    { label: 'Επίθετο', value: doctor?.last_name || '', form: { value: formLastName, onChange: setFormLastName } },
+    { label: 'ΑΜΚΑ', value: doctor?.amka || '' },
+    { label: 'Ειδικότητα', value: doctor?.specialty || '', form: { value: formSpecialty, onChange: setFormSpecialty } },
+    { label: 'Τηλέφωνο', value: doctor?.phone || '', form: { value: formPhone, onChange: setFormPhone, keyboardType: 'numeric' } },
+    { label: 'Email', value: doctor?.email || '', form: { value: formEmail, onChange: setFormEmail, keyboardType: 'email-address', autoCapitalize: 'none' } },
+  ];
+
+  return (
+    <AccountScreen
+      fields={fields}
+      loading={loading}
+      hasData={!!doctor}
+      isEditing={isEditing}
+      saving={saving}
+      onStartEditing={startEditing}
+      onCancelEditing={() => setIsEditing(false)}
+      onSave={handleSave}
+    />
+  );
+}

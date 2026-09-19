@@ -7,6 +7,8 @@ import { formStyles } from './RecordFormScreen';
 
 interface Props {
   label: string;
+  // Η οθόνη του λογαριασμού γράφει τις ετικέτες της αλλιώς από τις ιατρικές φόρμες.
+  labelStyle?: StyleProp<TextStyle>;
   value: string;
   onChange: (value: string) => void;
   options: readonly string[];
@@ -17,12 +19,12 @@ interface Props {
 // Επιλογή από κλειστή λίστα. Δεν χρησιμοποιούμε το Picker του συστήματος: εμφανίζεται
 // διαφορετικά σε Android και iOS και δεν ακολουθεί τα χρώματα της εφαρμογής. Η λίστα ανοίγει
 // κάτω από το πεδίο, όπως ακριβώς τα αποτελέσματα της αναζήτησης στους καταλόγους.
-export function SelectField({ label, value, onChange, options, placeholder = 'Επιλέξτε...', inputStyle }: Props) {
+export function SelectField({ label, labelStyle, value, onChange, options, placeholder = 'Επιλέξτε...', inputStyle }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <View>
-      <Text style={loginStyles.inputLabel}>{label}</Text>
+      <Text style={labelStyle ?? loginStyles.inputLabel}>{label}</Text>
 
       <TouchableOpacity
         style={[loginStyles.loginInput, formStyles.input, inputStyle, { justifyContent: 'center', marginBottom: isOpen ? 0 : 30 }]}

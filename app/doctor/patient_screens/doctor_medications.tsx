@@ -379,6 +379,8 @@ export default function DoctorMedicationsScreen() {
             ) : null
           )}
           renderItem={({ item, section }) => (
+            // Το allowEdit ισχύει μόνο στην ενεργή αγωγή: σε φάρμακο που τελείωσε δεν γίνεται
+            // ούτε διόρθωση ούτε ανάκληση, η αγωγή έχει ήδη χορηγηθεί και ανήκει στο ιστορικό.
             <MedicationCard
               item={item}
               doctorDisplayName={displayDoctorName(item)}

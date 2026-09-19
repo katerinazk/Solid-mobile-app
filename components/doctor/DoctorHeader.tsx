@@ -9,7 +9,7 @@ import { ROUTES } from '../../constants/routes';
 export function DoctorHeader() {
   return (
     <View style={[styles.docHeader, { justifyContent: 'flex-end' }]}>
-      <TouchableOpacity onPress={() => router.push(ROUTES.DOCTOR_PROFILE)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity onPress={() => router.push(ROUTES.DOCTOR_ACCOUNT)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name="person-circle-outline" size={38} color={COLORS.primary} />
       </TouchableOpacity>
     </View>

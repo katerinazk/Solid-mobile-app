@@ -9,8 +9,9 @@ export const ROUTES = {
   PATIENT_REGISTER: '/patient/patient_register',
   PATIENT_ACCESS: '/patient/screens/patient_access',
   PATIENT_HOME: '/patient/screens/patient_home',
-  PATIENT_SETTINGS: '/patient/screens/patient_settings',
-  PATIENT_PROFILE: '/patient/patient_profile',
+  // Τα στοιχεία του χρήστη και οι ενέργειες λογαριασμού σε μία οθόνη - ήταν χωρισμένα
+  // σε "Προφίλ" και "Ρυθμίσεις", που όμως δεν είχαν ποτέ καμία ρύθμιση μέσα τους.
+  PATIENT_ACCOUNT: '/patient/screens/patient_account',
   PATIENT_HOSPITALIZATIONS: '/patient/istoriko/patient_hospitalizations',
   PATIENT_VACCINATIONS: '/patient/istoriko/patient_vaccinations',
   PATIENT_ALLERGIES: '/patient/istoriko/patient_allergies',
@@ -19,9 +20,8 @@ export const ROUTES = {
   PATIENT_EXAMS: '/patient/istoriko/patient_exams',
   DOCTOR_LOGIN: '/doctor/doctor_login',
   DOCTOR_REGISTER: '/doctor/doctor_register',
-  DOCTOR_PROFILE: '/doctor/doctor_profile',
   DOCTOR_HOME: '/doctor/screens/doctor_home',
-  DOCTOR_SETTINGS: '/doctor/screens/doctor_settings',
+  DOCTOR_ACCOUNT: '/doctor/screens/doctor_account',
   DOCTOR_MED_HISTORY: '/doctor/patient_screens/med_history',
   DOCTOR_DIAGNOSEIS: '/doctor/patient_screens/doctor_diagnoseis',
   DIAGNOSIS_FORM: '/forms/diagnosis_form',

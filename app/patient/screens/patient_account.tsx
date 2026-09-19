@@ -1,53 +1,116 @@
-import React from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../../constants/colors';
-import { sharedStyles as styles } from '../../../constants/sharedStyles';
-import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
-import { PatientHeader } from '../../../components/patient/PatientHeader';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
+import { fetchPatientByAmka, updatePatient } from '../../../services/patients';
+import { AccountScreen, AccountField } from '../../../components/AccountScreen';
+import { showMessage } from '../../../utils/appMessage';
+import { SEX_OPTIONS } from '../../../constants/medicalOptions';
 
-export default function PatientSettingsScreen() {
-  const { confirmLogout, confirmSwitchPod } = useAuth();
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <PatientHeader />
-
-      <View style={{ flex: 1 }} />
-
-      <View style={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
-        <TouchableOpacity style={localStyles.secondaryButton} onPress={confirmSwitchPod}>
-          <Ionicons name="swap-horizontal-outline" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
-          <Text style={localStyles.secondaryButtonText}>Σύνδεση με άλλο Pod</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.addButton, { borderRadius: 25, flexDirection: 'row', marginBottom: 0 }]}
-          onPress={confirmLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color={COLORS.white} style={{ marginRight: 8 }} />
-          <Text style={styles.addButtonText}>Αποσύνδεση</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
+interface PatientProfile {
+  first_name: string;
+  last_name: string;
+  amka: string;
+  birth_date: string | null;
+  sex: string | null;
+  blood_type: string | null;
+  phone: string | null;
+  email: string | null;
 }
 
-const localStyles = StyleSheet.create({
-  // Δευτερεύουσα ενέργεια: περιγραμμένη αντί για γεμάτη, ώστε να μην ανταγωνίζεται οπτικά
-  // την αποσύνδεση ακριβώς από κάτω.
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: TOUCH.buttonHeight,
-    borderRadius: 25,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.white,
-    marginBottom: SPACING.groupGap,
-  },
-  secondaryButtonText: { color: COLORS.primary, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
-});
+export default function PatientAccountScreen() {
+  const { loggedInPatientAmka } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [patient, setPatient] = useState<PatientProfile | null>(null);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formFirstName, setFormFirstName] = useState('');
+  const [formLastName, setFormLastName] = useState('');
+  const [formBirthDate, setFormBirthDate] = useState('');
+  const [formSex, setFormSex] = useState('');
+  const [formBloodType, setFormBloodType] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+
+  const loadPatient = async () => {
+    try {
+      setLoading(true);
+      const { data } = await fetchPatientByAmka(loggedInPatientAmka);
+      setPatient(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPatient();
+  }, []);
+
+  const startEditing = () => {
+    if (!patient) return;
+    setFormFirstName(patient.first_name || '');
+    setFormLastName(patient.last_name || '');
+    setFormBirthDate(patient.birth_date || '');
+    setFormSex(patient.sex || '');
+    setFormBloodType(patient.blood_type || '');
+    setFormPhone(patient.phone || '');
+    setFormEmail(patient.email || '');
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!formFirstName.trim() || !formLastName.trim()) {
+      showMessage("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα και Επίθετο.");
+      return;
+    }
+    try {
+      setSaving(true);
+      const { error } = await updatePatient(loggedInPatientAmka, {
+        first_name: formFirstName.trim(),
+        last_name: formLastName.trim(),
+        birth_date: formBirthDate.trim(),
+        sex: formSex.trim(),
+        blood_type: formBloodType.trim(),
+        phone: formPhone.trim(),
+        email: formEmail.trim(),
+      });
+
+      if (error) {
+        showMessage("Σφάλμα αποθήκευσης: " + error.message);
+        return;
+      }
+
+      await loadPatient();
+      setIsEditing(false);
+    } catch (error) {
+      showMessage("Απρόσμενο σφάλμα.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Το ΑΜΚΑ δεν έχει "form": είναι η ταυτότητα του ασθενή μέσα στο σύστημα και σε αυτό
+  // κρέμονται οι εγγραφές του Pod και οι πρόσβασεις των γιατρών.
+  const fields: AccountField[] = [
+    { label: 'Όνομα', value: patient?.first_name || '', form: { value: formFirstName, onChange: setFormFirstName } },
+    { label: 'Επίθετο', value: patient?.last_name || '', form: { value: formLastName, onChange: setFormLastName } },
+    { label: 'ΑΜΚΑ', value: patient?.amka || '' },
+    { label: 'Ημερομηνία Γέννησης', value: patient?.birth_date || '', form: { value: formBirthDate, onChange: setFormBirthDate, placeholder: 'π.χ. 1990-07-22' } },
+    { label: 'Φύλο', value: patient?.sex || '', form: { value: formSex, onChange: setFormSex, options: SEX_OPTIONS } },
+    { label: 'Ομάδα Αίματος', value: patient?.blood_type || '', form: { value: formBloodType, onChange: setFormBloodType } },
+    { label: 'Τηλέφωνο', value: patient?.phone || '', form: { value: formPhone, onChange: setFormPhone, keyboardType: 'numeric' } },
+    { label: 'Email', value: patient?.email || '', form: { value: formEmail, onChange: setFormEmail, keyboardType: 'email-address', autoCapitalize: 'none' } },
+  ];
+
+  return (
+    <AccountScreen
+      fields={fields}
+      loading={loading}
+      hasData={!!patient}
+      isEditing={isEditing}
+      saving={saving}
+      onStartEditing={startEditing}
+      onCancelEditing={() => setIsEditing(false)}
+      onSave={handleSave}
+    />
+  );
+}

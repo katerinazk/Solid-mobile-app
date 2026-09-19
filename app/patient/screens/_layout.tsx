@@ -17,7 +17,7 @@ export default function PatientTabsLayout() {
     >
       <Tabs.Screen name="patient_home" options={{ title: 'Αρχική' }} />
       <Tabs.Screen name="patient_access" options={{ title: 'Προσβάσεις' }} />
-      <Tabs.Screen name="patient_settings" options={{ title: 'Ρυθμίσεις' }} />
+      <Tabs.Screen name="patient_account" options={{ title: 'Λογαριασμός' }} />
     </Tabs>
   );
 }

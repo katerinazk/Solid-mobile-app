@@ -16,7 +16,7 @@ export default function DoctorTabsLayout() {
       }}
     >
       <Tabs.Screen name="doctor_home" options={{ title: 'Αρχική' }} />
-      <Tabs.Screen name="doctor_settings" options={{ title: 'Ρυθμίσεις' }} />
+      <Tabs.Screen name="doctor_account" options={{ title: 'Λογαριασμός' }} />
     </Tabs>
   );
 }

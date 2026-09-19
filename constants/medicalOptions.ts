@@ -49,3 +49,22 @@ export const EXAM_FILTERS = ['Όλες', ...EXAM_TYPES] as const;
 export const EXAM_STATUS_PENDING = 'Εκκρεμής';
 export const EXAM_STATUS_COMPLETED = 'Ολοκληρωμένη';
 export const EXAM_STATUS_OPTIONS = [EXAM_STATUS_PENDING, EXAM_STATUS_COMPLETED] as const;
+
+// Το φύλο του ασθενή ως κλειστή λίστα. Ήταν ελεύθερο κείμενο, και από αυτό εξαρτάται το πώς
+// τον προσφωνεί η εφαρμογή: "κα/κος" στην υπογραφή των εγγραφών του, "κυρία/κύριε" στον
+// χαιρετισμό της αρχικής. Με ελεύθερο κείμενο, μια ασθενής που έγραφε "Θήλυ" ή "Γ" έβλεπε
+// τις δικές της καταχωρήσεις υπογεγραμμένες "κος".
+export const SEX_FEMALE = 'Γυναίκα';
+export const SEX_MALE = 'Άντρας';
+export const SEX_OPTIONS = [SEX_FEMALE, SEX_MALE] as const;
+
+/**
+ * Ο έλεγχος φύλου, σε ΕΝΑ σημείο για όλη την εφαρμογή.
+ *
+ * Συγκρίνει με την αρχή της λέξης και όχι με ακριβή ισότητα, επειδή οι εγγραφές που
+ * καταχωρήθηκαν όσο το πεδίο ήταν ελεύθερο κείμενο μπορεί να έχουν "γυναίκα" με πεζά ή με
+ * κενά. Ό,τι δεν αναγνωρίζεται πέφτει στο αρσενικό - όπως και πριν.
+ */
+export function isFemale(sex?: string | null): boolean {
+  return (sex || '').trim().toLowerCase().startsWith('γυναίκ');
+}

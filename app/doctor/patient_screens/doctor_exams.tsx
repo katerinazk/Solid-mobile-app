@@ -82,6 +82,8 @@ function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOn
   );
 }
 
+// Η ολοκληρωμένη εξέταση δεν έχει ενέργειες - ούτε διόρθωση ούτε ανάκληση. Το αποτέλεσμα
+// έχει ήδη καταχωρηθεί και αποτελεί μέρος του ιστορικού.
 function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) => void }) {
   return (
     <TouchableOpacity

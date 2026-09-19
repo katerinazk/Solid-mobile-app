@@ -9,6 +9,8 @@ import { TYPOGRAPHY, TOUCH, SPACING } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { registerPatient } from '../../services/patients';
 import { showMessage } from '../../utils/appMessage';
+import { SelectField } from '../../components/SelectField';
+import { SEX_OPTIONS } from '../../constants/medicalOptions';
 
 export default function PatientRegisterScreen() {
   const { login } = useAuth();
@@ -81,8 +83,14 @@ export default function PatientRegisterScreen() {
           <Text style={[styles.inputLabel, localStyles.label]}>Ημερομηνία Γέννησης</Text>
           <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. 1990-07-22" value={patientForm.birth_date} onChangeText={(t) => setPatientForm({ ...patientForm, birth_date: t })} />
 
-          <Text style={[styles.inputLabel, localStyles.label]}>Φύλο</Text>
-          <TextInput style={[styles.loginInput, localStyles.input]} value={patientForm.sex} onChangeText={(t) => setPatientForm({ ...patientForm, sex: t })} />
+          <SelectField
+            label="Φύλο"
+            labelStyle={[styles.inputLabel, localStyles.label]}
+            inputStyle={localStyles.input}
+            value={patientForm.sex}
+            onChange={(sex) => setPatientForm({ ...patientForm, sex })}
+            options={SEX_OPTIONS}
+          />
 
           <Text style={[styles.inputLabel, localStyles.label]}>Ομάδα Αίματος</Text>
           <TextInput style={[styles.loginInput, localStyles.input]} value={patientForm.blood_type} onChangeText={(t) => setPatientForm({ ...patientForm, blood_type: t })} />

@@ -1,5 +1,6 @@
 import { fetchDoctorByAmka } from '../services/doctors';
 import { fetchPatientByAmka } from '../services/patients';
+import { isFemale } from '../constants/medicalOptions';
 
 // Ποιος έγραψε την εγγραφή, όπως αποθηκεύεται μέσα στο αρχείο του Pod.
 //
@@ -25,7 +26,7 @@ export async function resolveRecordAuthor(
   if (role === 'patient') {
     const { data } = await fetchPatientByAmka(loggedInPatientAmka);
     // "κος/κα" αντί για "Δρ.": ο ασθενής δεν είναι θεράπων ιατρός του εαυτού του.
-    const salutation = data?.sex?.trim().toLowerCase().startsWith('γυναίκ') ? 'κα' : 'κος';
+    const salutation = isFemale(data?.sex) ? 'κα' : 'κος';
     return {
       doctorName: `${salutation} ${data?.last_name || ''}`.trim(),
       doctorAmka: loggedInPatientAmka,

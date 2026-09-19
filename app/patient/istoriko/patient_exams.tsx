@@ -18,10 +18,9 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord } from '../../../services/recordRevisions';
+import { retractRecord, saveRecordEdit } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
-import { saveRecordEdit } from '../../../services/recordRevisions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
@@ -99,6 +98,8 @@ function PendingExamCard({ item, doctorDisplayName, uploading, canRetract, onUpl
   );
 }
 
+// Η ολοκληρωμένη εξέταση δεν έχει ενέργειες - ούτε διόρθωση ούτε ανάκληση. Το αποτέλεσμα
+// έχει ήδη καταχωρηθεί και αποτελεί μέρος του ιστορικού.
 function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) => void }) {
   return (
     <TouchableOpacity

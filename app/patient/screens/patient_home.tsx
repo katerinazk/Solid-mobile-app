@@ -5,6 +5,7 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
+import { isFemale } from '../../../constants/medicalOptions';
 import { useAuth } from '../../../hooks/useAuth';
 import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { fetchPatientByAmka } from '../../../services/patients';
@@ -147,7 +148,7 @@ export default function PatientHomeScreen() {
     return unsubscribe;
   }, [activePatientFolderUrl, accessToken]);
 
-  const salutation = patient?.sex?.trim().toLowerCase().startsWith('γυναίκ') ? 'κυρία' : 'κύριε';
+  const salutation = isFemale(patient?.sex) ? 'κυρία' : 'κύριε';
   const rows = chunkPairs(CATEGORIES);
 
   return (
