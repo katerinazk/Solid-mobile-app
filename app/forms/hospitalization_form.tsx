@@ -167,8 +167,12 @@ export default function HospitalizationFormScreen() {
       const fileUrl = params.editUrl || newRecordFileName(folderUrl, admissionDate);
 
       // Τα συνημμένα ανεβαίνουν δίπλα στην εγγραφή, οπότε χρειάζονται το τελικό της URL.
+      // Κρατάμε τα ονόματα που επέστρεψε το ανέβασμα, όχι αυτά που διάλεξε ο χρήστης: αν
+      // είχαν κενά ή παρενθέσεις, τα αρχεία αποθηκεύτηκαν με καθαρισμένα ονόματα και μόνο
+      // με αυτά ξαναβρίσκονται.
+      const uploadedNames: string[] = [];
       for (const file of pendingFiles) {
-        await uploadAttachment(fileUrl, file.name, file.uri, file.mimeType, accessToken);
+        uploadedNames.push(await uploadAttachment(fileUrl, file.name, file.uri, file.mimeType, accessToken));
       }
 
       const record = {
@@ -181,7 +185,7 @@ export default function HospitalizationFormScreen() {
         doctorAmka,
         admissionDate,
         dischargeDate,
-        attachments: [...existingAttachments, ...pendingFiles.map((file) => file.name)],
+        attachments: [...existingAttachments, ...uploadedNames],
         links: links.length > 0 ? links : undefined,
       };
 

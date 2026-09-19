@@ -18,7 +18,7 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord, saveRecordEdit } from '../../../services/recordRevisions';
+import { retractRecord, saveRecordCompletion } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -244,7 +244,10 @@ export default function PatientExamsScreen() {
       const asset = result.assets[0];
       setUploadingFor(item.url);
 
-      await uploadAttachment(item.url, asset.name, asset.uri, asset.mimeType || 'application/octet-stream', accessToken);
+      // Κρατάμε το όνομα που επέστρεψε το ανέβασμα, όχι αυτό που διάλεξε ο χρήστης: αν είχε
+      // κενά ή παρενθέσεις, το αρχείο αποθηκεύτηκε με καθαρισμένο όνομα και μόνο με αυτό
+      // ξαναβρίσκεται.
+      const storedName = await uploadAttachment(item.url, asset.name, asset.uri, asset.mimeType || 'application/octet-stream', accessToken);
 
       const today = new Date();
       const completedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -256,7 +259,7 @@ export default function PatientExamsScreen() {
         doctorName: item.doctorName,
         doctorAmka: item.doctorAmka,
         completedDate,
-        resultFile: asset.name,
+        resultFile: storedName,
         // Διατηρούμε ημερομηνία και κωδικό LOINC - το ανέβασμα ξαναγράφει όλο το αρχείο.
         createdDate: item.createdDate,
         links: item.links,
@@ -264,12 +267,11 @@ export default function PatientExamsScreen() {
         parentName: item.parentName,
       };
 
-      // Το ανέβασμα ξαναγράφει ολόκληρη την εγγραφή του γιατρού, οπότε κρατάμε την
-      // προηγούμενη μορφή της και υπογράφουμε ποιος την άλλαξε.
-      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
-      await saveRecordEdit(item.url, accessToken, record, author);
+      // Το ανέβασμα ΔΕΝ είναι διόρθωση: ο ασθενής συμπληρώνει το αποτέλεσμα που ζήτησε ο
+      // γιατρός, δεν αλλάζει την εξέταση. Η αποθήκευση κρατά μόνο ό,τι δεν ξέρει η οθόνη.
+      await saveRecordCompletion(item.url, accessToken, record);
 
-      updateExams((prev) => prev.map((e) => e.url === item.url ? { ...e, status: 'completed', completedDate, resultFile: asset.name } : e));
+      updateExams((prev) => prev.map((e) => e.url === item.url ? { ...e, status: 'completed', completedDate, resultFile: storedName } : e));
     } catch (error: any) {
       showMessage(error.message || "Αποτυχία μεταφόρτωσης αρχείου.");
     } finally {

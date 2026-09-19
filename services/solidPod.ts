@@ -236,14 +236,34 @@ export function getAttachmentsFolderUrl(recordUrl: string): string {
   return recordUrl.replace(/\.json$/, '') + '_files/';
 }
 
+/**
+ * Το όνομα με το οποίο αποθηκεύεται ένα συνημμένο.
+ *
+ * Το όνομα που διαλέγει ο χρήστης γίνεται κομμάτι URL στο Pod και κομμάτι διαδρομής στο
+ * τοπικό σύστημα αρχείων. Κενά, παρενθέσεις και στίξη περνούν από τρεις διαφορετικές
+ * κωδικοποιήσεις στη διαδρομή - εφαρμογή, διακομιστής, συσκευή - και αρκεί μία να τα
+ * χειριστεί αλλιώς για να μη βρίσκεται μετά το αρχείο. Τα γράμματα μένουν ως έχουν,
+ * ελληνικά και λατινικά: χάνεται μόνο η στίξη.
+ */
+export function safeAttachmentName(fileName: string): string {
+  return fileName.replace(/[\s()\[\]{}#?&%+,;=@:'"\\/|*<>]+/g, '_').replace(/_+/g, '_');
+}
+
+/**
+ * Ανεβάζει ένα συνημμένο και επιστρέφει το όνομα με το οποίο ΟΝΤΩΣ αποθηκεύτηκε.
+ *
+ * Ο καλών πρέπει να γράψει στην εγγραφή αυτό το όνομα και όχι το αρχικό: είναι το μόνο
+ * με το οποίο θα ξαναβρεθεί το αρχείο.
+ */
 export async function uploadAttachment(
   recordUrl: string,
   fileName: string,
   localUri: string,
   mimeType: string,
   accessToken: string
-): Promise<void> {
-  const fileUrl = `${getAttachmentsFolderUrl(recordUrl)}${encodeURIComponent(fileName)}`;
+): Promise<string> {
+  const storedName = safeAttachmentName(fileName);
+  const fileUrl = `${getAttachmentsFolderUrl(recordUrl)}${encodeURIComponent(storedName)}`;
   const dpopToken = await createDpopToken('PUT', fileUrl);
   const result = await FileSystem.uploadAsync(fileUrl, localUri, {
     httpMethod: 'PUT',
@@ -259,6 +279,8 @@ export async function uploadAttachment(
     throwIfAccessDenied(result.status);
     throw new Error(`Αποτυχία μεταφόρτωσης του αρχείου "${fileName}" (κωδικός ${result.status}).`);
   }
+
+  return storedName;
 }
 
 // Κατεβάζει ένα συνημμένο αρχείο τοπικά (cache) ώστε να μπορεί να ανοιχτεί/μοιραστεί
@@ -269,7 +291,8 @@ export async function downloadAttachment(
   accessToken: string
 ): Promise<string> {
   const fileUrl = `${getAttachmentsFolderUrl(recordUrl)}${encodeURIComponent(fileName)}`;
-  const localUri = `${FileSystem.cacheDirectory}${fileName}`;
+  // Η τοπική διαδρομή καθαρίζεται πάντα: ένα κενό μέσα σε file:// URI δεν διαβάζεται.
+  const localUri = `${FileSystem.cacheDirectory}${safeAttachmentName(fileName)}`;
   const dpopToken = await createDpopToken('GET', fileUrl);
   const result = await FileSystem.downloadAsync(fileUrl, localUri, {
     headers: {
@@ -280,7 +303,9 @@ export async function downloadAttachment(
 
   if (result.status < 200 || result.status >= 300) {
     throwIfAccessDenied(result.status);
-    throw new Error(`Αποτυχία λήψης του αρχείου "${fileName}".`);
+    // Ο κωδικός μπαίνει στο μήνυμα επίτηδες: το 404 λέει "δεν είναι εκεί που το ψάχνουμε"
+    // και το 500 "το Pod δυσκολεύεται" - χωρίς αυτόν, το ίδιο μήνυμα κρύβει δύο αιτίες.
+    throw new Error(`Αποτυχία λήψης του αρχείου "${fileName}" (κωδικός ${result.status}).`);
   }
 
   return result.uri;

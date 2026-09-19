@@ -14,7 +14,7 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord, saveRecordEdit } from '../../../services/recordRevisions';
+import { retractRecord, saveRecordCompletion } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -296,10 +296,9 @@ export default function PatientMedicationsScreen() {
         started: true,
       };
 
-      // Η έναρξη ξαναγράφει ολόκληρη την εγγραφή του γιατρού, οπότε κρατάμε την
-      // προηγούμενη μορφή της και υπογράφουμε ποιος την άλλαξε.
-      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
-      await saveRecordEdit(item.url, accessToken, record, author);
+      // Η έναρξη ΔΕΝ είναι διόρθωση: ο ασθενής δηλώνει ότι ξεκίνησε την αγωγή που του
+      // έγραψαν, δεν αλλάζει τη συνταγή. Η αποθήκευση κρατά μόνο ό,τι δεν ξέρει η οθόνη.
+      await saveRecordCompletion(item.url, accessToken, record);
 
       updateMedications((prev) => prev.map((m) => m.url === item.url ? { ...m, startDate, started: true } : m));
     } catch (error: any) {

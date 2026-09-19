@@ -72,6 +72,25 @@ export function withRevision(existing: any, next: any, stamp: RecordStamp): any 
   };
 }
 
+/**
+ * Η εγγραφή όπως θα γραφτεί όταν κάποιος τη ΣΥΜΠΛΗΡΩΝΕΙ αντί να τη διορθώνει: ο ασθενής
+ * ανεβάζει το αποτέλεσμα μιας εξέτασης, ή πατάει "Έναρξη" σε μια αγωγή.
+ *
+ * Δεν μπαίνει τίποτα στο ιστορικό διορθώσεων, γιατί δεν έγινε διόρθωση: κανείς δεν άλλαξε
+ * κάτι που είχε γράψει κάποιος άλλος. Μια εγγραφή "Διορθώθηκε" εκεί θα ήταν και λάθος και
+ * θόρυβος - θα έδειχνε ως προηγούμενη μορφή ακριβώς την ίδια εξέταση.
+ *
+ * Κρατάμε όμως όσα δεν ξέρουν αυτές οι ροές: την ανάκληση και τις παλιές διορθώσεις. Και οι
+ * δύο ξαναχτίζουν την εγγραφή από το μηδέν, οπότε χωρίς αυτό θα τα έσβηναν αθόρυβα.
+ */
+export function withExistingHistory(existing: any, next: any): any {
+  return {
+    ...(existing?.retracted ? { retracted: existing.retracted } : {}),
+    ...(Array.isArray(existing?.revisions) ? { revisions: existing.revisions } : {}),
+    ...next,
+  };
+}
+
 /** Η εγγραφή σημασμένη ως ανακληθείσα. Το περιεχόμενό της μένει ακριβώς όπως ήταν. */
 export function withRetraction(existing: any, stamp: RecordStamp, reason: string): any {
   return {
