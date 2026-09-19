@@ -7,7 +7,6 @@ import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { isFemale } from '../../../constants/medicalOptions';
 import { useAuth } from '../../../hooks/useAuth';
-import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { fetchPatientByAmka } from '../../../services/patients';
 import { listFolderFiles, getCategoryFolderUrl, getOwnerWebId, syncPodAcl } from '../../../services/solidPod';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
@@ -154,7 +153,9 @@ export default function PatientHomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <PatientHeader />
+      {/* Κενό στην κορυφή. Εδώ καθόταν το εικονίδιο του προφίλ, που έφυγε: τα στοιχεία
+          του χρήστη έχουν πλέον δική τους καρτέλα, τον Λογαριασμό. */}
+      <View style={{ height: SPACING.topMargin }} />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
         <Text style={localStyles.welcome}>Καλωσορίσατε {salutation} {patient?.last_name || ''}</Text>

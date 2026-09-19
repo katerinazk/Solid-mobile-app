@@ -6,7 +6,6 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles } from '../../../constants/sharedStyles';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
-import { DoctorHeader } from '../../../components/doctor/DoctorHeader';
 import { AccessRequestModal } from '../../../components/doctor/AccessRequestModal';
 import { SentRequestsModal } from '../../../components/doctor/SentRequestsModal';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
@@ -204,7 +203,9 @@ export default function DoctorHomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
-      <DoctorHeader />
+      {/* Κενό στην κορυφή. Εδώ καθόταν το εικονίδιο του προφίλ, που έφυγε: τα στοιχεία
+          του χρήστη έχουν πλέον δική τους καρτέλα, τον Λογαριασμό. */}
+      <View style={{ height: SPACING.topMargin }} />
 
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         <Text style={localStyles.welcome}>Καλωσορίσατε Δρ. {doctor?.last_name || ''}</Text>

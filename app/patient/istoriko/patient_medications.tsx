@@ -25,7 +25,7 @@ import { formatDate } from '../../../utils/age';
 import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -271,6 +271,15 @@ export default function PatientMedicationsScreen() {
   };
 
   const handleStartMedication = async (item: Medication) => {
+    // Η έναρξη γράφει τη σημερινή ημερομηνία μέσα στην εγγραφή και βγάζει το φάρμακο από
+    // τα εκκρεμή. Δεν ξεγίνεται με ένα πάτημα, οπότε ζητάμε επιβεβαίωση.
+    const confirmed = await askConfirm({
+      message: `Να ξεκινήσει η αγωγή "${item.title}" από σήμερα;`,
+      confirmText: 'Ναι',
+      cancelText: 'Όχι',
+    });
+    if (!confirmed) return;
+
     if (!accessToken) {
       showMessage("ΣΦΑΛΜΑ: Το Access Token λείπει!");
       return;

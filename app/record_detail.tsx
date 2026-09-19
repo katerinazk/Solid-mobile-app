@@ -5,10 +5,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../constants/colors';
 import { sharedStyles as styles } from '../constants/sharedStyles';
 import { doctorStyles } from '../constants/doctorStyles';
-import { TYPOGRAPHY, SPACING } from '../constants/designSystem';
+import { TYPOGRAPHY, SPACING, TOUCH } from '../constants/designSystem';
 import { ROUTES } from '../constants/routes';
 import { useAuth } from '../hooks/useAuth';
-import { fetchFileContent, downloadAttachment } from '../services/solidPod';
+import * as DocumentPicker from 'expo-document-picker';
+import { fetchFileContent, downloadAttachment, uploadAttachment } from '../services/solidPod';
+import { saveRecordCompletion } from '../services/recordRevisions';
 import { openLocalFile } from '../utils/openLocalFile';
 import { isCompleteRecord, createdDateFromUrl } from '../utils/podRecords';
 import { parseRetraction, parseRevisions } from '../utils/recordRevision';
@@ -39,13 +41,14 @@ const RELATED_TITLES: Record<string, string> = {
  */
 export default function RecordDetailScreen() {
   const params = useLocalSearchParams<{ url: string; category: string; webId: string }>();
-  const { accessToken } = useAuth();
+  const { accessToken, role } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
 
   const [loading, setLoading] = useState(true);
   const [record, setRecord] = useState<any | null>(null);
   const [related, setRelated] = useState<HistoryRecordSummary[]>([]);
   const [openingResult, setOpeningResult] = useState(false);
+  const [replacingResult, setReplacingResult] = useState(false);
   const [openingAttachment, setOpeningAttachment] = useState<string | null>(null);
 
   useEffect(() => {
@@ -93,6 +96,42 @@ export default function RecordDetailScreen() {
       setOpeningResult(false);
     }
   };
+
+  /**
+   * Αντικατάσταση του αρχείου αποτελέσματος σε ολοκληρωμένη εξέταση.
+   *
+   * Ανεβάζει το νέο αρχείο και δείχνει η εγγραφή σε αυτό. Το προηγούμενο ΔΕΝ σβήνεται - η
+   * εφαρμογή δεν διαγράφει τίποτα από το Pod - απλώς δεν αναφέρεται πια από την εξέταση.
+   *
+   * Η ημερομηνία αποτελέσματος μένει η αρχική: η αλλαγή αρχείου είναι συνήθως διόρθωση
+   * λάθους ανεβάσματος, όχι νέο αποτέλεσμα σε άλλη ημερομηνία.
+   */
+  const handleReplaceResult = async () => {
+    if (!record) return;
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (picked.canceled || !picked.assets || picked.assets.length === 0) return;
+
+      const asset = picked.assets[0];
+      setReplacingResult(true);
+
+      const storedName = await uploadAttachment(
+        params.url, asset.name, asset.uri, asset.mimeType || 'application/octet-stream', accessToken
+      );
+      const next = { ...record, resultFile: storedName };
+      await saveRecordCompletion(params.url, accessToken, next);
+      setRecord(next);
+    } catch (error: any) {
+      showMessage(error.message || 'Αποτυχία μεταφόρτωσης αρχείου.');
+    } finally {
+      setReplacingResult(false);
+    }
+  };
+
+  // Μόνο ο ασθενής ανεβάζει αποτέλεσμα - ο γιατρός παραγγέλνει την εξέταση, δεν την εκτελεί.
+  // Σε ανακληθείσα εξέταση δεν αλλάζει τίποτα: έχει αποσυρθεί.
+  const canReplaceResult =
+    role === 'patient' && params.category === 'Εξετάσεις' && !!record?.resultFile && !record?.retracted;
 
   // Το αποθηκευμένο όνομα είναι στιγμιότυπο της ώρας της καταχώρησης. Αν ο γιατρός άλλαξε
   // στοιχεία στο προφίλ του, δείχνουμε τα τρέχοντα. Οι διαγνώσεις γράφουν μόνο επίθετο.
@@ -241,6 +280,23 @@ export default function RecordDetailScreen() {
             </TouchableOpacity>
           )}
 
+          {canReplaceResult && (
+            <TouchableOpacity
+              style={localStyles.replaceResultButton}
+              onPress={handleReplaceResult}
+              disabled={replacingResult}
+            >
+              {replacingResult ? (
+                <ActivityIndicator color={COLORS.primary} />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+                  <Text style={localStyles.replaceResultButtonText}>Αλλαγή Αρχείου</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
           {Array.isArray(record.attachments) && record.attachments.length > 0 && (
             <View style={{ marginTop: SPACING.sectionGap }}>
               <Text style={localStyles.sectionTitle}>Συνημμένα Αρχεία</Text>
@@ -299,6 +355,20 @@ export default function RecordDetailScreen() {
 }
 
 const localStyles = StyleSheet.create({
+  // Δευτερεύουσα ενέργεια, περιγραμμένη αντί για γεμάτη: η κύρια εδώ είναι να δει ο χρήστης
+  // το αποτέλεσμα, όχι να το αντικαταστήσει.
+  replaceResultButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: TOUCH.buttonHeight,
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.white,
+    marginTop: SPACING.groupGap,
+  },
+  replaceResultButtonText: { color: COLORS.primary, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
   // Οι πληροφορίες της εγγραφής μέσα σε πλαίσιο, όπως ακριβώς και η κάρτα από την οποία
   // ήρθε ο χρήστης. Το marginHorizontal είναι μηδέν γιατί το περιθώριο το δίνει η οθόνη.
   identity: {

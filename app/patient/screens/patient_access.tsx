@@ -13,7 +13,6 @@ import { addAccess, deleteAccess, updateAccessType, fetchAccessEntry } from '../
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, hasPendingAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { Dropdown } from 'react-native-element-dropdown';
-import { PatientHeader } from '../../../components/patient/PatientHeader';
 import { ACCESS_FULL, ACCESS_READ_ONLY, ACCESS_NONE, ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
 
@@ -465,7 +464,9 @@ if (!error) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
-      <PatientHeader />
+      {/* Κενό στην κορυφή. Εδώ καθόταν το εικονίδιο του προφίλ, που έφυγε: τα στοιχεία
+          του χρήστη έχουν πλέον δική τους καρτέλα, τον Λογαριασμό. */}
+      <View style={{ height: SPACING.topMargin }} />
 
       <FlatList
         data={isSearchActive ? sortedResults : visibleAccessList}

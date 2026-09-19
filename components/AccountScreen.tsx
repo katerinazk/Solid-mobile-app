@@ -83,7 +83,7 @@ export function AccountScreen({
             accessibilityRole="button"
             accessibilityLabel="Επεξεργασία λογαριασμού"
           >
-            <Ionicons name="arrow-forward-circle-outline" size={32} color={COLORS.primary} />
+            <Ionicons name="pencil-outline" size={26} color={COLORS.primary} />
           </TouchableOpacity>
         )}
       </View>
@@ -171,7 +171,9 @@ export function AccountScreen({
 const localStyles = StyleSheet.create({
   // Στη δεξιά άκρη της κεφαλίδας, εκεί όπου ήταν και το εικονίδιο του προφίλ πριν ενωθούν
   // οι δύο οθόνες.
-  editButton: { position: 'absolute', right: SPACING.sideMargin, top: 0 },
+  // Χωρίς "top": το εικονίδιο του μολυβιού είναι μικρότερο από το βελάκι επιστροφής και
+  // κεντράρεται κατακόρυφα μόνο του, στο ύψος του τίτλου.
+  editButton: { position: 'absolute', right: SPACING.sideMargin },
   viewLabel: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginBottom: 4 },
   label: { ...loginStyles.inputLabel, color: COLORS.primary, fontSize: TYPOGRAPHY.subtitle },
   input: { ...loginStyles.loginInput, backgroundColor: COLORS.lightest, borderRadius: 25 },
