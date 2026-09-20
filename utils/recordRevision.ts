@@ -26,8 +26,15 @@ export interface Retraction extends RecordStamp {
   reason: string;
 }
 
+/**
+ * Η σήμανση που ξεχωρίζει μια πραγματική διόρθωση από οτιδήποτε άλλο βρεθεί στο ιστορικό.
+ * Τη γράφει μόνο η επεξεργασία.
+ */
+const REVISION_EDIT = 'edit';
+
 /** Μια προηγούμενη μορφή της εγγραφής, όπως ήταν πριν από μια διόρθωση. */
 export interface RecordRevision extends RecordStamp {
+  kind?: string;
   record: any;
 }
 
@@ -46,8 +53,18 @@ export function parseRetraction(record: any): Retraction | undefined {
   };
 }
 
+/**
+ * Το ιστορικό διορθώσεων, όπως αξίζει να διαβαστεί.
+ *
+ * Εμφανίζονται μόνο οι εκδόσεις που γράφτηκαν από πραγματική επεξεργασία - όσες φέρουν τη
+ * σήμανση "edit". Για ένα διάστημα το ανέβασμα αποτελέσματος και το "Έναρξη" περνούσαν
+ * κι αυτά λανθασμένα από εδώ, και άφησαν πίσω τους εγγραφές "Διορθώθηκε" που δείχνουν ως
+ * προηγούμενη μορφή ακριβώς το ίδιο πράγμα. Δεν τις σβήνουμε από το Pod - η εφαρμογή δεν
+ * σβήνει τίποτα - αλλά δεν τις δείχνουμε: δεν περιγράφουν καμία διόρθωση.
+ */
 export function parseRevisions(record: any): RecordRevision[] {
-  return Array.isArray(record?.revisions) ? record.revisions : [];
+  const stored: RecordRevision[] = Array.isArray(record?.revisions) ? record.revisions : [];
+  return stored.filter((revision) => revision?.kind === REVISION_EDIT);
 }
 
 /**
@@ -68,7 +85,7 @@ export function withRevision(existing: any, next: any, stamp: RecordStamp): any 
     // την αρχή, οπότε χωρίς αυτό θα ξε-ανακαλούσαν σιωπηλά μια αποσυρμένη εγγραφή.
     ...(previous.retracted ? { retracted: previous.retracted } : {}),
     ...next,
-    revisions: [...(Array.isArray(revisions) ? revisions : []), { ...stamp, record: previous }],
+    revisions: [...(Array.isArray(revisions) ? revisions : []), { ...stamp, kind: REVISION_EDIT, record: previous }],
   };
 }
 

@@ -40,12 +40,44 @@ export function getCategoryFolderUrl(webId: string, category: string): string {
   return `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/${encodeURIComponent(category)}/`;
 }
 
+/**
+ * Η κανονική μορφή μιας διεύθυνσης του Pod.
+ *
+ * Οι φάκελοι των κατηγοριών έχουν ελληνικά ονόματα, οπότε κάθε URL εγγραφής κουβαλά
+ * ποσοστιαία κωδικοποίηση (%CE%95...). Όταν όμως ένα τέτοιο URL ταξιδέψει ως παράμετρος
+ * διαδρομής - η αναλυτική προβολή, οι φόρμες επεξεργασίας - επιστρέφει ΑΠΟΚΩΔΙΚΟΠΟΙΗΜΕΝΟ,
+ * με τα ελληνικά γράμματα ατόφια. Από εκεί και πέρα η υπογραφή DPoP (htu) δεν ταιριάζει με
+ * τη διεύθυνση που φεύγει στο δίκτυο, ο διακομιστής απαντά 401 - και επειδή γράφει τη
+ * διεύθυνση μέσα στην κεφαλίδα WWW-Authenticate, που δέχεται μόνο ASCII, σκάει με 500.
+ *
+ * Εδώ επιβάλλεται μία μορφή πριν από κάθε αίτημα: ό,τι υπογράφεται είναι ακριβώς ό,τι
+ * ζητείται. Εφαρμόζεται και σε ήδη κωδικοποιημένο URL χωρίς να το αλλάξει.
+ */
+export function normalizePodUrl(url: string): string {
+  const parts = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)([^?#]*)(.*)$/i.exec(url);
+  if (!parts) return url;
+
+  const [, origin, path, rest] = parts;
+  const encodedPath = path
+    .split('/')
+    .map((segment) => {
+      let decoded = segment;
+      // Ημιτελές '%' μέσα στο όνομα: το αφήνουμε όπως ήρθε αντί να ρίξουμε το αίτημα.
+      try { decoded = decodeURIComponent(segment); } catch {}
+      return encodeURIComponent(decoded);
+    })
+    .join('/');
+
+  return `${origin}${encodedPath}${rest}`;
+}
+
 // Δεν δημιουργούμε πια προληπτικά τους φακέλους κατηγοριών (π.χ. με ένα κενό .keep αρχείο).
 // Κάθε φάκελος κατηγορίας δημιουργείται αυτόματα από τον ίδιο τον Solid server ως side effect
 // του πρώτου πραγματικού saveFileContent (PUT) μέσα του - το ίδιο μοτίβο και για τις 6
 // κατηγορίες. Μέχρι τότε, μια οθόνη ιστορικού απλά βλέπει ότι ο φάκελος δεν υπάρχει ακόμα.
 
-export async function listFolderFiles(folderUrl: string, accessToken: string): Promise<string[]> {
+export async function listFolderFiles(rawFolderUrl: string, accessToken: string): Promise<string[]> {
+  const folderUrl = normalizePodUrl(rawFolderUrl);
   // Αν ο κατάλογος προφορτώθηκε στη σύνδεση, απαντάμε από τη μνήμη χωρίς αίτημα.
   const prefetchedFiles = takeListing(folderUrl);
   if (prefetchedFiles) return prefetchedFiles;
@@ -128,7 +160,8 @@ export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: str
   }
 }
 
-export async function fetchFileContent(url: string, accessToken: string): Promise<string> {
+export async function fetchFileContent(rawUrl: string, accessToken: string): Promise<string> {
+  const url = normalizePodUrl(rawUrl);
   // Το ίδιο και για το περιεχόμενο: προφορτωμένο αρχείο δεν ξανακατεβαίνει.
   const prefetchedText = takeContent(url);
   if (prefetchedText !== undefined) return prefetchedText;
@@ -143,7 +176,8 @@ export async function fetchFileContent(url: string, accessToken: string): Promis
  * μια παλιά εικόνα του αρχείου δεν είναι απλώς ανακρίβεια - θα έσβηνε ό,τι έγραψε στο μεταξύ
  * άλλος γιατρός με πρόσβαση στον ίδιο φάκελο.
  */
-export async function fetchFileContentFresh(url: string, accessToken: string): Promise<string> {
+export async function fetchFileContentFresh(rawUrl: string, accessToken: string): Promise<string> {
+  const url = normalizePodUrl(rawUrl);
   takeContent(url);
 
   const dpopToken = await createDpopToken('GET', url);
@@ -209,7 +243,8 @@ export function newRecordFileName(prefix = '', clinicalDate?: string): string {
   return `${prefix}${recordStamp(clinicalDate)}_${random}.json`;
 }
 
-export async function saveFileContent(url: string, accessToken: string, content: string): Promise<void> {
+export async function saveFileContent(rawUrl: string, accessToken: string, content: string): Promise<void> {
+  const url = normalizePodUrl(rawUrl);
   const dpopToken = await createDpopToken('PUT', url);
   const response = await fetch(url, {
     method: 'PUT',
@@ -250,20 +285,64 @@ export function safeAttachmentName(fileName: string): string {
 }
 
 /**
+ * Υπάρχει ήδη αρχείο σε αυτή τη διεύθυνση;
+ *
+ * Απαντά "όχι" σε οποιαδήποτε άλλη απάντηση πλην του 2xx: η ερώτηση είναι βοηθητική και
+ * δεν πρέπει να εμποδίσει το ανέβασμα αν ο διακομιστής δεν απαντήσει καθαρά.
+ */
+async function attachmentExists(fileUrl: string, accessToken: string): Promise<boolean> {
+  try {
+    const dpopToken = await createDpopToken('HEAD', fileUrl);
+    const response = await fetch(fileUrl, {
+      method: 'HEAD',
+      headers: { 'Authorization': `DPoP ${accessToken}`, 'DPoP': dpopToken },
+    });
+    return response.status >= 200 && response.status < 300;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ένα όνομα που δεν πατάει πάνω σε υπάρχον αρχείο.
+ *
+ * Ο ασθενής που αντικαθιστά το αποτέλεσμα μιας εξέτασης διαλέγει πολύ συχνά αρχείο με το
+ * ίδιο όνομα. Ένα PUT στην ίδια διεύθυνση θα έσβηνε το προηγούμενο - και η εφαρμογή δεν
+ * σβήνει τίποτα από το Pod: η εγγραφή παύει απλώς να δείχνει στο παλιό αρχείο, που μένει.
+ */
+async function freeAttachmentName(folderUrl: string, storedName: string, accessToken: string): Promise<string> {
+  const isTaken = (name: string) => attachmentExists(`${folderUrl}${encodeURIComponent(name)}`, accessToken);
+  if (!(await isTaken(storedName))) return storedName;
+
+  // Η ημερομηνία διαβάζεται - "εξετάσεις_2026-09-20.pdf" λέει πότε ανέβηκε. Αν ανέβουν δύο
+  // την ίδια μέρα, χρειάζεται και κάτι τυχαίο για να μην πέσουν πάλι το ένα πάνω στο άλλο.
+  const withSuffix = (suffix: string) => {
+    const dot = storedName.lastIndexOf('.');
+    return dot > 0
+      ? `${storedName.slice(0, dot)}_${suffix}${storedName.slice(dot)}`
+      : `${storedName}_${suffix}`;
+  };
+
+  const today = withSuffix(new Date().toISOString().slice(0, 10));
+  return (await isTaken(today)) ? withSuffix(`${new Date().toISOString().slice(0, 10)}_${Math.random().toString(36).slice(2, 6)}`) : today;
+}
+
+/**
  * Ανεβάζει ένα συνημμένο και επιστρέφει το όνομα με το οποίο ΟΝΤΩΣ αποθηκεύτηκε.
  *
  * Ο καλών πρέπει να γράψει στην εγγραφή αυτό το όνομα και όχι το αρχικό: είναι το μόνο
  * με το οποίο θα ξαναβρεθεί το αρχείο.
  */
 export async function uploadAttachment(
-  recordUrl: string,
+  rawRecordUrl: string,
   fileName: string,
   localUri: string,
   mimeType: string,
   accessToken: string
 ): Promise<string> {
-  const storedName = safeAttachmentName(fileName);
-  const fileUrl = `${getAttachmentsFolderUrl(recordUrl)}${encodeURIComponent(storedName)}`;
+  const folderUrl = getAttachmentsFolderUrl(normalizePodUrl(rawRecordUrl));
+  const storedName = await freeAttachmentName(folderUrl, safeAttachmentName(fileName), accessToken);
+  const fileUrl = `${folderUrl}${encodeURIComponent(storedName)}`;
   const dpopToken = await createDpopToken('PUT', fileUrl);
   const result = await FileSystem.uploadAsync(fileUrl, localUri, {
     httpMethod: 'PUT',
@@ -277,7 +356,15 @@ export async function uploadAttachment(
 
   if (result.status < 200 || result.status >= 300) {
     throwIfAccessDenied(result.status);
-    throw new Error(`Αποτυχία μεταφόρτωσης του αρχείου "${fileName}" (κωδικός ${result.status}).`);
+    // Ο διακομιστής εξηγεί σχεδόν πάντα στο σώμα της απάντησης τι δεν πήγε καλά. Χωρίς αυτό
+    // ο κωδικός 500 λέει μόνο "κάτι έσπασε στο Pod", που δεν φτάνει για να διορθωθεί.
+    const reason = String(result.body || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    throw new Error(
+      `Αποτυχία μεταφόρτωσης του αρχείου "${fileName}" (κωδικός ${result.status}).` +
+      (reason ? `
+
+${reason.substring(0, 200)}` : '')
+    );
   }
 
   return storedName;
@@ -286,11 +373,11 @@ export async function uploadAttachment(
 // Κατεβάζει ένα συνημμένο αρχείο τοπικά (cache) ώστε να μπορεί να ανοιχτεί/μοιραστεί
 // με το Sharing API. Επιστρέφει το τοπικό file:// URI.
 export async function downloadAttachment(
-  recordUrl: string,
+  rawRecordUrl: string,
   fileName: string,
   accessToken: string
 ): Promise<string> {
-  const fileUrl = `${getAttachmentsFolderUrl(recordUrl)}${encodeURIComponent(fileName)}`;
+  const fileUrl = `${getAttachmentsFolderUrl(normalizePodUrl(rawRecordUrl))}${encodeURIComponent(fileName)}`;
   // Η τοπική διαδρομή καθαρίζεται πάντα: ένα κενό μέσα σε file:// URI δεν διαβάζεται.
   const localUri = `${FileSystem.cacheDirectory}${safeAttachmentName(fileName)}`;
   const dpopToken = await createDpopToken('GET', fileUrl);
@@ -350,7 +437,7 @@ export async function syncPodAcl({
   accessToken,
   accessList,
 }: SyncPodAclParams): Promise<void> {
-  const aclUrl = `${activePatientFolderUrl}.acl`;
+  const aclUrl = normalizePodUrl(`${activePatientFolderUrl}.acl`);
 
   let aclContent = `
   @prefix acl: <http://www.w3.org/ns/auth/acl#>.
@@ -411,7 +498,7 @@ export async function removeDoctorFromAcl({
   accessList,
   doctorWebId,
 }: RemoveDoctorFromAclParams): Promise<void> {
-  const aclUrl = `${activePatientFolderUrl}.acl`;
+  const aclUrl = normalizePodUrl(`${activePatientFolderUrl}.acl`);
 
   // Πρώτα παίρνουμε τους υπόλοιπους γιατρούς που έχουν ακόμα πρόσβαση
   const remainingDoctors = accessList.filter(a => a.doctors?.web_id !== doctorWebId);

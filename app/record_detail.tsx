@@ -316,38 +316,37 @@ export default function RecordDetailScreen() {
             </View>
           )}
 
-          {grouped.length === 0 ? (
-            <Text style={styles.emptyText}>Δεν υπάρχουν σχετικές καταχωρήσεις.</Text>
-          ) : (
-            grouped.map((group) => (
-              <View key={group.category} style={{ marginTop: SPACING.sectionGap }}>
-                <Text style={localStyles.sectionTitle}>{RELATED_TITLES[group.category]}</Text>
+          {/* Όταν δεν υπάρχουν σχετικές καταχωρήσεις δεν γράφουμε τίποτα: η απουσία τους δεν
+              είναι πληροφορία, και μια γραμμή κάτω από κάθε εγγραφή που λέει ότι δεν υπάρχει
+              κάτι άλλο απλώς γεμίζει την οθόνη. */}
+          {grouped.map((group) => (
+            <View key={group.category} style={{ marginTop: SPACING.sectionGap }}>
+              <Text style={localStyles.sectionTitle}>{RELATED_TITLES[group.category]}</Text>
 
-                {group.items.map((item) => (
-                  <TouchableOpacity
-                    key={item.url}
-                    style={[doctorStyles.diagnosisCard, { marginHorizontal: 0 }]}
-                    onPress={() => openRelated(item)}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                      <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
-                    </View>
-                    {!!item.doctorName && (
-                      <Text style={doctorStyles.diagnosisCardDetail}>
-                        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item.category, item.doctorAmka, item.doctorName)}
-                      </Text>
-                    )}
-                    {!!item.date && (
-                      <Text style={doctorStyles.diagnosisCardDetail}>
-                        <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))
-          )}
+              {group.items.map((item) => (
+                <TouchableOpacity
+                  key={item.url}
+                  style={[doctorStyles.diagnosisCard, { marginHorizontal: 0 }]}
+                  onPress={() => openRelated(item)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+                  </View>
+                  {!!item.doctorName && (
+                    <Text style={doctorStyles.diagnosisCardDetail}>
+                      <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item.category, item.doctorAmka, item.doctorName)}
+                    </Text>
+                  )}
+                  {!!item.date && (
+                    <Text style={doctorStyles.diagnosisCardDetail}>
+                      <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
         </ScrollView>
       )}
     </SafeAreaView>
