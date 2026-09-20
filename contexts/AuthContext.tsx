@@ -21,6 +21,27 @@ const SOLID_PROVIDER_URL = 'https://datapod.igrant.io';
 // Το όνομα με το οποίο συστήνεται η εφαρμογή στον Solid provider.
 const APP_NAME = 'MedPod';
 
+/**
+ * Η σελίδα-γέφυρα που δηλώνεται ως redirect_uri στον Solid provider.
+ *
+ * Ο node-solid-server γράφει στην οθόνη συγκατάθεσης την ΠΡΟΕΛΕΥΣΗ αυτής της διεύθυνσης -
+ * όχι το client_name που του στέλνουμε. Ένα σχήμα εφαρμογής (solidmedicalapp://) δεν έχει
+ * προέλευση, γι' αυτό ο ασθενής διαβάζει "null wants to access your Data Pod". Με μια
+ * διεύθυνση https σε host που λέγεται medpod, διαβάζει το όνομα της εφαρμογής.
+ *
+ * Η σελίδα δεν κάνει τίποτα άλλο από το να προωθεί αμέσως στο σχήμα της εφαρμογής - το
+ * αντίγραφό της είναι το web/auth.html αυτού του project. ΔΕΝ βλέπει ποτέ token: ο
+ * κωδικός εξουσιοδότησης περνάει από τη διεύθυνση και ανταλλάσσεται μέσα στη συσκευή.
+ *
+ * Κενό = η παλιά συμπεριφορά, με το σχήμα της εφαρμογής ως redirect_uri. Έτσι η σύνδεση
+ * δουλεύει κανονικά όσο δεν έχει ανέβει η σελίδα, και επιστρέφει εκεί με μία αλλαγή αν
+ * κάτι πάει στραβά.
+ */
+const AUTH_BRIDGE_URL = '';
+
+// Το πρόθεμα κάθε συνδέσμου που ανοίγει την εφαρμογή - το ίδιο "scheme" που δηλώνει το app.json.
+const APP_LINK_PREFIX = 'solidmedicalapp://';
+
 export interface AuthContextValue {
   role: Role | null;
   isLoggedIn: boolean;
@@ -54,12 +75,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState('');
   const [idToken, setIdToken] = useState('');
 
-  // Προσοχή: ο node-solid-server δεν δείχνει το client_name στην οθόνη συγκατάθεσης, αλλά την
-  // προέλευση (origin) αυτού εδώ του URI. Ένα σχήμα εφαρμογής δεν έχει origin, οπότε εκεί
-  // εμφανίζεται "null". Θα χρειαζόταν https redirect σε δικό μας domain για να φαίνεται όνομα.
-  const redirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp' });
+  const appRedirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp' });
 
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+  // Η διεύθυνση που δηλώνεται στον provider - και που διαβάζει ο χρήστης στην οθόνη
+  // συγκατάθεσης. Με γέφυρα είναι η σελίδα μας, αλλιώς το ίδιο το σχήμα της εφαρμογής.
+  const redirectUri = AUTH_BRIDGE_URL || appRedirectUri;
+
+  // Και η διεύθυνση που μας φέρνει πίσω. Με γέφυρα κρατάμε σκέτο το πρόθεμα του σχήματος:
+  // η σελίδα προωθεί σε solidmedicalapp://auth?..., και η αναγνώριση της επιστροφής γίνεται
+  // με απλή σύγκριση προθέματος - ένα '/' παραπάνω ή λιγότερο θα άφηνε τη σύνδεση να κρέμεται.
+  const appReturnUri = AUTH_BRIDGE_URL ? APP_LINK_PREFIX : appRedirectUri;
+
+  const [request, sdkResponse, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: dynamicClientId || '',
       scopes: ['openid', 'profile', 'offline_access', 'webid'],
@@ -71,6 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isBrowserOpen = useRef(false);
   const expectingResponse = useRef(false);
+
+  // Με γέφυρα, η επιστροφή δεν έχει το σχήμα που περιμένει ο SDK για να την αναγνωρίσει,
+  // οπότε τη διαβάζουμε μόνοι μας. Το σχήμα του αντικειμένου μένει ίδιο, ώστε η συνέχεια
+  // της ροής - η ανταλλαγή του κωδικού με token - να μην ξέρει καν ποιος δρόμος ακολουθήθηκε.
+  const [bridgeResponse, setBridgeResponse] = useState<any>(null);
+  const response = AUTH_BRIDGE_URL ? bridgeResponse : sdkResponse;
 
   const handlePatientLoginVerification = async (webId: string): Promise<boolean> => {
     try {
@@ -262,6 +295,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getRealAccessToken();
   }, [response]);
 
+  /**
+   * Ανοίγει τη σελίδα σύνδεσης του Pod και περιμένει την επιστροφή.
+   *
+   * Χωρίς γέφυρα το αναλαμβάνει όλο ο SDK. Με γέφυρα πρέπει να τα χωρίσουμε: στον provider
+   * φεύγει η https διεύθυνση (αυτή που διαβάζει ο χρήστης), ενώ πίσω στην εφαρμογή γυρνάει
+   * το σχήμα της - και ο SDK αναγνωρίζει την επιστροφή μόνο αν οι δύο ταυτίζονται.
+   *
+   * preferEphemeralSession: στο iOS αποτρέπει τη διατήρηση cookies/session ανάμεσα σε
+   * διαδοχικά logins, ώστε να μη "θυμάται" τον προηγούμενο χρήστη.
+   */
+  const openLoginBrowser = async () => {
+    if (!AUTH_BRIDGE_URL) {
+      await promptAsync({ preferEphemeralSession: true });
+      return;
+    }
+
+    const authUrl = await request!.makeAuthUrlAsync(discoveryDocument);
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, appReturnUri, { preferEphemeralSession: true });
+
+    if (result.type !== 'success') {
+      setBridgeResponse({ type: result.type });
+      return;
+    }
+
+    const query = result.url.split('?')[1] || '';
+    const params: Record<string, string> = {};
+    new URLSearchParams(query).forEach((value, key) => { params[key] = value; });
+
+    // Το state είναι η προστασία απέναντι σε ξένη απάντηση: αν δεν είναι αυτό που στείλαμε,
+    // ο κωδικός δεν ήρθε από τη δική μας σύνδεση και δεν τον αγγίζουμε.
+    if (params.state !== request!.state) {
+      setBridgeResponse({ type: 'error' });
+      showMessage('Η απάντηση της σύνδεσης δεν αντιστοιχεί στο αίτημα. Δοκιμάστε ξανά.');
+      return;
+    }
+
+    setBridgeResponse({ type: 'success', params });
+  };
+
   // Όταν έχουμε το δυναμικό Client ID και το request είναι έτοιμο, ανοίγουμε τον browser
   useEffect(() => {
     // Το request χτίζεται ΑΣΥΓΧΡΟΝΑ από το useAuthRequest. Αν ανοίξουμε τον browser με
@@ -279,7 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       //
       // preferEphemeralSession: στο iOS αποτρέπει τη διατήρηση cookies/session
       // ανάμεσα σε διαδοχικά logins, ώστε να μη «θυμάται» τον προηγούμενο χρήστη.
-      promptAsync({ preferEphemeralSession: true }).then(() => {
+      openLoginBrowser().then(() => {
         isBrowserOpen.current = false;
         setDynamicClientId(null);
       }).catch(() => {
@@ -296,6 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       // Καθαρίζουμε το παλιό discovery ώστε το useAuthRequest να μηδενίσει το response
       setDiscoveryDocument(null);
+      setBridgeResponse(null);
 
       const discoveryUrl = `${providerUrl.replace(/\/$/, '')}/.well-known/openid-configuration`;
       const discoveryRes = await fetch(discoveryUrl);
@@ -313,7 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (discovery.end_session_endpoint && idToken) {
         try {
           const logoutUrl = `${discovery.end_session_endpoint}?id_token_hint=${encodeURIComponent(idToken)}&post_logout_redirect_uri=${encodeURIComponent(redirectUri)}`;
-          await WebBrowser.openAuthSessionAsync(logoutUrl, redirectUri);
+          await WebBrowser.openAuthSessionAsync(logoutUrl, appReturnUri);
         } catch (e) {
           // Αγνοούμε αποτυχία logout, συνεχίζουμε κανονικά
         }
