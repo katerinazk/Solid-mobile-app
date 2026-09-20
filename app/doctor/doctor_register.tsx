@@ -9,6 +9,9 @@ import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
 import { registerDoctor } from '../../services/doctors';
 import { showMessage } from '../../utils/appMessage';
+import { SelectField } from '../../components/SelectField';
+import { SEX_OPTIONS } from '../../constants/medicalOptions';
+import { MEDICAL_SPECIALTIES } from '../../constants/specialties';
 
 export default function DoctorRegisterScreen() {
   const { login } = useAuth();
@@ -19,6 +22,7 @@ export default function DoctorRegisterScreen() {
     last_name: '',
     amka: amkaParam || '',
     specialty: '',
+    sex: '',
     phone: '',
     email: '',
   });
@@ -76,8 +80,23 @@ export default function DoctorRegisterScreen() {
           <Text style={[styles.inputLabel, localStyles.label]}>ΑΜΚΑ</Text>
           <TextInput style={[styles.loginInput, localStyles.input]} placeholder="11 ψηφία" keyboardType="numeric" value={doctorForm.amka} onChangeText={(t) => setDoctorForm({ ...doctorForm, amka: t })} />
 
-          <Text style={[styles.inputLabel, localStyles.label]}>Ειδικότητα</Text>
-          <TextInput style={[styles.loginInput, localStyles.input]} value={doctorForm.specialty} onChangeText={(t) => setDoctorForm({ ...doctorForm, specialty: t })} />
+          <SelectField
+            label="Ειδικότητα"
+            labelStyle={[styles.inputLabel, localStyles.label]}
+            inputStyle={localStyles.input}
+            value={doctorForm.specialty}
+            onChange={(specialty) => setDoctorForm({ ...doctorForm, specialty })}
+            options={MEDICAL_SPECIALTIES}
+          />
+
+          <SelectField
+            label="Φύλο"
+            labelStyle={[styles.inputLabel, localStyles.label]}
+            inputStyle={localStyles.input}
+            value={doctorForm.sex}
+            onChange={(sex) => setDoctorForm({ ...doctorForm, sex })}
+            options={SEX_OPTIONS}
+          />
 
           <Text style={[styles.inputLabel, localStyles.label]}>Τηλέφωνο</Text>
           <TextInput style={[styles.loginInput, localStyles.input]} keyboardType="numeric" value={doctorForm.phone} onChangeText={(t) => setDoctorForm({ ...doctorForm, phone: t })} />

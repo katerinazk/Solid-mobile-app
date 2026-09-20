@@ -48,6 +48,7 @@ export interface DoctorRegistrationForm {
   last_name: string;
   amka: string;
   specialty: string;
+  sex: string;
   phone: string;
   email: string;
 }
@@ -58,6 +59,7 @@ export async function registerDoctor(form: DoctorRegistrationForm) {
     last_name: form.last_name,
     amka: form.amka,
     specialty: form.specialty || null,
+    sex: form.sex || null,
     phone: form.phone || null,
     email: form.email || null,
   }]);
@@ -67,6 +69,7 @@ export interface DoctorUpdateForm {
   first_name: string;
   last_name: string;
   specialty: string;
+  sex: string;
   phone: string;
   email: string;
 }
@@ -77,6 +80,7 @@ export async function updateDoctor(amka: string, form: DoctorUpdateForm) {
     first_name: form.first_name,
     last_name: form.last_name,
     specialty: form.specialty || null,
+    sex: form.sex || null,
     phone: form.phone || null,
     email: form.email || null,
   }).eq('amka', amka);

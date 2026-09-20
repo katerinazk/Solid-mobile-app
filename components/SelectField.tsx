@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, StyleSheet, StyleProp, TextStyle } from 'react-native';
+import { Text, View, TouchableOpacity, ScrollView, StyleSheet, StyleProp, TextStyle } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { loginStyles } from '../constants/loginStyles';
 import { TYPOGRAPHY } from '../constants/designSystem';
@@ -36,7 +36,9 @@ export function SelectField({ label, labelStyle, value, onChange, options, place
       </TouchableOpacity>
 
       {isOpen && (
-        <View style={localStyles.list}>
+        // Οι ειδικότητες είναι σχεδόν σαράντα: χωρίς όριο ύψους η λίστα θα έσπρωχνε το κουμπί
+        // αποθήκευσης δύο οθόνες πιο κάτω.
+        <ScrollView style={localStyles.list} nestedScrollEnabled keyboardShouldPersistTaps="handled">
           {options.map((option, index) => (
             <TouchableOpacity
               key={option}
@@ -46,7 +48,7 @@ export function SelectField({ label, labelStyle, value, onChange, options, place
               <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{option}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       )}
     </View>
   );
@@ -59,6 +61,7 @@ const localStyles = StyleSheet.create({
     borderColor: COLORS.medium,
     borderRadius: 20,
     marginBottom: 30,
+    maxHeight: 260,
     overflow: 'hidden',
   },
   option: {

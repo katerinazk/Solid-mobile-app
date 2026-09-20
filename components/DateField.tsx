@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, Modal, Platform, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, Modal, Platform, StyleSheet, StyleProp, TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { COLORS } from '../constants/colors';
@@ -11,6 +11,9 @@ import { isoToDate, dateToIso } from '../utils/dateInput';
 
 interface Props {
   label: string;
+  // Οι ιατρικές φόρμες και η οθόνη του λογαριασμού γράφουν αλλιώς ετικέτες και πεδία.
+  labelStyle?: StyleProp<TextStyle>;
+  inputStyle?: StyleProp<TextStyle>;
   // 'ΕΕΕΕ-ΜΜ-ΗΗ' ή κενό όσο δεν έχει επιλεγεί τίποτα.
   value: string;
   onChange: (iso: string) => void;
@@ -21,7 +24,7 @@ interface Props {
 // Επιλογή ημερομηνίας από ημερολόγιο αντί για πληκτρολόγηση. Το ιστορικό πιάνει δεκαετίες
 // (παιδικά εμβόλια, παλιές νοσηλίες), οπότε το ημερολόγιο ανοίγει στην τελευταία επιλογή του
 // γιατρού και όχι πάντα στο σήμερα - αλλιώς θα χρειαζόταν δεκάδες κυλήσεις κάθε φορά.
-export function DateField({ label, value, onChange, minimumDate, maximumDate }: Props) {
+export function DateField({ label, labelStyle, inputStyle, value, onChange, minimumDate, maximumDate }: Props) {
   const [isPickerVisible, setIsPickerVisible] = useState(false);
   const selectedDate = isoToDate(value) || new Date();
 
@@ -49,10 +52,10 @@ export function DateField({ label, value, onChange, minimumDate, maximumDate }: 
 
   return (
     <View>
-      <Text style={loginStyles.inputLabel}>{label}</Text>
+      <Text style={labelStyle ?? loginStyles.inputLabel}>{label}</Text>
 
       <TouchableOpacity
-        style={[loginStyles.loginInput, formStyles.input, localStyles.field]}
+        style={[loginStyles.loginInput, formStyles.input, inputStyle, localStyles.field]}
         onPress={() => setIsPickerVisible(true)}
       >
         <Text style={[localStyles.valueText, !value && { color: COLORS.medium }]}>

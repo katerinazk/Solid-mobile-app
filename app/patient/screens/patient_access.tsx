@@ -13,7 +13,8 @@ import { addAccess, deleteAccess, updateAccessType, fetchAccessEntry } from '../
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, hasPendingAccessRequest } from '../../../services/accessRequests';
 import { updatePodAcl, removeDoctorFromAcl } from '../../../services/solidPod';
 import { Dropdown } from 'react-native-element-dropdown';
-import { ACCESS_FULL, ACCESS_READ_ONLY, ACCESS_NONE, ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
+import { ACCESS_FULL, ACCESS_NONE, ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
+import { SelectField } from '../../../components/SelectField';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 // Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
@@ -586,23 +587,16 @@ if (!error) {
               editable={false}
             />
 
-            <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
-            <View style={localStyles.typeChoiceRow}>
-              <TouchableOpacity
-                style={[localStyles.typeChoice, newAccessType === ACCESS_FULL && localStyles.typeChoiceSelected]}
-                onPress={() => setNewAccessType(ACCESS_FULL)}
-                accessibilityRole="button"
-              >
-                <Text style={[localStyles.typeChoiceText, newAccessType === ACCESS_FULL && localStyles.typeChoiceTextSelected]}>Πλήρης</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[localStyles.typeChoice, newAccessType === ACCESS_READ_ONLY && localStyles.typeChoiceSelected]}
-                onPress={() => setNewAccessType(ACCESS_READ_ONLY)}
-                accessibilityRole="button"
-              >
-                <Text style={[localStyles.typeChoiceText, newAccessType === ACCESS_READ_ONLY && localStyles.typeChoiceTextSelected]}>Μόνο Ανάγνωση</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Ίδια κλειστή λίστα με το αίτημα του γιατρού: ο τύπος πρόσβασης γράφεται με τα
+                ίδια ακριβώς λόγια και από τις δύο μεριές, αλλιώς δύο διαφορετικά κείμενα θα
+                σήμαιναν το ίδιο δικαίωμα. */}
+            <SelectField
+              label="Τύπος Πρόσβασης"
+              inputStyle={localStyles.modalSelect}
+              value={newAccessType}
+              onChange={setNewAccessType}
+              options={GRANTABLE_ACCESS_TYPES}
+            />
 
             <TouchableOpacity style={[localStyles.grantButton, { marginTop: 0 }]} onPress={handleAddAccess} disabled={loading}>
               {loading ? <ActivityIndicator color={COLORS.white} /> : <Text style={localStyles.grantButtonText}>Εντάξει</Text>}
@@ -746,23 +740,8 @@ const localStyles = StyleSheet.create({
   // Ίδιο σχήμα με το κουμπί κατάργησης, στο χρώμα της εφαρμογής: η μία ενέργεια δίνει, η άλλη αφαιρεί.
   grantButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', width: '60%', alignSelf: 'center', marginTop: SPACING.groupGap },
   grantButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
-  // Οι δύο επιλογές τύπου: ίδιο στρογγυλό σχήμα με τα υπόλοιπα κουμπιά της εφαρμογής.
-  // Η επιλεγμένη γεμίζει στο χρώμα της εφαρμογής, η άλλη μένει περιγραμμένη.
-  typeChoiceRow: { flexDirection: 'row', gap: TOUCH.buttonGap, marginBottom: TOUCH.buttonGap },
-  typeChoice: {
-    flex: 1,
-    minHeight: TOUCH.buttonHeight,
-    borderRadius: 25,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-  },
-  typeChoiceSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  typeChoiceText: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.primary, textAlign: 'center' },
-  typeChoiceTextSelected: { color: COLORS.white, fontWeight: 'bold' },
+  // Το πεδίο επιλογής μέσα στο παράθυρο: ίδιο περίγραμμα με τα υπόλοιπα πεδία του.
+  modalSelect: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 20 },
   // Κλειδωμένο πεδίο: το φόντο δείχνει ότι δεν πληκτρολογείται, ενώ το κείμενο μένει μαύρο
   // ώστε το ΑΜΚΑ να διαβάζεται κανονικά.
   lockedInput: { backgroundColor: COLORS.light, color: COLORS.text },

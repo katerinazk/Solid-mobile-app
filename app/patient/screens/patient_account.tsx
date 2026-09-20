@@ -3,7 +3,8 @@ import { useAuth } from '../../../hooks/useAuth';
 import { fetchPatientByAmka, updatePatient } from '../../../services/patients';
 import { AccountScreen, AccountField } from '../../../components/AccountScreen';
 import { showMessage } from '../../../utils/appMessage';
-import { SEX_OPTIONS } from '../../../constants/medicalOptions';
+import { SEX_OPTIONS, BLOOD_TYPES } from '../../../constants/medicalOptions';
+import { formatDate } from '../../../utils/age';
 
 interface PatientProfile {
   first_name: string;
@@ -94,9 +95,9 @@ export default function PatientAccountScreen() {
     { label: 'Όνομα', value: patient?.first_name || '', form: { value: formFirstName, onChange: setFormFirstName } },
     { label: 'Επίθετο', value: patient?.last_name || '', form: { value: formLastName, onChange: setFormLastName } },
     { label: 'ΑΜΚΑ', value: patient?.amka || '' },
-    { label: 'Ημερομηνία Γέννησης', value: patient?.birth_date || '', form: { value: formBirthDate, onChange: setFormBirthDate, placeholder: 'π.χ. 1990-07-22' } },
+    { label: 'Ημερομηνία Γέννησης', value: formatDate(patient?.birth_date), form: { value: formBirthDate, onChange: setFormBirthDate, isDate: true } },
     { label: 'Φύλο', value: patient?.sex || '', form: { value: formSex, onChange: setFormSex, options: SEX_OPTIONS } },
-    { label: 'Ομάδα Αίματος', value: patient?.blood_type || '', form: { value: formBloodType, onChange: setFormBloodType } },
+    { label: 'Ομάδα Αίματος', value: patient?.blood_type || '', form: { value: formBloodType, onChange: setFormBloodType, options: BLOOD_TYPES } },
     { label: 'Τηλέφωνο', value: patient?.phone || '', form: { value: formPhone, onChange: setFormPhone, keyboardType: 'numeric' } },
     { label: 'Email', value: patient?.email || '', form: { value: formEmail, onChange: setFormEmail, keyboardType: 'email-address', autoCapitalize: 'none' } },
   ];

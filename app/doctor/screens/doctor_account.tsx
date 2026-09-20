@@ -3,12 +3,15 @@ import { useAuth } from '../../../hooks/useAuth';
 import { fetchDoctorByAmka, updateDoctor } from '../../../services/doctors';
 import { AccountScreen, AccountField } from '../../../components/AccountScreen';
 import { showMessage } from '../../../utils/appMessage';
+import { SEX_OPTIONS } from '../../../constants/medicalOptions';
+import { MEDICAL_SPECIALTIES } from '../../../constants/specialties';
 
 interface DoctorProfile {
   first_name: string;
   last_name: string;
   amka: string;
   specialty: string | null;
+  sex: string | null;
   phone: string | null;
   email: string | null;
 }
@@ -23,6 +26,7 @@ export default function DoctorAccountScreen() {
   const [formFirstName, setFormFirstName] = useState('');
   const [formLastName, setFormLastName] = useState('');
   const [formSpecialty, setFormSpecialty] = useState('');
+  const [formSex, setFormSex] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
 
@@ -45,6 +49,7 @@ export default function DoctorAccountScreen() {
     setFormFirstName(doctor.first_name || '');
     setFormLastName(doctor.last_name || '');
     setFormSpecialty(doctor.specialty || '');
+    setFormSex(doctor.sex || '');
     setFormPhone(doctor.phone || '');
     setFormEmail(doctor.email || '');
     setIsEditing(true);
@@ -61,6 +66,7 @@ export default function DoctorAccountScreen() {
         first_name: formFirstName.trim(),
         last_name: formLastName.trim(),
         specialty: formSpecialty.trim(),
+        sex: formSex.trim(),
         phone: formPhone.trim(),
         email: formEmail.trim(),
       });
@@ -85,7 +91,8 @@ export default function DoctorAccountScreen() {
     { label: 'Όνομα', value: doctor?.first_name || '', form: { value: formFirstName, onChange: setFormFirstName } },
     { label: 'Επίθετο', value: doctor?.last_name || '', form: { value: formLastName, onChange: setFormLastName } },
     { label: 'ΑΜΚΑ', value: doctor?.amka || '' },
-    { label: 'Ειδικότητα', value: doctor?.specialty || '', form: { value: formSpecialty, onChange: setFormSpecialty } },
+    { label: 'Ειδικότητα', value: doctor?.specialty || '', form: { value: formSpecialty, onChange: setFormSpecialty, options: MEDICAL_SPECIALTIES } },
+    { label: 'Φύλο', value: doctor?.sex || '', form: { value: formSex, onChange: setFormSex, options: SEX_OPTIONS } },
     { label: 'Τηλέφωνο', value: doctor?.phone || '', form: { value: formPhone, onChange: setFormPhone, keyboardType: 'numeric' } },
     { label: 'Email', value: doctor?.email || '', form: { value: formEmail, onChange: setFormEmail, keyboardType: 'email-address', autoCapitalize: 'none' } },
   ];

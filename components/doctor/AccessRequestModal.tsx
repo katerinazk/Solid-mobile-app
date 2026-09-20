@@ -4,12 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 import { sharedStyles as styles } from '../../constants/sharedStyles';
 import { loginStyles } from '../../constants/loginStyles';
-import { TYPOGRAPHY } from '../../constants/designSystem';
 import { fetchPatientByAmka } from '../../services/patients';
 import { hasPendingAccessRequest, createAccessRequest } from '../../services/accessRequests';
 import { fetchAccessEntry } from '../../services/access';
 import { InvitePatientModal } from './InvitePatientModal';
-import { ACCESS_FULL, ACCESS_READ_ONLY } from '../../constants/accessTypes';
+import { ACCESS_FULL, GRANTABLE_ACCESS_TYPES } from '../../constants/accessTypes';
+import { SelectField } from '../SelectField';
 import { askConfirm, showMessage } from '../../utils/appMessage';
 
 interface Props {
@@ -141,21 +141,24 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
           </View>
 
           <Text style={loginStyles.inputLabel}>ΑΜΚΑ Ασθενούς</Text>
+          {/* Κλειδωμένο όταν το αίτημα ξεκινά από συγκεκριμένη καρτέλα ασθενή: το ΑΜΚΑ είναι
+              εκείνου που διάλεξε ο γιατρός, και αν άλλαζε εδώ το αίτημα θα πήγαινε σε άλλον
+              άνθρωπο από αυτόν που βλέπει. Πληκτρολογείται μόνο όταν ξεκινά από το μηδέν. */}
           <TextInput
-            style={[loginStyles.loginInput, localStyles.input]}
+            style={[loginStyles.loginInput, localStyles.input, !!initialAmka && localStyles.lockedInput]}
             keyboardType="numeric"
             value={patientAmka}
             onChangeText={setPatientAmka}
+            editable={!initialAmka}
           />
 
-          <Text style={loginStyles.inputLabel}>Τύπος Πρόσβασης</Text>
-          <TouchableOpacity
-            style={[loginStyles.loginInput, localStyles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            onPress={() => setAccessType((prev) => prev === ACCESS_FULL ? ACCESS_READ_ONLY : ACCESS_FULL)}
-          >
-            <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText }}>{accessType}</Text>
-            <Ionicons name="chevron-down" size={18} color={COLORS.primary} />
-          </TouchableOpacity>
+          <SelectField
+            label="Τύπος Πρόσβασης"
+            inputStyle={localStyles.input}
+            value={accessType}
+            onChange={setAccessType}
+            options={GRANTABLE_ACCESS_TYPES}
+          />
 
           <TouchableOpacity
             style={[styles.addButton, { borderRadius: 25, marginBottom: 0, width: '60%', alignSelf: 'center' }]}
@@ -184,4 +187,7 @@ const localStyles = StyleSheet.create({
     borderColor: COLORS.medium,
     borderRadius: 20,
   },
+  // Κλειδωμένο πεδίο: το φόντο δείχνει ότι δεν πληκτρολογείται, ενώ το κείμενο μένει μαύρο
+  // ώστε το ΑΜΚΑ να διαβάζεται κανονικά.
+  lockedInput: { backgroundColor: COLORS.light, color: COLORS.text },
 });

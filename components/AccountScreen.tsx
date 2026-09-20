@@ -8,6 +8,7 @@ import { loginStyles } from '../constants/loginStyles';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../constants/designSystem';
 import { useAuth } from '../hooks/useAuth';
 import { SelectField } from './SelectField';
+import { DateField } from './DateField';
 
 /**
  * Ένα στοιχείο του λογαριασμού.
@@ -26,6 +27,8 @@ export interface AccountField {
     placeholder?: string;
     // Όταν δίνονται επιλογές, το πεδίο παύει να δέχεται ελεύθερο κείμενο.
     options?: readonly string[];
+    // Ημερομηνία: ανοίγει ημερολόγιο αντί για πληκτρολόγιο.
+    isDate?: boolean;
   };
 }
 
@@ -98,6 +101,24 @@ export function AccountScreen({
           keyboardShouldPersistTaps="handled"
         >
           {fields.map((field) => {
+            // Η ημερομηνία γράφεται με ημερολόγιο: πληκτρολογημένη, η ίδια μέρα μπορεί να γραφτεί
+            // με πέντε τρόπους - και η ηλικία του ασθενή υπολογίζεται από αυτήν.
+            if (isEditing && field.form?.isDate) {
+              const form = field.form;
+              return (
+                <View key={field.label} style={{ marginBottom: SPACING.groupGap }}>
+                  <DateField
+                    label={field.label}
+                    labelStyle={localStyles.label}
+                    inputStyle={localStyles.input}
+                    value={form.value}
+                    onChange={form.onChange}
+                    maximumDate={new Date()}
+                  />
+                </View>
+              );
+            }
+
             // Το πεδίο κλειστής λίστας φέρνει τη δική του ετικέτα, οπότε δεν τη γράφουμε ξανά.
             if (isEditing && field.form?.options) {
               return (

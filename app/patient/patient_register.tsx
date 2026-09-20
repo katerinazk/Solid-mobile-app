@@ -10,7 +10,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { registerPatient } from '../../services/patients';
 import { showMessage } from '../../utils/appMessage';
 import { SelectField } from '../../components/SelectField';
-import { SEX_OPTIONS } from '../../constants/medicalOptions';
+import { SEX_OPTIONS, BLOOD_TYPES } from '../../constants/medicalOptions';
+import { DateField } from '../../components/DateField';
 
 export default function PatientRegisterScreen() {
   const { login } = useAuth();
@@ -80,8 +81,16 @@ export default function PatientRegisterScreen() {
           <Text style={[styles.inputLabel, localStyles.label]}>ΑΜΚΑ</Text>
           <TextInput style={[styles.loginInput, localStyles.input]} placeholder="11 ψηφία" keyboardType="numeric" value={patientForm.amka} onChangeText={(t) => setPatientForm({ ...patientForm, amka: t })} />
 
-          <Text style={[styles.inputLabel, localStyles.label]}>Ημερομηνία Γέννησης</Text>
-          <TextInput style={[styles.loginInput, localStyles.input]} placeholder="π.χ. 1990-07-22" value={patientForm.birth_date} onChangeText={(t) => setPatientForm({ ...patientForm, birth_date: t })} />
+          {/* Ημερολόγιο αντί για πληκτρολόγηση: από την ημερομηνία γέννησης βγαίνει η ηλικία
+              που βλέπει ο γιατρός, και μια χρονιά γραμμένη λάθος δεν φαίνεται πουθενά. */}
+          <DateField
+            label="Ημερομηνία Γέννησης"
+            labelStyle={[styles.inputLabel, localStyles.label]}
+            inputStyle={localStyles.input}
+            value={patientForm.birth_date}
+            onChange={(birth_date) => setPatientForm({ ...patientForm, birth_date })}
+            maximumDate={new Date()}
+          />
 
           <SelectField
             label="Φύλο"
@@ -92,8 +101,14 @@ export default function PatientRegisterScreen() {
             options={SEX_OPTIONS}
           />
 
-          <Text style={[styles.inputLabel, localStyles.label]}>Ομάδα Αίματος</Text>
-          <TextInput style={[styles.loginInput, localStyles.input]} value={patientForm.blood_type} onChangeText={(t) => setPatientForm({ ...patientForm, blood_type: t })} />
+          <SelectField
+            label="Ομάδα Αίματος"
+            labelStyle={[styles.inputLabel, localStyles.label]}
+            inputStyle={localStyles.input}
+            value={patientForm.blood_type}
+            onChange={(blood_type) => setPatientForm({ ...patientForm, blood_type })}
+            options={BLOOD_TYPES}
+          />
 
           <Text style={[styles.inputLabel, localStyles.label]}>Τηλέφωνο</Text>
           <TextInput style={[styles.loginInput, localStyles.input]} keyboardType="numeric" value={patientForm.phone} onChangeText={(t) => setPatientForm({ ...patientForm, phone: t })} />
