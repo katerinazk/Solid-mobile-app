@@ -12,6 +12,7 @@ import { clearRecordCache } from '../utils/recordCache';
 import { prefetchAllCategories } from '../utils/podPrefetch';
 import { clearPodPrefetch } from '../utils/podPrefetchStore';
 import { clearDoctorCache } from '../utils/doctorCache';
+import { isSupportedWebId } from '../services/solidPod';
 import { askConfirm, showMessage } from '../utils/appMessage';
 
 type Role = 'doctor' | 'patient';
@@ -262,6 +263,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const tokenPayload = JSON.parse(atob(tokenParts[1]));
             const webId = tokenPayload.webid || tokenPayload.sub || '';
             console.log("🔑 WebID από token:", webId);
+
+            // Ο πάροχος απάντησε κανονικά, αλλά το Pod του έχει άλλη δομή από αυτή που ξέρει
+            // η εφαρμογή. Χωρίς αυτόν τον έλεγχο η σύνδεση θα πετύχαινε και το ιστορικό θα
+            // φαινόταν απλώς άδειο - το χειρότερο είδος σφάλματος σε ιατρικό φάκελο.
+            if (!isSupportedWebId(webId)) {
+              showMessage(
+                'Ο λογαριασμός αυτού του παρόχου δεν έχει τη δομή Pod που υποστηρίζει η εφαρμογή. ' +
+                'Δοκιμάστε κάποιον από τους υπόλοιπους παρόχους της λίστας.'
+              );
+              return;
+            }
 
             if (role === 'patient') {
               const verified = await handlePatientLoginVerification(webId);

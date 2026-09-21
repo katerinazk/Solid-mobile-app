@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, SafeAreaView, TextInput, StatusBar, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '../../constants/colors';
@@ -9,11 +9,18 @@ import { TYPOGRAPHY, TOUCH } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchPatientByAmka } from '../../services/patients';
 import { showMessage } from '../../utils/appMessage';
+import { SelectField } from '../../components/SelectField';
+import {
+  SOLID_PROVIDER_OPTIONS,
+  DEFAULT_SOLID_PROVIDER_URL,
+  solidProviderLabelFromUrl,
+  solidProviderUrlFromLabel,
+} from '../../constants/solidProviders';
 
 export default function PatientLoginScreen() {
   const { login, loading } = useAuth();
   const [patientAmka, setPatientAmka] = useState('');
-  const [solidProvider, setSolidProvider] = useState('https://datapod.igrant.io');
+  const [solidProvider, setSolidProvider] = useState(DEFAULT_SOLID_PROVIDER_URL);
   const [checking, setChecking] = useState(false);
 
   const handleLogin = async () => {
@@ -50,6 +57,13 @@ export default function PatientLoginScreen() {
         <Ionicons name="arrow-back" size={28} color={COLORS.primary} />
       </TouchableOpacity>
 
+      {/* Η κάρτα κυλάει: με ανοιχτή τη λίστα των παρόχων ψηλώνει, και σε μικρή οθόνη το
+          κουμπί της εισόδου θα έβγαινε εκτός. */}
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.loginCard}>
         <FontAwesome5 name="heartbeat" size={70} color={COLORS.primary} style={{ alignSelf: 'center', marginBottom: 20 }} />
         <Text style={[styles.loginTitle, { color: COLORS.text }]}>MedPod</Text>
@@ -64,13 +78,16 @@ export default function PatientLoginScreen() {
           onChangeText={setPatientAmka}
         />
 
-        <Text style={[styles.inputLabel, { color: COLORS.primary, fontSize: TYPOGRAPHY.subtitle }]}>Solid Provider</Text>
-        <TextInput
-          style={[styles.loginInput, localStyles.input]}
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={solidProvider}
-          onChangeText={setSolidProvider}
+        {/* Κλειστή λίστα αντί για πληκτρολογημένη διεύθυνση. Ένα URL γραμμένο λάθος κατά
+            ένα γράμμα έβγαζε "αποτυχία επικοινωνίας με τον Provider", που δεν λέει σε
+            κανέναν τι να διορθώσει - και κανείς δεν ξέρει απέξω τη διεύθυνση του Pod του. */}
+        <SelectField
+          label="Solid Provider"
+          labelStyle={[styles.inputLabel, { color: COLORS.primary, fontSize: TYPOGRAPHY.subtitle }]}
+          inputStyle={localStyles.input}
+          value={solidProviderLabelFromUrl(solidProvider)}
+          onChange={(label) => setSolidProvider(solidProviderUrlFromLabel(label))}
+          options={SOLID_PROVIDER_OPTIONS}
         />
 
         <TouchableOpacity
@@ -90,6 +107,7 @@ export default function PatientLoginScreen() {
           <Text style={{ color: COLORS.text, fontSize: TYPOGRAPHY.bodyText, fontWeight: 'bold' }}>Εγγραφή</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
