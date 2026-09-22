@@ -16,7 +16,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, createdAtFromUrl, compareNewestFirst, timeOf, createdDateFromUrl } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
-import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
 import { retractRecord, saveRecordCompletion } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
@@ -323,9 +323,11 @@ export default function PatientExamsScreen() {
     // Πιο πρόσφατες πρώτα σε κάθε ενότητα: οι εκκρεμείς κατά ημερομηνία καταχώρησης, οι
     // ολοκληρωμένες κατά ημερομηνία αποτελέσματος με εφεδρεία την καταχώρηση.
     return {
-      pendingExams: filtered
+      // Οι ανακληθείσες εκκρεμείς εξετάσεις πάνε τελευταίες: παραμένουν εκκρεμείς στα χαρτιά,
+      // αλλά δεν είναι πια κάτι που περιμένει ενέργεια.
+      pendingExams: withRetractedLast(filtered
         .filter((e) => e.status === 'pending')
-        .sort((a, b) => compareNewestFirst(timeOf(a.createdDate), timeOf(b.createdDate))),
+        .sort((a, b) => compareNewestFirst(timeOf(a.createdDate), timeOf(b.createdDate)))),
       completedExams: filtered
         .filter((e) => e.status === 'completed')
         .sort((a, b) => compareNewestFirst(

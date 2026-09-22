@@ -11,7 +11,7 @@ import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, createdDateFromUrl, timeOf } from '../../../utils/podRecords';
 import { formatDate } from '../../../utils/age';
-import { groupByYear } from '../../../utils/groupByYear';
+import { groupByYearRetractedLast } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
@@ -205,7 +205,7 @@ export default function PatientAllergiesScreen() {
 
   // Ομαδοποίηση ανά έτος, με βάση την ημερομηνία καταχώρησης.
   const sections = useMemo(
-    () => groupByYear(sortedAllergies, (item) => timeOf(item.createdDate)),
+    () => groupByYearRetractedLast(sortedAllergies, (item) => timeOf(item.createdDate)),
     [sortedAllergies],
   );
 

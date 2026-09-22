@@ -5,6 +5,8 @@
 // έτος και όχι ο μήνας: με λίγες εγγραφές ανά χρόνο, ο μήνας θα έφτιαχνε δεκάδες ομάδες του
 // ενός, που είναι θόρυβος αντί για βοήθεια.
 
+import { partitionRetracted } from './recordRevision';
+
 export interface YearSection<T> {
   title: string;
   data: T[];
@@ -30,6 +32,29 @@ export function groupByYear<T>(items: T[], getTime: (item: T) => number): YearSe
       sections.push(current);
     }
     current.data.push(item);
+  }
+
+  return sections;
+}
+
+/** Ο τίτλος της ενότητας που μαζεύει όλες τις ανακληθείσες εγγραφές, στο τέλος της λίστας. */
+export const RETRACTED_SECTION_TITLE = 'Ανακλημένες Εγγραφές';
+
+/**
+ * Όπως το groupByYear, αλλά οι ανακληθείσες εγγραφές δεν μπαίνουν στη χρονιά τους - φεύγουν
+ * σε δική τους ενότητα, πάντα τελευταία. Μια εγγραφή που σημαίνεται ως λανθασμένη δεν είναι
+ * πια ενεργό ιστορικό, και ανάμεσα σε ενεργές εγγραφές ίδιας χρονιάς θα ξεγελούσε με μια
+ * γρήγορη ματιά - ειδικά αφού μένει ορατή, μόνο ξεθωριασμένη.
+ */
+export function groupByYearRetractedLast<T extends { retraction?: any }>(
+  items: T[],
+  getTime: (item: T) => number
+): YearSection<T>[] {
+  const { active, retracted } = partitionRetracted(items);
+  const sections = groupByYear(active, getTime);
+
+  if (retracted.length > 0) {
+    sections.push({ title: RETRACTED_SECTION_TITLE, data: retracted });
   }
 
   return sections;

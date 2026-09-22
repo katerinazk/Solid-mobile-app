@@ -12,7 +12,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
-import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
 import { retractRecord, saveRecordCompletion } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
@@ -371,7 +371,8 @@ export default function PatientMedicationsScreen() {
       return previousNewestFirst ? diff : -diff;
     });
 
-    return { activeMedications: active, previousMedications: previous };
+    // Οι ανακληθείσες μένουν στην ενεργή αγωγή - δεν έγιναν προηγούμενη - αλλά τελευταίες.
+    return { activeMedications: withRetractedLast(active), previousMedications: previous };
   }, [medications, previousNewestFirst, searchQuery]);
 
   // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.

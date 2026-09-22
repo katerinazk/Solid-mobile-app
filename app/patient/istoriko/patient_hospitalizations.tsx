@@ -10,7 +10,7 @@ import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
-import { groupByYear } from '../../../utils/groupByYear';
+import { groupByYearRetractedLast } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
@@ -164,7 +164,7 @@ export default function PatientHospitalizationsScreen() {
 
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
   const sections = useMemo(
-    () => groupByYear(sortedHospitalizations, (item) => timeOf(item.admissionDate)),
+    () => groupByYearRetractedLast(sortedHospitalizations, (item) => timeOf(item.admissionDate)),
     [sortedHospitalizations],
   );
 

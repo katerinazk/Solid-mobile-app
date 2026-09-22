@@ -8,7 +8,7 @@ import { doctorStyles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
-import { groupByYear } from '../../../utils/groupByYear';
+import { groupByYearRetractedLast } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
@@ -206,7 +206,7 @@ export default function DoctorDiagnoseisScreen() {
 
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
   const sections = useMemo(
-    () => groupByYear(visibleDiagnoses, (item) => timeOf(item.date)),
+    () => groupByYearRetractedLast(visibleDiagnoses, (item) => timeOf(item.date)),
     [visibleDiagnoses],
   );
 

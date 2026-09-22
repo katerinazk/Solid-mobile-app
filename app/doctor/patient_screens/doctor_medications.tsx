@@ -11,7 +11,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, compareNewestFirst, timeOf } from '../../../utils/podRecords';
 import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
-import { parseRetraction, Retraction } from '../../../utils/recordRevision';
+import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
 import { retractRecord } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
@@ -279,7 +279,8 @@ export default function DoctorMedicationsScreen() {
     active.sort((a, b) => Number(b.started === false) - Number(a.started === false));
     previous.sort((a, b) => compareNewestFirst(timeOf(a.startDate), timeOf(b.startDate)));
 
-    return { activeMedications: active, previousMedications: previous };
+    // Οι ανακληθείσες μένουν στην ενεργή αγωγή - δεν έγιναν προηγούμενη - αλλά τελευταίες.
+    return { activeMedications: withRetractedLast(active), previousMedications: previous };
   }, [medications, searchQuery]);
 
   // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.

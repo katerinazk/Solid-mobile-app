@@ -54,6 +54,30 @@ export function parseRetraction(record: any): Retraction | undefined {
 }
 
 /**
+ * Χωρίζει μια λίστα εγγραφών σε ενεργές και ανακληθείσες, χωρίς να αλλάξει τη σειρά μέσα σε
+ * κάθε ομάδα. Οι ανακληθείσες δεν είναι πια ενεργό ιστορικό - παραμένουν ορατές, αλλά σαν
+ * υποσημείωση παρά σαν πρώτη γραμμή.
+ */
+export function partitionRetracted<T extends { retraction?: any }>(items: T[]): { active: T[]; retracted: T[] } {
+  const active: T[] = [];
+  const retracted: T[] = [];
+  for (const item of items) {
+    (item.retraction ? retracted : active).push(item);
+  }
+  return { active, retracted };
+}
+
+/**
+ * Η ίδια λίστα, με τις ανακληθείσες εγγραφές μετακινημένες στο τέλος. Χρησιμοποιείται εκεί
+ * όπου η λίστα είναι επίπεδη (χωρίς ομαδοποίηση ανά έτος) - π.χ. οι εκκρεμείς εξετάσεις, η
+ * ενεργή αγωγή. Όπου υπάρχει ομαδοποίηση ανά έτος, δες groupByYearRetractedLast.
+ */
+export function withRetractedLast<T extends { retraction?: any }>(items: T[]): T[] {
+  const { active, retracted } = partitionRetracted(items);
+  return [...active, ...retracted];
+}
+
+/**
  * Το ιστορικό αλλαγών, όπως αξίζει να διαβαστεί.
  *
  * Εμφανίζονται μόνο οι εκδόσεις που γράφτηκαν από πραγματική επεξεργασία - όσες φέρουν τη
