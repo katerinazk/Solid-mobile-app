@@ -10,6 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { fetchPatientByAmka } from '../../services/patients';
 import { showMessage } from '../../utils/appMessage';
 import { SelectField } from '../../components/SelectField';
+import { AuthLoadingScreen } from '../../components/AuthLoadingScreen';
 import {
   SOLID_PROVIDER_OPTIONS,
   DEFAULT_SOLID_PROVIDER_URL,
@@ -22,6 +23,13 @@ export default function PatientLoginScreen() {
   const [patientAmka, setPatientAmka] = useState('');
   const [solidProvider, setSolidProvider] = useState(DEFAULT_SOLID_PROVIDER_URL);
   const [checking, setChecking] = useState(false);
+
+  // Από τη στιγμή που ανοίγει ο browser για τη σύνδεση στο Pod μέχρι να μάθουμε αν πέτυχε,
+  // η οθόνη δεν δείχνει ξανά τη φόρμα - θα έδειχνε "έτοιμη για είσοδο" ενώ στο παρασκήνιο
+  // τρέχει ακόμα ο έλεγχος. Το "loading" μένει αναμμένο σε όλο αυτό το διάστημα.
+  if (loading) {
+    return <AuthLoadingScreen />;
+  }
 
   const handleLogin = async () => {
     if (!patientAmka.trim() || !solidProvider.trim()) {
@@ -93,9 +101,9 @@ export default function PatientLoginScreen() {
         <TouchableOpacity
           style={styles.solidLoginButton}
           onPress={handleLogin}
-          disabled={loading || checking}
+          disabled={checking}
         >
-          {(loading || checking) ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Είσοδος</Text>}
+          {checking ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.solidLoginButtonText}>Είσοδος</Text>}
         </TouchableOpacity>
 
         <TouchableOpacity

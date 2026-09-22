@@ -227,80 +227,108 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
     const getRealAccessToken = async () => {
-      // Επεξεργαζόμαστε μόνο το response που περιμένουμε (όχι stale από προηγούμενο login)
-      if (response?.type === 'success' && response.params.code && expectingResponse.current) {
+      // Αγνοούμε ό,τι response δεν περιμένουμε (π.χ. stale από προηγούμενο login).
+      if (!response || !expectingResponse.current) return;
+
+      // Ο χρήστης δεν ολοκλήρωσε τη σύνδεση: έκλεισε τον browser, ακύρωσε τη συγκατάθεση, ή ο
+      // πάροχος απάντησε με σφάλμα. Η οθόνη φόρτωσης σβήνει και ξαναδείχνει τη φόρμα - χωρίς
+      // μήνυμα στην ακύρωση, που δεν είναι λάθος του χρήστη, μόνο στο πραγματικό σφάλμα.
+      if (response.type !== 'success' || !response.params?.code) {
         expectingResponse.current = false;
-        const authCode = response.params.code;
-        console.log("1. Πήραμε το Εισιτήριο (Auth Code):", authCode);
+        setLoading(false);
+        if (response.type === 'error') {
+          showMessage('Η σύνδεση με το Pod απέτυχε ή απορρίφθηκε. Δοκιμάστε ξανά.');
+        }
+        return;
+      }
 
-        try {
-          const tokenEndpoint = discoveryDocument.tokenEndpoint;
-          const dpopForToken = await createDpopToken('POST', tokenEndpoint);
+      expectingResponse.current = false;
+      const authCode = response.params.code;
+      console.log("1. Πήραμε το Εισιτήριο (Auth Code):", authCode);
 
-          const tokenResponse = await fetch(tokenEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'DPoP': dpopForToken,
-            },
-            body: new URLSearchParams({
-              grant_type: 'authorization_code',
-              client_id: storedClientId.current,
-              code: authCode,
-              redirect_uri: redirectUri,
-              code_verifier: request?.codeVerifier || '',
-            }).toString(),
-          });
+      // Από εδώ και κάτω, κάθε δρόμος καταλήγει είτε σε επιτυχή σύνδεση είτε σε setLoading(false)
+      // - η οθόνη φόρτωσης δεν πρέπει να μείνει ποτέ κολλημένη.
+      try {
+        const tokenEndpoint = discoveryDocument.tokenEndpoint;
+        const dpopForToken = await createDpopToken('POST', tokenEndpoint);
 
-          const tokenData = await tokenResponse.json();
-          console.log("Token Response:", JSON.stringify(tokenData));
+        const tokenResponse = await fetch(tokenEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'DPoP': dpopForToken,
+          },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            client_id: storedClientId.current,
+            code: authCode,
+            redirect_uri: redirectUri,
+            code_verifier: request?.codeVerifier || '',
+          }).toString(),
+        });
 
-          if (tokenData.access_token) {
-            setAccessToken(tokenData.access_token);
-            if (tokenData.id_token) setIdToken(tokenData.id_token);
+        const tokenData = await tokenResponse.json();
+        console.log("Token Response:", JSON.stringify(tokenData));
 
-            const tokenParts = tokenData.access_token.split('.');
-            const tokenPayload = JSON.parse(atob(tokenParts[1]));
-            const webId = tokenPayload.webid || tokenPayload.sub || '';
-            console.log("🔑 WebID από token:", webId);
+        if (tokenData.access_token) {
+          setAccessToken(tokenData.access_token);
+          if (tokenData.id_token) setIdToken(tokenData.id_token);
 
-            // Ο πάροχος απάντησε κανονικά, αλλά το Pod του έχει άλλη δομή από αυτή που ξέρει
-            // η εφαρμογή. Χωρίς αυτόν τον έλεγχο η σύνδεση θα πετύχαινε και το ιστορικό θα
-            // φαινόταν απλώς άδειο - το χειρότερο είδος σφάλματος σε ιατρικό φάκελο.
-            if (!isSupportedWebId(webId)) {
-              showMessage(
-                'Ο λογαριασμός αυτού του παρόχου δεν έχει τη δομή Pod που υποστηρίζει η εφαρμογή. ' +
-                'Δοκιμάστε κάποιον από τους υπόλοιπους παρόχους της λίστας.'
-              );
-              return;
-            }
+          const tokenParts = tokenData.access_token.split('.');
+          const tokenPayload = JSON.parse(atob(tokenParts[1]));
+          const webId = tokenPayload.webid || tokenPayload.sub || '';
+          console.log("🔑 WebID από token:", webId);
 
-            if (role === 'patient') {
-              const verified = await handlePatientLoginVerification(webId);
-              if (verified) {
-                setIsLoggedIn(true);
-                router.replace(ROUTES.PATIENT_HOME);
-
-                // Κατεβάζουμε όλο το ιστορικό στο παρασκήνιο, ώστε οι κατηγορίες να
-                // ανοίγουν ακαριαία. Δεν το περιμένουμε: αν αποτύχει, οι οθόνες
-                // ρωτούν το Pod κανονικά όπως πριν.
-                prefetchAllCategories(webId, tokenData.access_token).catch(() => {});
-              }
-            } else if (role === 'doctor') {
-              const verified = await handleDoctorLoginVerification(webId);
-              if (verified) {
-                setIsLoggedIn(true);
-                router.replace(ROUTES.DOCTOR_HOME);
-              }
-            }
-          } else {
-            showMessage("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
+          // Ο πάροχος απάντησε κανονικά, αλλά το Pod του έχει άλλη δομή από αυτή που ξέρει
+          // η εφαρμογή. Χωρίς αυτόν τον έλεγχο η σύνδεση θα πετύχαινε και το ιστορικό θα
+          // φαινόταν απλώς άδειο - το χειρότερο είδος σφάλματος σε ιατρικό φάκελο.
+          if (!isSupportedWebId(webId)) {
+            showMessage(
+              'Ο λογαριασμός αυτού του παρόχου δεν έχει τη δομή Pod που υποστηρίζει η εφαρμογή. ' +
+              'Δοκιμάστε κάποιον από τους υπόλοιπους παρόχους της λίστας.'
+            );
+            setLoading(false);
+            return;
           }
 
-        } catch (error) {
-          console.error("Σφάλμα κατά την ανταλλαγή του token:", error);
-          showMessage("Αποτυχία λήψης Access Token!");
+          if (role === 'patient') {
+            const verified = await handlePatientLoginVerification(webId);
+            if (verified) {
+              setIsLoggedIn(true);
+              setLoading(false);
+              router.replace(ROUTES.PATIENT_HOME);
+
+              // Κατεβάζουμε όλο το ιστορικό στο παρασκήνιο, ώστε οι κατηγορίες να
+              // ανοίγουν ακαριαία. Δεν το περιμένουμε: αν αποτύχει, οι οθόνες
+              // ρωτούν το Pod κανονικά όπως πριν.
+              prefetchAllCategories(webId, tokenData.access_token).catch(() => {});
+            } else {
+              // Ο έλεγχος απέτυχε - handlePatientLoginVerification έδειξε ήδη το γιατί.
+              setLoading(false);
+            }
+          } else if (role === 'doctor') {
+            const verified = await handleDoctorLoginVerification(webId);
+            if (verified) {
+              setIsLoggedIn(true);
+              setLoading(false);
+              router.replace(ROUTES.DOCTOR_HOME);
+            } else {
+              setLoading(false);
+            }
+          } else {
+            // Δεν θα έπρεπε ποτέ να συμβεί - ο ρόλος ορίζεται πριν καν ξεκινήσει η σύνδεση.
+            // Ασφαλιστική δικλείδα, ώστε η οθόνη να μη μείνει κολλημένη σε "Σύνδεση με το Pod".
+            setLoading(false);
+          }
+        } else {
+          showMessage("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
+          setLoading(false);
         }
+
+      } catch (error) {
+        console.error("Σφάλμα κατά την ανταλλαγή του token:", error);
+        showMessage("Αποτυχία λήψης Access Token!");
+        setLoading(false);
       }
     };
 
@@ -369,6 +397,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }).catch(() => {
         isBrowserOpen.current = false;
         setDynamicClientId(null);
+        // Δεν άνοιξε καν ο browser - δεν θα έρθει ποτέ response για να σβήσει το "loading".
+        // Χωρίς αυτό η οθόνη θα έμενε κολλημένη σε "Σύνδεση με το Pod" για πάντα.
+        expectingResponse.current = false;
+        setLoading(false);
+        showMessage('Δεν ήταν δυνατό το άνοιγμα της σελίδας σύνδεσης. Δοκιμάστε ξανά.');
       });
     }
   }, [dynamicClientId, request]);
@@ -445,14 +478,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("Πήραμε δυναμικό Client ID:", clientData.client_id);
         storedClientId.current = clientData.client_id;
         setDynamicClientId(clientData.client_id);
+        // Το "loading" ΔΕΝ σβήνει εδώ: μένει αναμμένο όσο ανοίγει ο browser, περιμένουμε την
+        // επιστροφή και ελέγχουμε τον χρήστη. Σβήνει στην απάντηση (βλ. το useEffect του
+        // response) - είτε πετύχει η σύνδεση είτε αποτύχει σε οποιοδήποτε βήμα στο ενδιάμεσο.
       } else {
         showMessage("Ο Provider δεν υποστηρίζει Dynamic Registration.");
+        setLoading(false);
       }
     } catch (error: any) {
       console.error("DCR Error:", error);
       showMessage(error.message || "Αποτυχία επικοινωνίας με τον Provider.");
-    } finally {
       setLoading(false);
+    } finally {
       isDcrRunning.current = false;
     }
   };
