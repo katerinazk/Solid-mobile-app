@@ -76,7 +76,7 @@ export default function PatientHospitalizationsScreen() {
           await new Promise((resolve) => setTimeout(resolve, 800));
           files = await listFolderFiles(folderUrl, accessToken);
         } catch {
-          // Ο φάκελος δεν υπάρχει ακόμα - δεν έχουν καταχωρηθεί νοσηλίες.
+          // Ο φάκελος δεν υπάρχει ακόμα - δεν έχουν καταχωρηθεί νοσηλείες.
           files = [];
         }
       }
@@ -176,7 +176,7 @@ export default function PatientHospitalizationsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={doctorStyles.historyBackButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={doctorStyles.historyTitle}>Νοσηλίες</Text>
+        <Text style={doctorStyles.historyTitle}>Νοσηλείες</Text>
       </View>
 
       <RecordSearchBar
@@ -190,7 +190,7 @@ export default function PatientHospitalizationsScreen() {
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : sortedHospitalizations.length === 0 ? (
         <Text style={[styles.emptyText, { marginTop: 30 }]}>
-          {searching ? 'Δεν βρέθηκε νοσηλεία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν νοσηλίες ακόμα.'}
+          {searching ? 'Δεν βρέθηκε νοσηλεία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν νοσηλείες ακόμα.'}
         </Text>
       ) : (
         <SectionList

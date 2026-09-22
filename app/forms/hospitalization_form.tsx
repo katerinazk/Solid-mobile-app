@@ -45,7 +45,7 @@ export default function HospitalizationFormScreen() {
     amka: string;
     webId: string;
     accessType: string;
-    // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας νοσηλίας.
+    // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας νοσηλείας.
     editUrl?: string;
     editCode?: string;
     editTitle?: string;
@@ -210,7 +210,7 @@ export default function HospitalizationFormScreen() {
 
   return (
     <RecordFormScreen
-      title={isEditing ? 'Επεξεργασία' : 'Νέα Νοσηλία'}
+      title={isEditing ? 'Επεξεργασία' : 'Νέα Νοσηλεία'}
       amka={params.amka}
       saving={saving}
       onSave={handleSave}

@@ -22,7 +22,7 @@ interface Props {
 }
 
 // Επιλογή ημερομηνίας από ημερολόγιο αντί για πληκτρολόγηση. Το ιστορικό πιάνει δεκαετίες
-// (παιδικά εμβόλια, παλιές νοσηλίες), οπότε το ημερολόγιο ανοίγει στην τελευταία επιλογή του
+// (παιδικά εμβόλια, παλιές νοσηλείες), οπότε το ημερολόγιο ανοίγει στην τελευταία επιλογή του
 // γιατρού και όχι πάντα στο σήμερα - αλλιώς θα χρειαζόταν δεκάδες κυλήσεις κάθε φορά.
 export function DateField({ label, labelStyle, inputStyle, value, onChange, minimumDate, maximumDate }: Props) {
   const [isPickerVisible, setIsPickerVisible] = useState(false);

@@ -183,7 +183,7 @@ export default function DoctorVaccinationsScreen() {
     if (!(await checkAccess())) return;
 
     const reason = await askText({
-      message: 'Ανάκληση: ο εμβολιασμός δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      message: 'Ανάκληση: ο εμβολιασμός δεν διαγράφεται, σημαίνεται ως αποσυρμένος. Για ποιον λόγο;',
       placeholder: 'π.χ. καταχωρήθηκε σε λάθος ασθενή',
       confirmText: 'Ανάκληση',
     });

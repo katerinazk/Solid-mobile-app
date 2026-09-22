@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import { COLORS } from '../../constants/colors';
+import { doctorStyles } from '../../constants/doctorStyles';
 import { loginStyles } from '../../constants/loginStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
-import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
+import { saveFileContent, getCategoryFolderUrl, newRecordFileName, uploadAttachment } from '../../services/solidPod';
 import { todayIsoDate } from '../../utils/podRecords';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { saveRecordEdit } from '../../services/recordRevisions';
@@ -55,6 +59,10 @@ export default function ExamFormScreen() {
   const [links, setLinks] = useState<LinkedRecord[]>(parseLinkedRecords(params.editLinks));
   const [saving, setSaving] = useState(false);
 
+  // Το αρχείο αποτελέσματος διαλέγεται εδώ, αλλά ανεβαίνει μόνο με την αποθήκευση: τα
+  // συνημμένα ζουν δίπλα στην εγγραφή, και η εγγραφή δεν έχει διεύθυνση πριν γραφτεί.
+  const [pendingResult, setPendingResult] = useState<{ name: string; uri: string; mimeType: string } | null>(null);
+
   // Αν ο ασθενής έσβησε στο μεταξύ κάποια από τις συνδεδεμένες εγγραφές, φεύγει και η
   // σύνδεση: δεν θέλουμε ο γιατρός να βλέπει, και να ξαναποθηκεύει, σύνδεσμο προς το κενό.
   useEffect(() => {
@@ -69,6 +77,22 @@ export default function ExamFormScreen() {
     return () => { canceled = true; };
     // Μία φορά, με τους συνδέσμους που ήρθαν από την καρτέλα.
   }, []);
+
+  const handlePickResult = async () => {
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (picked.canceled || !picked.assets || picked.assets.length === 0) return;
+
+      const asset = picked.assets[0];
+      setPendingResult({ name: asset.name, uri: asset.uri, mimeType: asset.mimeType || 'application/octet-stream' });
+    } catch (error: any) {
+      showMessage(error.message || 'Αποτυχία επιλογής αρχείου.');
+    }
+  };
+
+  // Ό,τι δείχνει η φόρμα ως αρχείο αποτελέσματος: είτε αυτό που μόλις διάλεξε ο ασθενής,
+  // είτε εκείνο που είχε ανέβει ήδη και ξαναβλέπει στην επεξεργασία.
+  const resultFileName = pendingResult?.name || params.editResultFile || '';
 
   const handleSave = async () => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
@@ -104,6 +128,19 @@ export default function ExamFormScreen() {
         ? (statusLabel === EXAM_STATUS_COMPLETED ? 'completed' : 'pending')
         : ((params.editStatus as 'pending' | 'completed') || 'pending');
 
+      const fileUrl = params.editUrl || newRecordFileName(folderUrl);
+
+      // Το αποτέλεσμα ανεβαίνει ΠΡΙΝ γραφτεί η εγγραφή, γιατί χρειάζεται το τελικό της URL -
+      // και γιατί έτσι, αν η μεταφόρτωση αποτύχει, δεν μένει ολοκληρωμένη εξέταση που δείχνει
+      // σε αρχείο που δεν ανέβηκε ποτέ. Κρατάμε το όνομα που επέστρεψε το ανέβασμα, όχι αυτό
+      // που διάλεξε ο χρήστης: μόνο με αυτό ξαναβρίσκεται το αρχείο.
+      let resultFile = status === 'completed' ? params.editResultFile : undefined;
+      if (status === 'completed' && pendingResult) {
+        resultFile = await uploadAttachment(
+          fileUrl, pendingResult.name, pendingResult.uri, pendingResult.mimeType, accessToken
+        );
+      }
+
       const record = {
         title: selectedCode.name,
         code: selectedCode.code,
@@ -115,13 +152,12 @@ export default function ExamFormScreen() {
         // Η ημερομηνία και το αρχείο αποτελέσματος κρατιούνται μόνο όσο η εξέταση είναι
         // ολοκληρωμένη - αλλιώς θα έμενε ημερομηνία αποτελέσματος σε εκκρεμή εξέταση.
         completedDate: status === 'completed' ? (params.editCompletedDate || todayIsoDate()) : undefined,
-        resultFile: status === 'completed' ? params.editResultFile : undefined,
+        resultFile,
         // Στην επεξεργασία κρατάμε την αρχική ημερομηνία καταχώρησης, δεν τη μηδενίζουμε.
         createdDate: params.editCreatedDate || todayIsoDate(),
         links: links.length > 0 ? links : undefined,
       };
 
-      const fileUrl = params.editUrl || newRecordFileName(folderUrl);
       // Η διόρθωση δεν γράφει απλώς από πάνω: κρατά την προηγούμενη μορφή μέσα στο ίδιο
       // αρχείο, μαζί με το ποιος τη διόρθωσε και πότε. Έτσι η επεξεργασία παύει να είναι
       // εξίσου καταστροφική με τη διαγραφή.
@@ -172,6 +208,44 @@ export default function ExamFormScreen() {
           onChange={setStatusLabel}
           options={EXAM_STATUS_OPTIONS}
         />
+      )}
+
+      {/* Ο ασθενής που δηλώνει εξέταση ήδη ολοκληρωμένη, το αποτέλεσμα το έχει συνήθως στο
+          χέρι εκείνη τη στιγμή. Χωρίς αυτό θα έπρεπε να αποθηκεύσει, να βρει την εξέταση
+          στη λίστα και να ξαναμπεί για να το ανεβάσει. Μένει προαιρετικό: μπορεί να την
+          καταχωρήσει τώρα και να φέρει το αρχείο αργότερα. */}
+      {role === 'patient' && statusLabel === EXAM_STATUS_COMPLETED && (
+        <View style={{ marginBottom: 20 }}>
+          <TouchableOpacity
+            style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0 }]}
+            onPress={handlePickResult}
+          >
+            <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
+            <Text style={doctorStyles.diagnosisSortButtonText}>
+              {resultFileName ? 'Αλλαγή Αρχείου' : 'Μεταφόρτωση Αποτελεσμάτων'}
+            </Text>
+          </TouchableOpacity>
+
+          {!!resultFileName && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, marginTop: 4 }}>
+              <Ionicons name="document-outline" size={18} color={COLORS.text} style={{ marginRight: 8 }} />
+              <Text style={{ flex: 1 }} numberOfLines={1}>{resultFileName}</Text>
+
+              {/* Αφαιρείται μόνο ό,τι δεν έχει ανέβει ακόμα. Ένα αρχείο που βρίσκεται ήδη στο
+                  Pod δεν το σβήνει η εφαρμογή - αντικαθίσταται, αν διαλεγεί νέο. */}
+              {!!pendingResult && (
+                <TouchableOpacity
+                  onPress={() => setPendingResult(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Αφαίρεση αρχείου"
+                >
+                  <Ionicons name="close-circle-outline" size={20} color={COLORS.text} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
       )}
 
       <RecordLinkPicker

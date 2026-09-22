@@ -90,7 +90,7 @@ export default function PatientAccountScreen() {
   };
 
   // Το ΑΜΚΑ δεν έχει "form": είναι η ταυτότητα του ασθενή μέσα στο σύστημα και σε αυτό
-  // κρέμονται οι εγγραφές του Pod και οι πρόσβασεις των γιατρών.
+  // κρέμονται οι εγγραφές του Pod και οι προσβάσεις των γιατρών.
   const fields: AccountField[] = [
     { label: 'Όνομα', value: patient?.first_name || '', form: { value: formFirstName, onChange: setFormFirstName } },
     { label: 'Επίθετο', value: patient?.last_name || '', form: { value: formLastName, onChange: setFormLastName } },

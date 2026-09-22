@@ -49,10 +49,51 @@ function throwIfAccessDenied(status: number): void {
 const MEDPOD_FOLDER_NAME = 'MedPod';
 
 // Οι 6 κατηγορίες ιατρικού ιστορικού - κάθε μία έχει δικό της φάκελο μέσα στο MedPod/.
+//
+// Η τιμή εδώ είναι το ΚΛΕΙΔΙ της κατηγορίας, όχι το όνομα του φακέλου. Το "Νοσηλίες" είναι
+// ανορθόγραφο και μένει έτσι επίτηδες, γιατί δεν ζει μόνο στον κώδικα: είναι η τιμή
+// category στον κατάλογο ICD-10 της βάσης, και είναι γραμμένο μέσα σε κάθε σύνδεση
+// εγγραφών (links) που έχει ήδη αποθηκευτεί σε αρχείο του Pod. Αλλάζοντάς το εδώ, θα
+// έσπαγε η αναζήτηση κωδικών και οι υπάρχουσες συνδέσεις.
+//
+// Ο φάκελος όμως - αυτό που βλέπει όποιος ανοίξει το Pod - γράφεται σωστά: δες το
+// CATEGORY_FOLDER_NAMES παρακάτω.
 export const HISTORY_CATEGORIES = ['Διαγνώσεις', 'Εξετάσεις', 'Φάρμακα', 'Αλλεργίες', 'Νοσηλίες', 'Εμβολιασμοί'];
 
+// Όπου το κλειδί της κατηγορίας διαφέρει από το όνομα του φακέλου στο Pod.
+//
+// Ο φάκελος είναι ό,τι διαβάζει ένας άνθρωπος που ανοίγει το Pod του ασθενή - και ό,τι θα
+// μείνει εκεί για όσο υπάρχει ο φάκελος, ανεξάρτητα από την εφαρμογή. Αξίζει να είναι
+// γραμμένος σωστά, ακόμα κι αν το εσωτερικό κλειδί δεν μπορεί να αλλάξει.
+const CATEGORY_FOLDER_NAMES: Record<string, string> = {
+  'Νοσηλίες': 'Νοσηλείες',
+};
+
+// Ο παλιός, ανορθόγραφος φάκελος εξακολουθεί να διαβάζεται: οι νοσηλείες που είχαν
+// καταχωρηθεί πριν τη διόρθωση ζουν εκεί. Δεν τις μεταφέρουμε - μια μετακόμιση θα άλλαζε
+// τη διεύθυνσή τους και θα έσπαγε κάθε σύνδεση που δείχνει σε αυτές. Νέες εγγραφές
+// γράφονται πάντα στον σωστογραμμένο φάκελο, και οι δύο λίστες ενώνονται στην ανάγνωση.
+const LEGACY_FOLDER_NAMES: Record<string, string> = {
+  'Νοσηλείες': 'Νοσηλίες',
+};
+
+// Ο παλιός φάκελος που αντιστοιχεί σε αυτόν - ή null, που είναι και η συνηθισμένη απάντηση.
+function legacyFolderUrl(folderUrl: string): string | null {
+  const match = folderUrl.match(/([^/]+)\/$/);
+  if (!match) return null;
+
+  let currentName: string;
+  try { currentName = decodeURIComponent(match[1]); } catch { return null; }
+
+  const legacyName = LEGACY_FOLDER_NAMES[currentName];
+  if (!legacyName) return null;
+
+  return folderUrl.replace(/[^/]+\/$/, `${encodeURIComponent(legacyName)}/`);
+}
+
 export function getCategoryFolderUrl(webId: string, category: string): string {
-  return `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/${encodeURIComponent(category)}/`;
+  const folderName = CATEGORY_FOLDER_NAMES[category] || category;
+  return `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/${encodeURIComponent(folderName)}/`;
 }
 
 /**
@@ -151,6 +192,15 @@ export async function listFolderFiles(rawFolderUrl: string, accessToken: string)
     }
   }
 
+  // Αν η κατηγορία άλλαξε όνομα φακέλου, ό,τι γράφτηκε πριν την αλλαγή είναι ακόμα εκεί.
+  // Σιωπηλά: ο παλιός φάκελος συνήθως δεν υπάρχει καν, και αυτό δεν είναι σφάλμα.
+  const legacyUrl = legacyFolderUrl(folderUrl);
+  if (legacyUrl) {
+    try {
+      fileUrls.push(...await listFolderFiles(legacyUrl, accessToken));
+    } catch {}
+  }
+
   return fileUrls;
 }
 
@@ -232,9 +282,9 @@ export async function fetchFileContentFresh(rawUrl: string, accessToken: string)
 // σειρά των ονομάτων να συμπίπτει με τη σειρά που βλέπει ο χρήστης στην οθόνη. Έτσι η φόρτωση
 // μπορεί να κατεβάσει πρώτα ό,τι θα εμφανιστεί πρώτο, χωρίς να ανοίξει κανένα αρχείο.
 //
-// Η συμπλήρωση με μηδενικά είναι απαραίτητη: μια νοσηλία του 1995 δίνει δωδεκαψήφια χιλιοστά
+// Η συμπλήρωση με μηδενικά είναι απαραίτητη: μια νοσηλεία του 1995 δίνει δωδεκαψήφια χιλιοστά
 // και δεν θα την έβρισκε ο δεκατριαψήφιος αναγνώστης. Ημερομηνίες πριν το 1970 δίνουν αρνητικό
-// αριθμό και κρατούν το πρόσημό τους: αν τις μηδενίζαμε, μια νοσηλία του 1965 θα διαβαζόταν ως
+// αριθμό και κρατούν το πρόσημό τους: αν τις μηδενίζαμε, μια νοσηλεία του 1965 θα διαβαζόταν ως
 // 1970 και θα συγχεόταν με το μηδέν που σημαίνει "άγνωστη σήμανση".
 function recordStamp(clinicalDate?: string): string {
   const parsed = clinicalDate ? new Date(clinicalDate).getTime() : NaN;
@@ -279,7 +329,7 @@ export async function saveFileContent(rawUrl: string, accessToken: string, conte
   }
 }
 
-// Ο φάκελος συνημμένων αρχείων μιας συγκεκριμένης εγγραφής (π.χ. μιας νοσηλίας) -
+// Ο φάκελος συνημμένων αρχείων μιας συγκεκριμένης εγγραφής (π.χ. μιας νοσηλείας) -
 // παράγεται από το URL του ίδιου του .json αρχείου της εγγραφής, ώστε τα αρχεία
 // να συνδέονται αυτόματα μαζί της χωρίς επιπλέον μεταδεδομένα.
 export function getAttachmentsFolderUrl(recordUrl: string): string {

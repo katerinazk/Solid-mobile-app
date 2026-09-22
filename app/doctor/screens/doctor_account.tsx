@@ -85,7 +85,7 @@ export default function DoctorAccountScreen() {
     }
   };
 
-  // Το ΑΜΚΑ δεν έχει "form": σε αυτό κρέμονται οι πρόσβασεις που του έδωσαν οι ασθενείς και
+  // Το ΑΜΚΑ δεν έχει "form": σε αυτό κρέμονται οι προσβάσεις που του έδωσαν οι ασθενείς και
   // η υπογραφή κάθε εγγραφής που έχει καταχωρήσει.
   const fields: AccountField[] = [
     { label: 'Όνομα', value: doctor?.first_name || '', form: { value: formFirstName, onChange: setFormFirstName } },

@@ -71,7 +71,7 @@ export default function DoctorHistoryScreen() {
             params: { amka, firstName, lastName, webId, accessType: liveAccessType },
           })}
         >
-          <Text style={styles.historyCategoryButtonText}>Νοσηλίες</Text>
+          <Text style={styles.historyCategoryButtonText}>Νοσηλείες</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.historyCategoryButton}

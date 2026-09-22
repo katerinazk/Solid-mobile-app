@@ -47,7 +47,7 @@ interface Hospitalization {
   // Κωδικός ICD-10 του λόγου νοσηλείας. Λείπει από τις παλιές εγγραφές.
   code?: string;
   parentName?: string;
-  // Οι εγγραφές με τις οποίες ο γιατρός συνέδεσε τη νοσηλία.
+  // Οι εγγραφές με τις οποίες ο γιατρός συνέδεσε τη νοσηλεία.
   links?: LinkedRecord[];
 }
 
@@ -116,7 +116,7 @@ export default function DoctorHospitalizationsScreen() {
               links: readLinks(record),
             } as Hospitalization;
           } catch (error: any) {
-            console.warn('⚠️ Αποτυχία φόρτωσης νοσηλίας', url, error?.message || error);
+            console.warn('⚠️ Αποτυχία φόρτωσης νοσηλείας', url, error?.message || error);
             return null;
           }
         },
@@ -189,7 +189,7 @@ export default function DoctorHospitalizationsScreen() {
     if (!(await checkAccess())) return;
 
     const reason = await askText({
-      message: 'Ανάκληση: η νοσηλία δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
+      message: 'Ανάκληση: η νοσηλεία δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
       placeholder: 'π.χ. καταχωρήθηκε σε λάθος ασθενή',
       confirmText: 'Ανάκληση',
     });
@@ -240,7 +240,7 @@ export default function DoctorHospitalizationsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={doctorStyles.historyBackButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={doctorStyles.historyTitle}>Νοσηλίες</Text>
+        <Text style={doctorStyles.historyTitle}>Νοσηλείες</Text>
       </View>
 
       <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
@@ -248,7 +248,7 @@ export default function DoctorHospitalizationsScreen() {
       <View style={{ paddingHorizontal: SPACING.sideMargin }}>
         {!isReadOnly && (
         <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Νοσηλίας</Text>
+          <Text style={styles.addButtonText}>+ Προσθήκη Νοσηλείας</Text>
         </TouchableOpacity>
         )}
       </View>
@@ -264,7 +264,7 @@ export default function DoctorHospitalizationsScreen() {
         <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
       ) : sortedHospitalizations.length === 0 ? (
         <Text style={styles.emptyText}>
-          {searching ? 'Δεν βρέθηκε νοσηλεία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν νοσηλίες.'}
+          {searching ? 'Δεν βρέθηκε νοσηλεία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν νοσηλείες.'}
         </Text>
       ) : (
         <SectionList

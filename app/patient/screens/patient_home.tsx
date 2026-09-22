@@ -27,7 +27,7 @@ const CATEGORIES: { label: string; route: string }[] = [
   { label: 'Φάρμακα', route: ROUTES.PATIENT_MEDICATIONS },
   { label: 'Αλλεργίες', route: ROUTES.PATIENT_ALLERGIES },
   { label: 'Διαγνώσεις', route: ROUTES.PATIENT_DIAGNOSEIS },
-  { label: 'Νοσηλίες', route: ROUTES.PATIENT_HOSPITALIZATIONS },
+  { label: 'Νοσηλείες', route: ROUTES.PATIENT_HOSPITALIZATIONS },
   { label: 'Εμβολιασμοί', route: ROUTES.PATIENT_VACCINATIONS },
 ];
 
