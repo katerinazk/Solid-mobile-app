@@ -237,18 +237,18 @@ export default function RecordDetailScreen() {
             <RetractedNote retraction={parseRetraction(record)} />
           </View>
 
-          {/* Το ιστορικό διορθώσεων: κάθε φορά που κάποιος άλλαξε την εγγραφή, με τη μορφή που
+          {/* Το ιστορικό αλλαγών: κάθε φορά που κάποιος άλλαξε την εγγραφή, με τη μορφή που
               είχε πριν. Χωρίς αυτό η επεξεργασία θα έσβηνε αθόρυβα ό,τι έγραψε ο προηγούμενος. */}
           {parseRevisions(record).length > 0 && (
             <View style={{ marginTop: SPACING.sectionGap }}>
-              <Text style={localStyles.sectionTitle}>Ιστορικό Διορθώσεων</Text>
+              <Text style={localStyles.sectionTitle}>Ιστορικό Αλλαγών</Text>
 
               {parseRevisions(record).map((revision, index) => (
                 <View key={`${revision.at}-${index}`} style={localStyles.attachmentRow}>
                   <Ionicons name="create-outline" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
                   <View style={{ flex: 1 }}>
                     <Text style={doctorStyles.diagnosisCardDetail}>
-                      <Text style={doctorStyles.diagnosisCardLabel}>Διορθώθηκε: </Text>
+                      <Text style={doctorStyles.diagnosisCardLabel}>Τροποποιήθηκε: </Text>
                       {formatDate(revision.at)}{revision.byName ? ` - ${revision.byName}` : ''}
                     </Text>
                     <Text style={doctorStyles.diagnosisCardDetail}>
