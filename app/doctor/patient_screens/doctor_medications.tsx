@@ -88,6 +88,7 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
+      <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
   );
 }
