@@ -26,7 +26,7 @@ import { showMessage } from '../utils/appMessage';
 // αλλάζει ανά κατηγορία, οπότε δεν γίνεται να κολλήσουμε μία λέξη μπροστά.
 const RELATED_TITLES: Record<string, string> = {
   'Διαγνώσεις': 'Σχετικές Διαγνώσεις',
-  'Νοσηλίες': 'Σχετικές Νοσηλείες',
+  'Νοσηλείες': 'Σχετικές Νοσηλείες',
   'Εξετάσεις': 'Σχετικές Εξετάσεις',
   'Αλλεργίες': 'Σχετικές Αλλεργίες',
   'Φάρμακα': 'Σχετικά Φάρμακα',
@@ -161,7 +161,7 @@ export default function RecordDetailScreen() {
         add('Αντίδραση', record.reaction);
         add('Ημ. Καταχώρησης', formatDate(record.createdDate || createdDateFromUrl(params.url)));
         break;
-      case 'Νοσηλίες':
+      case 'Νοσηλείες':
         add('Νοσοκομείο / Κλινική', record.hospitalClinic && `${record.hospitalClinic}${record.hospitalArea ? ` (${record.hospitalArea})` : ''}`);
         add('Ημερομηνία Εισαγωγής', record.admissionDate && formatDate(record.admissionDate));
         add('Ημερομηνία Εξιτηρίου', record.dischargeDate && formatDate(record.dischargeDate));

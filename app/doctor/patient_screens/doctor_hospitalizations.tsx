@@ -30,7 +30,7 @@ import { askText, showMessage } from '../../../utils/appMessage';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
-const CATEGORY = 'Νοσηλίες';
+const CATEGORY = 'Νοσηλείες';
 
 interface Hospitalization {
   url: string;
@@ -99,7 +99,7 @@ export default function DoctorHospitalizationsScreen() {
             const content = await fetchFileContent(url, accessToken);
             const record = JSON.parse(content);
             // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-            if (!isCompleteRecord('Νοσηλίες', record)) return null;
+            if (!isCompleteRecord('Νοσηλείες', record)) return null;
             return {
               url,
               retraction: parseRetraction(record),

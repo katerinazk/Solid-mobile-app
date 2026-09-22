@@ -62,7 +62,7 @@ export default function HospitalizationFormScreen() {
 
   const { accessToken, loggedInDoctorAmka, role, loggedInPatientAmka } = useAuth();
   const { checkAccess } = useDoctorAccessGuard(params.amka, params.accessType);
-  const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Νοσηλίες') : '';
+  const folderUrl = params.webId ? getCategoryFolderUrl(params.webId, 'Νοσηλείες') : '';
 
   const isEditing = !!params.editUrl;
   const existingAttachments = parseAttachments(params.editAttachments);
@@ -217,7 +217,7 @@ export default function HospitalizationFormScreen() {
     >
       <Text style={loginStyles.inputLabel}>Αιτία Εισαγωγής</Text>
       <MedicalCodePicker
-        category="Νοσηλίες"
+        category="Νοσηλείες"
         value={selectedCode}
         onChange={setSelectedCode}
         inputStyle={[loginStyles.loginInput, formStyles.input]}
@@ -276,7 +276,7 @@ export default function HospitalizationFormScreen() {
         <RecordLinkPicker
           webId={params.webId}
           accessToken={accessToken}
-          excludeCategory="Νοσηλίες"
+          excludeCategory="Νοσηλείες"
           value={links}
           onChange={setLinks}
         />

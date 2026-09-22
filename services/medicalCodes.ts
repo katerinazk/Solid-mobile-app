@@ -19,7 +19,7 @@ export interface MedicalCode {
 export type MedicalCodeCategory =
   | 'Διαγνώσεις'
   | 'Αλλεργίες'
-  | 'Νοσηλίες'
+  | 'Νοσηλείες'
   | 'Φάρμακα'
   | 'Εμβολιασμοί'
   | 'Εξετάσεις';

@@ -22,7 +22,7 @@ export interface HistoryRecordSummary {
 // Κάθε κατηγορία ονομάζει αλλιώς την ημερομηνία της.
 const DATE_FIELDS: Record<string, string[]> = {
   'Διαγνώσεις': ['date'],
-  'Νοσηλίες': ['admissionDate'],
+  'Νοσηλείες': ['admissionDate'],
   'Εμβολιασμοί': ['administeredDate'],
   'Φάρμακα': ['startDate'],
   'Εξετάσεις': ['completedDate', 'createdDate'],
@@ -97,7 +97,7 @@ export interface LinkedRecord {
 // Στον ενικό, για να διαβάζεται σωστά η κάρτα: "Σύνδεση με: Διάγνωση - ...".
 export const CATEGORY_SINGULAR: Record<string, string> = {
   'Διαγνώσεις': 'Διάγνωση',
-  'Νοσηλίες': 'Νοσηλεία',
+  'Νοσηλείες': 'Νοσηλεία',
   'Εμβολιασμοί': 'Εμβολιασμός',
   'Φάρμακα': 'Φάρμακο',
   'Εξετάσεις': 'Εξέταση',
@@ -126,7 +126,7 @@ export function readLinks(record: any): LinkedRecord[] {
 
 // Οι κατηγορίες που κρατούν συνδέσμους. Για την αντίστροφη αναζήτηση ("ποιος δείχνει προς
 // αυτή τη διάγνωση;") αρκεί να κοιτάξουμε αυτές.
-const LINKING_CATEGORIES = ['Φάρμακα', 'Εξετάσεις', 'Νοσηλίες'];
+const LINKING_CATEGORIES = ['Φάρμακα', 'Εξετάσεις', 'Νοσηλείες'];
 
 export async function fetchRecordSummary(
   url: string,

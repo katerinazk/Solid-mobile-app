@@ -50,50 +50,13 @@ const MEDPOD_FOLDER_NAME = 'MedPod';
 
 // Οι 6 κατηγορίες ιατρικού ιστορικού - κάθε μία έχει δικό της φάκελο μέσα στο MedPod/.
 //
-// Η τιμή εδώ είναι το ΚΛΕΙΔΙ της κατηγορίας, όχι το όνομα του φακέλου. Το "Νοσηλίες" είναι
-// ανορθόγραφο και μένει έτσι επίτηδες, γιατί δεν ζει μόνο στον κώδικα: είναι η τιμή
-// category στον κατάλογο ICD-10 της βάσης, και είναι γραμμένο μέσα σε κάθε σύνδεση
-// εγγραφών (links) που έχει ήδη αποθηκευτεί σε αρχείο του Pod. Αλλάζοντάς το εδώ, θα
-// έσπαγε η αναζήτηση κωδικών και οι υπάρχουσες συνδέσεις.
-//
-// Ο φάκελος όμως - αυτό που βλέπει όποιος ανοίξει το Pod - γράφεται σωστά: δες το
-// CATEGORY_FOLDER_NAMES παρακάτω.
-export const HISTORY_CATEGORIES = ['Διαγνώσεις', 'Εξετάσεις', 'Φάρμακα', 'Αλλεργίες', 'Νοσηλίες', 'Εμβολιασμοί'];
+// Η ίδια λέξη είναι και το κλειδί της κατηγορίας και το όνομα του φακέλου στο Pod: ό,τι
+// βλέπει όποιος ανοίξει τον φάκελο του ασθενή είναι ακριβώς ό,τι γράφει ο κώδικας.
+export const HISTORY_CATEGORIES = ['Διαγνώσεις', 'Εξετάσεις', 'Φάρμακα', 'Αλλεργίες', 'Νοσηλείες', 'Εμβολιασμοί'];
 
-// Όπου το κλειδί της κατηγορίας διαφέρει από το όνομα του φακέλου στο Pod.
-//
-// Ο φάκελος είναι ό,τι διαβάζει ένας άνθρωπος που ανοίγει το Pod του ασθενή - και ό,τι θα
-// μείνει εκεί για όσο υπάρχει ο φάκελος, ανεξάρτητα από την εφαρμογή. Αξίζει να είναι
-// γραμμένος σωστά, ακόμα κι αν το εσωτερικό κλειδί δεν μπορεί να αλλάξει.
-const CATEGORY_FOLDER_NAMES: Record<string, string> = {
-  'Νοσηλίες': 'Νοσηλείες',
-};
-
-// Ο παλιός, ανορθόγραφος φάκελος εξακολουθεί να διαβάζεται: οι νοσηλείες που είχαν
-// καταχωρηθεί πριν τη διόρθωση ζουν εκεί. Δεν τις μεταφέρουμε - μια μετακόμιση θα άλλαζε
-// τη διεύθυνσή τους και θα έσπαγε κάθε σύνδεση που δείχνει σε αυτές. Νέες εγγραφές
-// γράφονται πάντα στον σωστογραμμένο φάκελο, και οι δύο λίστες ενώνονται στην ανάγνωση.
-const LEGACY_FOLDER_NAMES: Record<string, string> = {
-  'Νοσηλείες': 'Νοσηλίες',
-};
-
-// Ο παλιός φάκελος που αντιστοιχεί σε αυτόν - ή null, που είναι και η συνηθισμένη απάντηση.
-function legacyFolderUrl(folderUrl: string): string | null {
-  const match = folderUrl.match(/([^/]+)\/$/);
-  if (!match) return null;
-
-  let currentName: string;
-  try { currentName = decodeURIComponent(match[1]); } catch { return null; }
-
-  const legacyName = LEGACY_FOLDER_NAMES[currentName];
-  if (!legacyName) return null;
-
-  return folderUrl.replace(/[^/]+\/$/, `${encodeURIComponent(legacyName)}/`);
-}
 
 export function getCategoryFolderUrl(webId: string, category: string): string {
-  const folderName = CATEGORY_FOLDER_NAMES[category] || category;
-  return `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/${encodeURIComponent(folderName)}/`;
+  return `${getPublicFolderUrl(webId)}${MEDPOD_FOLDER_NAME}/${encodeURIComponent(category)}/`;
 }
 
 /**
@@ -190,15 +153,6 @@ export async function listFolderFiles(rawFolderUrl: string, accessToken: string)
         fileUrls.push(`${folderUrl}${uri}`);
       }
     }
-  }
-
-  // Αν η κατηγορία άλλαξε όνομα φακέλου, ό,τι γράφτηκε πριν την αλλαγή είναι ακόμα εκεί.
-  // Σιωπηλά: ο παλιός φάκελος συνήθως δεν υπάρχει καν, και αυτό δεν είναι σφάλμα.
-  const legacyUrl = legacyFolderUrl(folderUrl);
-  if (legacyUrl) {
-    try {
-      fileUrls.push(...await listFolderFiles(legacyUrl, accessToken));
-    } catch {}
   }
 
   return fileUrls;

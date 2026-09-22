@@ -4,7 +4,7 @@
 const REQUIRED_FIELDS: Record<string, string[]> = {
   'Διαγνώσεις': ['code', 'title', 'date', 'category', 'doctorAmka'],
   'Αλλεργίες': ['code', 'title', 'reaction', 'doctorAmka'],
-  'Νοσηλίες': ['code', 'title', 'hospitalClinic', 'admissionDate', 'dischargeDate', 'doctorAmka'],
+  'Νοσηλείες': ['code', 'title', 'hospitalClinic', 'admissionDate', 'dischargeDate', 'doctorAmka'],
   // Χωρίς startDate: συμπληρώνεται μόνο όταν ο ασθενής πατήσει "Έναρξη". Χωρίς route:
   // το πεδίο μπήκε αργότερα από τους κωδικούς.
   'Φάρμακα': ['code', 'title', 'dosage', 'durationDays', 'doctorAmka'],
