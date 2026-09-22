@@ -63,7 +63,14 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, _setLoading] = useState(false);
+  // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί): ξαναμπαίνει γιατί το προηγούμενο τεστ έδειξε καθαρή
+  // ροή, αλλά ένα αυτόματο (χωρίς πληκτρολόγηση) login μέσα σε ελάχιστο χρόνο φαίνεται να δίνει
+  // διαφορετική εικόνα - χρειάζονται νέα logs για να φανεί η ακριβής σειρά.
+  const setLoading = (value: boolean) => {
+    console.log(`[AUTH loading] -> ${value} @ ${Date.now()}`);
+    _setLoading(value);
+  };
   const [loggedInPatientAmka, setLoggedInPatientAmka] = useState('');
   const [loggedInDoctorAmka, setLoggedInDoctorAmka] = useState('');
   const [activePatientFolderUrl, setActivePatientFolderUrl] = useState('');
@@ -76,7 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState('');
   const [idToken, setIdToken] = useState('');
 
-  const appRedirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp' });
+  // Το "auth-redirect" ΔΕΝ είναι διακοσμητικό: χωρίς μονοπάτι, η επιστροφή γίνεται στη ρίζα
+  // (solidmedicalapp://), και επειδή αυτό ταιριάζει και σε OIDC redirect ΚΑΙ σε route του
+  // expo-router, ο router προσπαθεί ΠΑΡΑΛΛΗΛΑ να την ερμηνεύσει ως πλοήγηση και πηγαίνει
+  // στιγμιαία στην αρχική οθόνη (ρόλος/σύνδεση) - ανεξάρτητα από το "loading" μας, μιας και
+  // είναι θέμα routing, όχι state. Με ξεχωριστό μονοπάτι που αντιστοιχεί σε πραγματική οθόνη
+  // (βλ. app/auth-redirect.tsx) ο router πάει εκεί αντί στην αρχική, και δείχνει την ίδια
+  // οθόνη φόρτωσης - χωρίς να πειράζει καθόλου την ανταλλαγή του κωδικού, που γίνεται από
+  // ξεχωριστό listener του SDK και δεν εξαρτάται από το πού πλοηγεί ο router.
+  const appRedirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp', path: 'auth-redirect' });
 
   // Η διεύθυνση που δηλώνεται στον provider - και που διαβάζει ο χρήστης στην οθόνη
   // συγκατάθεσης. Με γέφυρα είναι η σελίδα μας, αλλιώς το ίδιο το σχήμα της εφαρμογής.
@@ -92,7 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clientId: dynamicClientId || '',
       scopes: ['openid', 'profile', 'offline_access', 'webid'],
       redirectUri,
-      extraParams: { prompt: 'login' }, // Αναγκάζει τον Solid server να ζητά credentials κάθε φορά
+      // prompt=login ζητάει credentials· max_age=0 λέει στον server ότι καμία υπάρχουσα
+      // σύνδεση δεν είναι "αρκετά πρόσφατη", άρα πρέπει να ξαναζητήσει credentials ό,τι κι αν
+      // θυμάται. Το prompt από μόνο του δεν αρκούσε: στο Android οι Custom Tabs μοιράζονται τα
+      // cookies του browser της συσκευής (το preferEphemeralSession πιο κάτω ισχύει μόνο σε
+      // iOS), οπότε αν το τελευταίο login στη συσκευή ήταν άλλος λογαριασμός, ο server τον
+      // ξαναδίνει σιωπηλά αντί να ρωτήσει.
+      extraParams: { prompt: 'login', max_age: '0' },
     },
     discoveryDocument
   );
@@ -227,6 +248,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
     const getRealAccessToken = async () => {
+      // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
+      console.log(`[AUTH response effect] response=${JSON.stringify(response)} expecting=${expectingResponse.current} @ ${Date.now()}`);
       // Αγνοούμε ό,τι response δεν περιμένουμε (π.χ. stale από προηγούμενο login).
       if (!response || !expectingResponse.current) return;
 
@@ -294,8 +317,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (role === 'patient') {
             const verified = await handlePatientLoginVerification(webId);
             if (verified) {
+              // Το "loading" ΔΕΝ σβήνει εδώ. Το router.replace δεν αλλάζει οθόνη ακαριαία -
+              // αν σβήσει τώρα, προλαβαίνει ένα ενδιάμεσο render όπου η φόρμα σύνδεσης
+              // ξαναφαίνεται για μια στιγμή πριν προλάβει να μπει η επόμενη οθόνη. Μένει
+              // αναμμένο μέχρι το logout(), οπότε δεν το ξαναβλέπει κανείς παρά μόνο όταν
+              // γυρίσει ξανά στη φόρμα σύνδεσης.
               setIsLoggedIn(true);
-              setLoading(false);
               router.replace(ROUTES.PATIENT_HOME);
 
               // Κατεβάζουμε όλο το ιστορικό στο παρασκήνιο, ώστε οι κατηγορίες να
@@ -304,13 +331,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               prefetchAllCategories(webId, tokenData.access_token).catch(() => {});
             } else {
               // Ο έλεγχος απέτυχε - handlePatientLoginVerification έδειξε ήδη το γιατί.
+              // Μένουμε στη φόρμα σύνδεσης, οπότε εδώ το "loading" πρέπει να σβήσει.
               setLoading(false);
             }
           } else if (role === 'doctor') {
             const verified = await handleDoctorLoginVerification(webId);
             if (verified) {
               setIsLoggedIn(true);
-              setLoading(false);
               router.replace(ROUTES.DOCTOR_HOME);
             } else {
               setLoading(false);
@@ -347,7 +374,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const openLoginBrowser = async () => {
     if (!AUTH_BRIDGE_URL) {
+      console.log(`[AUTH browser] opening @ ${Date.now()}`); // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
       await promptAsync({ preferEphemeralSession: true });
+      console.log(`[AUTH browser] closed @ ${Date.now()}`); // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
       return;
     }
 
@@ -511,6 +540,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPodPrefetch();
     clearDoctorCache();
     setIsLoggedIn(false);
+    // Έμεινε αναμμένο από την επιτυχή σύνδεση (βλ. σχόλιο στο getRealAccessToken) ώστε να
+    // μην ξαναφανεί η φόρμα σύνδεσης λίγο πριν μπούμε στην εφαρμογή. Σβήνει τώρα, γιατί
+    // τώρα πραγματικά γυρνάμε στη φόρμα.
+    setLoading(false);
     setRole(null);
     setAccessToken('');
     setLoggedInPatientAmka('');

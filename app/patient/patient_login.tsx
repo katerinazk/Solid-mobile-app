@@ -24,6 +24,9 @@ export default function PatientLoginScreen() {
   const [solidProvider, setSolidProvider] = useState(DEFAULT_SOLID_PROVIDER_URL);
   const [checking, setChecking] = useState(false);
 
+  // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
+  console.log(`[PATIENT LOGIN render] loading=${loading} @ ${Date.now()}`);
+
   // Από τη στιγμή που ανοίγει ο browser για τη σύνδεση στο Pod μέχρι να μάθουμε αν πέτυχε,
   // η οθόνη δεν δείχνει ξανά τη φόρμα - θα έδειχνε "έτοιμη για είσοδο" ενώ στο παρασκήνιο
   // τρέχει ακόμα ο έλεγχος. Το "loading" μένει αναμμένο σε όλο αυτό το διάστημα.
