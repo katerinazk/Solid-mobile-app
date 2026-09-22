@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Patient } from '../types/Patient';
 import { fetchPatientsForDoctor } from '../services/patients';
 import { useAuth } from './useAuth';
+import { compareGreekNames } from '../utils/recordSearch';
 
 export function useDoctorPatients() {
   const { loggedInDoctorAmka } = useAuth();
@@ -16,7 +17,12 @@ export function useDoctorPatients() {
       setLoading(true);
       setError(null);
       const data = await fetchPatientsForDoctor(loggedInDoctorAmka);
-      setPatients(data);
+      // Αλφαβητικά, με το επίθετο πρώτο: έτσι ψάχνει κανείς έναν ασθενή σε κατάλογο. Η σειρά
+      // που επιστρέφει η βάση είναι η σειρά που δόθηκαν οι προσβάσεις - τυχαία για τον γιατρό.
+      setPatients([...data].sort((a, b) => compareGreekNames(
+        `${a.last_name || ''} ${a.first_name || ''}`,
+        `${b.last_name || ''} ${b.first_name || ''}`,
+      )));
     } catch (err: any) {
       console.error("Σφάλμα:", err);
       setError(err?.message || "Άγνωστο σφάλμα.");
