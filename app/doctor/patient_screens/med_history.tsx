@@ -21,6 +21,7 @@ export default function DoctorHistoryScreen() {
   // ώστε οι κατηγορίες να ανοίγουν πάντα με το δικαίωμα που ισχύει τώρα.
   const { accessType: liveAccessType } = useDoctorAccessGuard(amka, accessType);
   const { accessToken } = useAuth();
+  const patientName = `${firstName} ${lastName}`;
 
   // Πόσες εγγραφές έχει η καθεμιά, όπως στην αρχική του ασθενή - εδώ μετριέται απευθείας σε
   // κάθε άνοιγμα της οθόνης αντί μέσω προφόρτωσης, γιατί ο γιατρός βλέπει φάκελο άλλου
@@ -54,9 +55,8 @@ export default function DoctorHistoryScreen() {
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={styles.historyTitle}>Ιστορικό</Text>
+        <Text style={styles.historyPatientName}>{patientName}</Text>
       </View>
-
-      <Text style={styles.historyAmka}>ΑΜΚΑ: <Text style={styles.historyAmkaValue}>{amka}</Text></Text>
 
       <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: 20 }}>
         <TouchableOpacity

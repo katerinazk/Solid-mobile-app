@@ -43,6 +43,9 @@ export const doctorStyles = StyleSheet.create({
   historyTitle: { fontSize: TYPOGRAPHY.mainTitle, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
   historyAmka: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.sectionGap },
   historyAmkaValue: { fontWeight: 'normal' },
+  // Ονοματεπώνυμο ασθενή μέσα στο ίδιο μπλε header με τον τίτλο "Ιστορικό" - σαν υπότιτλος
+  // ταυτότητας της σελίδας, όχι σαν ετικέτα δεδομένων (γι' αυτό χωρίς label μπροστά).
+  historyPatientName: { fontSize: TYPOGRAPHY.bodyText, fontWeight: '600', color: COLORS.primary, textAlign: 'center', marginTop: 4 },
   historyCategoryButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, justifyContent: 'center', borderRadius: 25, alignItems: 'center', marginBottom: TOUCH.buttonGap },
   historyCategoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
 

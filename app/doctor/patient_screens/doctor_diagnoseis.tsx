@@ -220,6 +220,7 @@ export default function DoctorDiagnoseisScreen() {
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>Διαγνώσεις</Text>
+        <Text style={doctorStyles.historyPatientName}>{patientName}</Text>
       </View>
 
       {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
@@ -247,8 +248,6 @@ export default function DoctorDiagnoseisScreen() {
                 <Text style={doctorStyles.diagnosisCategoryButtonText}>Παιδικές</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
               {canAddDiagnosis && (

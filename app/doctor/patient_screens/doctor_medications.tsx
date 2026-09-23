@@ -94,7 +94,8 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
 }
 
 export default function DoctorMedicationsScreen() {
-  const { amka, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
+  const { amka, firstName, lastName, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
+  const patientName = `${firstName} ${lastName}`;
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
@@ -328,6 +329,7 @@ export default function DoctorMedicationsScreen() {
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>Φάρμακα</Text>
+        <Text style={doctorStyles.historyPatientName}>{patientName}</Text>
       </View>
 
       {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
@@ -340,8 +342,6 @@ export default function DoctorMedicationsScreen() {
         stickySectionHeadersEnabled
         ListHeaderComponent={
           <>
-            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
-
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
               {!isReadOnly && (
                 <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>

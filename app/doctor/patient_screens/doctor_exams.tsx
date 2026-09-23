@@ -107,7 +107,8 @@ function CompletedExamCard({ item, onOpen }: { item: Exam; onOpen: (item: Exam) 
 }
 
 export default function DoctorExamsScreen() {
-  const { amka, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
+  const { amka, firstName, lastName, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
+  const patientName = `${firstName} ${lastName}`;
   const { accessToken, loggedInDoctorAmka } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
@@ -334,6 +335,7 @@ export default function DoctorExamsScreen() {
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>Εξετάσεις</Text>
+        <Text style={doctorStyles.historyPatientName}>{patientName}</Text>
       </View>
 
       {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
@@ -346,8 +348,6 @@ export default function DoctorExamsScreen() {
         stickySectionHeadersEnabled
         ListHeaderComponent={
           <>
-            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
-
             <RecordSearchBar
               label="Αναζήτηση εξέτασης:"
               value={searchQuery}
