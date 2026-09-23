@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -54,20 +54,9 @@ export default function PatientAccessScreen() {
   }, [refresh]));
 
   const [accessFilter, setAccessFilter] = useState(ALL_ACCESS);
+  // Ανοίγει ΚΑΤΩ από το κουμπί, μέσα στη ροή της σελίδας - σπρώχνει τις κάρτες από κάτω, όπως
+  // όλα τα άλλα dropdown της εφαρμογής (π.χ. SortDropdown), αντί να επιπλέει σε Modal από πάνω.
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  // Θέση του κουμπιού φίλτρου στην οθόνη τη στιγμή που πατήθηκε: το ανοιχτό φίλτρο ζωγραφίζεται
-  // σε Modal (ξεχωριστό επίπεδο, πάνω από όλα) αντί για απλό position:absolute, γιατί το κουμπί
-  // είναι πλέον μέσα στο ListHeaderComponent του FlatList - κι εκεί ένα απόλυτα τοποθετημένο
-  // στοιχείο που ξεπερνά τα όριά του κόβεται στις άκρες.
-  const [filterButtonLayout, setFilterButtonLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
-  const sortButtonRef = useRef<View>(null);
-
-  const openFilter = () => {
-    sortButtonRef.current?.measureInWindow((x, y, width, height) => {
-      setFilterButtonLayout({ x, y, width, height });
-      setIsFilterOpen(true);
-    });
-  };
 
   const visibleAccessList = useMemo(
     () => accessFilter === ALL_ACCESS ? accessList : accessList.filter((a) => a.access_type === accessFilter),
@@ -223,9 +212,25 @@ export default function PatientAccessScreen() {
             />
 
             <View style={localStyles.filterWrapper}>
-              <TouchableOpacity ref={sortButtonRef} style={localStyles.sortButton} onPress={openFilter}>
-                <Text style={localStyles.sortButtonText}>↕  {accessFilter}</Text>
+              <TouchableOpacity style={localStyles.sortButton} onPress={() => setIsFilterOpen((prev) => !prev)}>
+                <Text style={localStyles.sortButtonText}>{accessFilter}</Text>
+                <Ionicons name={isFilterOpen ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} style={{ marginLeft: 8 }} />
               </TouchableOpacity>
+
+              {isFilterOpen && (
+                <View style={localStyles.filterDropdown}>
+                  {ACCESS_FILTERS.map((option, index) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[localStyles.filterOption, index < ACCESS_FILTERS.length - 1 && localStyles.filterOptionBorder]}
+                      onPress={() => { setAccessFilter(option); setIsFilterOpen(false); }}
+                    >
+                      <Text style={[localStyles.filterOptionText, option === accessFilter && localStyles.filterOptionTextSelected]}>{option}</Text>
+                      {option === accessFilter && <Ionicons name="checkmark" size={16} color={COLORS.primary} style={{ marginLeft: 8 }} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
           </>
         }
@@ -252,38 +257,6 @@ export default function PatientAccessScreen() {
           />
         )}
       />
-
-      {/* Το ανοιχτό φίλτρο ζωγραφίζεται σε δικό του Modal (ξεχωριστό επίπεδο πάνω από όλα) στη
-          θέση που είχε το κουμπί τη στιγμή που πατήθηκε (filterButtonLayout) - δεν μπορεί να
-          κοπεί από τα όρια του FlatList, όπως θα γινόταν αν ήταν απλό position:absolute μέσα
-          στο ListHeaderComponent του. Το διάφανο φόντο κλείνει το φίλτρο όταν πατηθεί έξω του. */}
-      <Modal transparent visible={isFilterOpen} animationType="fade" onRequestClose={() => setIsFilterOpen(false)}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setIsFilterOpen(false)}>
-          <View
-            style={[
-              localStyles.filterDropdown,
-              {
-                position: 'absolute',
-                marginTop: 0,
-                top: filterButtonLayout.y + filterButtonLayout.height + SPACING.groupGap,
-                left: filterButtonLayout.x,
-                width: filterButtonLayout.width,
-              },
-            ]}
-          >
-            {ACCESS_FILTERS.map((option, index) => (
-              <TouchableOpacity
-                key={option}
-                style={[localStyles.filterOption, index < ACCESS_FILTERS.length - 1 && localStyles.filterOptionBorder]}
-                onPress={() => { setAccessFilter(option); setIsFilterOpen(false); }}
-              >
-                <Text style={[localStyles.filterOptionText, option === accessFilter && localStyles.filterOptionTextSelected]}>{option}</Text>
-                {option === accessFilter && <Ionicons name="checkmark" size={16} color={COLORS.primary} style={{ marginLeft: 8 }} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Modal Αιτημάτων Πρόσβασης */}
       <Modal animationType="slide" transparent={true} visible={isRequestsModalVisible} onRequestClose={() => setIsRequestsModalVisible(false)}>
@@ -371,12 +344,11 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   actionButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText, textAlign: 'center', flexShrink: 1 },
-  // zIndex/elevation: η λίστα είναι επόμενο αδερφικό στοιχείο στο JSX, οπότε χωρίς αυτά θα
-  // ζωγραφιζόταν ΠΑΝΩ από το ανοιχτό φίλτρο αντί να μένει από κάτω του.
   filterWrapper: { marginHorizontal: SPACING.sideMargin, marginTop: SPACING.groupGap, marginBottom: SPACING.sectionGap, alignItems: 'center' },
   // Περιγραμμένο αντί για γεμάτο: δευτερεύον στοιχείο της λίστας, όχι τρίτη ενέργεια σαν τα
   // δύο κουμπιά από πάνω. Κεντραρισμένο (alignItems του wrapper) αντί να κολλάει αριστερά.
   sortButton: {
+    flexDirection: 'row',
     // Το ίδιο ανοιχτό μπλε με τις κάρτες γιατρών, όχι λευκό - ξεχωρίζει από το φόντο της
     // οθόνης χωρίς να "βαραίνει" σαν τα γεμάτα κουμπιά.
     backgroundColor: COLORS.lightest,
@@ -388,20 +360,16 @@ const localStyles = StyleSheet.create({
     borderRadius: 25,
     paddingHorizontal: 18,
   },
-  // Η θέση (position/top/left/width) έρχεται από το filterButtonLayout στο Modal που το
-  // ζωγραφίζει - εδώ μένουν μόνο η εμφάνιση και η σκιά.
+  // Ανοίγει ΚΑΤΩ από το κουμπί, μέσα στη ροή της σελίδας - όχι πια σε Modal, σπρώχνει τις
+  // κάρτες από κάτω όπως κάθε άλλο dropdown της εφαρμογής.
   filterDropdown: {
+    marginTop: SPACING.groupGap,
     minWidth: 220,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.medium,
     borderRadius: 15,
     overflow: 'hidden',
-    // Σκιά, ώστε να διαβάζεται καθαρά ότι επιπλέει πάνω από τις κάρτες και δεν είναι μέρος τους.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
   },
   filterOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: TOUCH.minTargetSize, paddingHorizontal: 14 },
   filterOptionBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.lightest },
