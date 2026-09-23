@@ -1,5 +1,6 @@
 import { getCategoryFolderUrl, listFolderFiles, listFolderFilesOrEmpty, fetchFileContent, saveFileContent } from './solidPod';
 import { isCompleteRecord } from '../utils/podRecords';
+import { parseRetraction, Retraction } from '../utils/recordRevision';
 
 // Μια εγγραφή ιστορικού όπως χρειάζεται για να τη διαλέξει κανείς από λίστα: ονομασία,
 // κωδικός προτύπου και μια ημερομηνία για να ξεχωρίζουν οι όμοιες μεταξύ τους.
@@ -17,6 +18,9 @@ export interface HistoryRecordSummary {
   // Οι συνδέσεις της ίδιας της εγγραφής. Τις χρειαζόμαστε για να βρούμε και την αντίστροφη
   // κατεύθυνση: ποια φάρμακα ή εξετάσεις δείχνουν προς μια διάγνωση.
   links?: LinkedRecord[];
+  // Συμπληρωμένο μόνο όταν η εγγραφή έχει ανακληθεί - ώστε το fetchRelatedRecords να μπορεί
+  // να την αποκλείσει από τις "σχετικές εγγραφές", ακόμα κι αν η σύνδεση δημιουργήθηκε πριν.
+  retraction?: Retraction;
 }
 
 // Κάθε κατηγορία ονομάζει αλλιώς την ημερομηνία της.
@@ -67,6 +71,7 @@ export async function fetchCategoryRecords(
             doctorName: record.doctorName,
             doctorAmka: record.doctorAmka,
             links: readLinks(record),
+            retraction: parseRetraction(record),
           } as HistoryRecordSummary;
         } catch {
           return null;
@@ -147,6 +152,7 @@ export async function fetchRecordSummary(
       doctorName: record.doctorName,
       doctorAmka: record.doctorAmka,
       links: readLinks(record),
+      retraction: parseRetraction(record),
     };
   } catch {
     return null;
@@ -276,5 +282,7 @@ export async function fetchRelatedRecords(
     if (!isSameRecord(item.url, recordUrl)) byUrl.set(normalizeUrl(item.url), item);
   }
 
-  return [...byUrl.values()];
+  // Μια ανακληθείσα εγγραφή δεν είναι πια ενεργό ιστορικό - δεν εμφανίζεται σαν "σχετική",
+  // ακόμα κι αν η σύνδεση (δική της ή αντίστροφη) δημιουργήθηκε πριν ανακληθεί.
+  return [...byUrl.values()].filter((item) => !item.retraction);
 }
