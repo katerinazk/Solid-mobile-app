@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 import { Patient } from '../types/Patient';
+import { normalizeForSearch } from '../utils/recordSearch';
+import { toAccentInsensitivePattern } from '../utils/greekSearchPattern';
 
 export async function fetchPatientsForDoctor(doctorAmka: string): Promise<Patient[]> {
   // Φέρνουμε μόνο τους ασθενείς που έχουν δώσει πρόσβαση σε αυτόν τον γιατρό,
@@ -53,21 +55,24 @@ export async function searchPatients(searchQuery: string) {
   const terms = searchQuery.trim().split(/\s+/).map((t) => t.replace(/[,()]/g, '')).filter(Boolean);
   if (terms.length === 0) return { data: [], error: null };
 
+  // imatch αντί για ilike στο όνομα/επίθετο: επιτρέπει regex, οπότε κάθε φωνήεν ψάχνεται σε
+  // ΟΛΕΣ τις τονισμένες/άτονες μορφές του - το ΑΜΚΑ μένει σε ilike, είναι μόνο αριθμοί.
   const first = terms[0];
+  const firstPattern = toAccentInsensitivePattern(first);
   const { data, error } = await supabase
     .from('patients')
     .select('first_name, last_name, amka')
-    .or(`first_name.ilike.%${first}%,last_name.ilike.%${first}%,amka.ilike.%${first}%`)
+    .or(`first_name.imatch.${firstPattern},last_name.imatch.${firstPattern},amka.ilike.%${first}%`)
     .limit(50);
 
   if (error) return { data: null, error };
 
   const matchesAllTerms = (row: any) =>
     terms.every((term) => {
-      const t = term.toLowerCase();
-      return (row.first_name || '').toLowerCase().includes(t)
-        || (row.last_name || '').toLowerCase().includes(t)
-        || (row.amka || '').includes(t);
+      const t = normalizeForSearch(term);
+      return normalizeForSearch(row.first_name || '').includes(t)
+        || normalizeForSearch(row.last_name || '').includes(t)
+        || (row.amka || '').includes(term);
     });
 
   return { data: (data || []).filter(matchesAllTerms).slice(0, 20), error: null };

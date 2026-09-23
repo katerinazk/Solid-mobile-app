@@ -5,14 +5,11 @@ import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
-import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { AccessRequestModal } from '../../../components/doctor/AccessRequestModal';
 import { searchPatients } from '../../../services/patients';
-import { fetchAccessEntry } from '../../../services/access';
 import { fetchPendingAccessRequestsForDoctor } from '../../../services/accessRequests';
-import { showMessage } from '../../../utils/appMessage';
 
 // Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
 // τα πάντα και το αποτέλεσμα δεν λέει τίποτα στον γιατρό.
@@ -28,9 +25,8 @@ interface SearchResult {
 // με τη λίστα όσων έχει ήδη πρόσβαση ο γιατρός. Η αναζήτηση εδώ πιάνει ΟΛΗ τη βάση ασθενών.
 export default function DoctorAddAccessScreen() {
   const { loggedInDoctorAmka } = useAuth();
-  const { patients, refresh } = useDoctorPatients();
+  const { patients } = useDoctorPatients();
 
-  const [openingFolderFor, setOpeningFolderFor] = useState<string | null>(null);
   const [requestAmka, setRequestAmka] = useState('');
   const [isRequestModalVisible, setIsRequestModalVisible] = useState(false);
 
@@ -85,101 +81,35 @@ export default function DoctorAddAccessScreen() {
     };
   }, [trimmedQuery, isSearchActive]);
 
-  // Πρώτα οι ασθενείς που έχουν ήδη δώσει πρόσβαση (μπαίνεις κατευθείαν στον φάκελο) και μετά
-  // οι υπόλοιποι, που θέλουν αίτημα. Μέσα σε κάθε ομάδα κρατάμε τη σειρά της βάσης.
-  const sortedResults = useMemo(() => {
-    const hasAccess = (item: SearchResult) => patients.some((p) => p.amka === item.amka);
-    return [...results.filter(hasAccess), ...results.filter((item) => !hasAccess(item))];
-  }, [results, patients]);
+  // Αυτή η οθόνη είναι για να ζητηθεί πρόσβαση σε ΝΕΟ ασθενή - όποιος έχει ήδη πρόσβαση
+  // φαίνεται στην αρχική, όχι εδώ. Χωρίς αυτό το φιλτράρισμα, ο ίδιος ασθενής θα εμφανιζόταν
+  // και στις δύο οθόνες, μπερδεύοντας πού ακριβώς αλλάζει κανείς τι.
+  const sortedResults = useMemo(
+    () => results.filter((item) => !patients.some((p) => p.amka === item.amka)),
+    [results, patients]
+  );
 
   const openRequestModal = (amka: string) => {
     setRequestAmka(amka);
     setIsRequestModalVisible(true);
   };
 
-  // Η λίστα προσβάσεων φορτώνεται μία φορά, οπότε μπορεί να έχει παλιώσει: ο ασθενής μπορεί
-  // να κατάργησε ή να άλλαξε την πρόσβαση όσο ο γιατρός κοιτούσε την οθόνη. Ξαναρωτάμε τη
-  // βάση τη στιγμή του πατήματος - η επιλογή του ασθενή υπερισχύει πάντα.
-  const openPatientFolder = async (patient: { amka: string; first_name: string; last_name: string; webId?: string; birthDate?: string; accessType: string }) => {
-    try {
-      setOpeningFolderFor(patient.amka);
+  // Το sortedResults έχει ήδη αφαιρέσει όποιον έχει πρόσβαση - εδώ μένουν μόνο οι ασθενείς
+  // στους οποίους μπορεί να σταλεί αίτημα.
+  const renderSearchResultCard = (item: SearchResult) => (
+    <View key={item.amka} style={localStyles.card}>
+      <Text style={localStyles.patientName}>{item.first_name} {item.last_name}</Text>
+      <Text style={localStyles.resultAmka}>ΑΜΚΑ: {item.amka}</Text>
 
-      const { data: entry, error } = await fetchAccessEntry(patient.amka, loggedInDoctorAmka);
-
-      if (error) {
-        showMessage("Δεν ήταν δυνατός ο έλεγχος της πρόσβασης. Δοκιμάστε ξανά.");
-        return;
-      }
-
-      if (!entry || !entry.acl_synced) {
-        showMessage("Ο ασθενής κατάργησε την πρόσβασή σας. Δοκιμάστε ξανά αργότερα.");
-        refresh();
-        return;
-      }
-
-      if (entry.access_type !== patient.accessType) {
-        showMessage(`Ο ασθενής άλλαξε τον τύπο πρόσβασης σε "${entry.access_type}". Δοκιμάστε ξανά.`);
-        refresh();
-        return;
-      }
-
-      if (!patient.webId) {
-        showMessage("Ο ασθενής δεν έχει συνδέσει ακόμη προσωπικό χώρο (Pod), οπότε δεν υπάρχει ιατρικός φάκελος να ανοίξει.");
-        refresh();
-        return;
-      }
-
-      router.push({
-        pathname: ROUTES.DOCTOR_MED_HISTORY,
-        params: {
-          amka: patient.amka,
-          firstName: patient.first_name,
-          lastName: patient.last_name,
-          webId: patient.webId,
-          birthDate: patient.birthDate,
-          accessType: entry.access_type,
-        },
-      });
-    } catch (error) {
-      showMessage("Απρόσμενο σφάλμα.");
-    } finally {
-      setOpeningFolderFor(null);
-    }
-  };
-
-  const renderSearchResultCard = (item: SearchResult) => {
-    // Αν ο γιατρός έχει ήδη πρόσβαση, χρησιμοποιούμε την εγγραφή από τη λίστα προσβάσεων -
-    // εκεί υπάρχει και ο τύπος πρόσβασης που χρειάζεται η οθόνη ιστορικού.
-    const accessiblePatient = patients.find((p) => p.amka === item.amka);
-
-    return (
-      <View key={item.amka} style={localStyles.card}>
-        <Text style={localStyles.patientName}>{item.first_name} {item.last_name}</Text>
-        <Text style={localStyles.resultAmka}>ΑΜΚΑ: {item.amka}</Text>
-        {!!accessiblePatient && (
-          <Text style={localStyles.resultAmka}>Τύπος πρόσβασης: {accessiblePatient.accessType}</Text>
-        )}
-
-        {accessiblePatient ? (
-          <TouchableOpacity
-            style={localStyles.actionButton}
-            onPress={() => openPatientFolder(accessiblePatient)}
-            disabled={openingFolderFor === item.amka}
-          >
-            {openingFolderFor === item.amka
-              ? <ActivityIndicator size="small" color={COLORS.white} />
-              : <Text style={localStyles.actionButtonText}>Προβολή Φακέλου</Text>}
-          </TouchableOpacity>
-        ) : pendingRequestAmkas.includes(item.amka) ? (
-          <Text style={localStyles.pendingRequestText}>Έχει σταλεί αίτημα πρόσβασης</Text>
-        ) : (
-          <TouchableOpacity style={localStyles.actionButton} onPress={() => openRequestModal(item.amka)}>
-            <Text style={localStyles.actionButtonText}>Αίτημα Πρόσβασης</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
+      {pendingRequestAmkas.includes(item.amka) ? (
+        <Text style={localStyles.pendingRequestText}>Έχει σταλεί αίτημα πρόσβασης</Text>
+      ) : (
+        <TouchableOpacity style={localStyles.actionButton} onPress={() => openRequestModal(item.amka)}>
+          <Text style={localStyles.actionButtonText}>Αίτημα Πρόσβασης</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
