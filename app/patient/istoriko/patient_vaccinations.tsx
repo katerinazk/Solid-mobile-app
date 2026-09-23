@@ -261,7 +261,7 @@ export default function PatientVaccinationsScreen() {
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
-            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
               <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
                 <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
               </TouchableOpacity>
