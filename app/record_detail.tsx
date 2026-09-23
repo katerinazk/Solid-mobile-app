@@ -284,7 +284,7 @@ export default function RecordDetailScreen() {
                 const changes = changedFields(revision.record || {}, after || {});
 
                 return (
-                  <View key={`${revision.at}-${index}`} style={localStyles.revisionCard}>
+                  <View key={`${revision.at}-${index}`} style={[localStyles.revisionCard, index > 0 && { marginTop: 10 }]}>
                     <View style={localStyles.revisionIconBadge}>
                       <Ionicons name="create-outline" size={16} color={COLORS.white} />
                     </View>
@@ -313,7 +313,7 @@ export default function RecordDetailScreen() {
               ποτέ, οπότε το κουμπί απλώς δεν εμφανίζεται. */}
           {!!record.resultFile && (
             <TouchableOpacity
-              style={[styles.addButton, { borderRadius: 25, flexDirection: 'row' }]}
+              style={[styles.addButton, { borderRadius: 25, flexDirection: 'row', marginTop: SPACING.sectionGap }]}
               onPress={handleOpenResult}
               disabled={openingResult}
             >
@@ -371,10 +371,15 @@ export default function RecordDetailScreen() {
             <View key={group.category} style={{ marginTop: SPACING.sectionGap }}>
               <Text style={localStyles.sectionTitle}>{RELATED_TITLES[group.category]}</Text>
 
-              {group.items.map((item) => (
+              {/* marginBottom: 0 αντί για το προκαθορισμένο του diagnosisCard: το κενό ανάμεσα
+                  σε κάρτες μπαίνει ως marginTop στις επόμενες (index > 0), όχι ως marginBottom
+                  στις προηγούμενες - αλλιώς θα διέρρεε και μετά την τελευταία κάρτα κάθε
+                  ενότητας, κάνοντας το κενό πριν την επόμενη ενότητα (π.χ. "Σχετικά Φάρμακα")
+                  μεγαλύτερο από το κενό πριν από ΑΥΤΗ. */}
+              {group.items.map((item, index) => (
                 <TouchableOpacity
                   key={item.url}
-                  style={[doctorStyles.diagnosisCard, { marginHorizontal: 0 }]}
+                  style={[doctorStyles.diagnosisCard, { marginHorizontal: 0, marginBottom: 0 }, index > 0 && { marginTop: 12 }]}
                   onPress={() => openRelated(item)}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -422,7 +427,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: COLORS.lightest,
     borderRadius: 15,
     padding: 16,
-    marginBottom: SPACING.sectionGap,
+    marginTop: SPACING.sectionGap,
   },
   sectionTitle: {
     fontSize: TYPOGRAPHY.subtitle,
@@ -438,14 +443,16 @@ const localStyles = StyleSheet.create({
     borderBottomColor: COLORS.medium,
   },
   // Κάρτα τροποποίησης: ίδια λογική με τις κάρτες εγγραφών (φόντο, στρογγυλεμένες γωνίες) αντί
-  // για γραμμή με απλό διαχωριστικό, ώστε κάθε αλλαγή να διαβάζεται ως ξεχωριστό συμβάν.
+  // για γραμμή με απλό διαχωριστικό, ώστε κάθε αλλαγή να διαβάζεται ως ξεχωριστό συμβάν. Το
+  // κενό ανάμεσα σε διαδοχικές κάρτες μπαίνει ως marginTop στο σημείο χρήσης (index > 0) και
+  // όχι εδώ ως marginBottom - αλλιώς θα "διέρρεε" και μετά την τελευταία κάρτα, κάνοντας το
+  // κενό πριν την επόμενη ενότητα μεγαλύτερο από το αντίστοιχο κενό πριν από ΑΥΤΗ την ενότητα.
   revisionCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: COLORS.lightest,
     borderRadius: 15,
     padding: 14,
-    marginBottom: 10,
   },
   revisionIconBadge: {
     width: 30,
