@@ -3,6 +3,13 @@
 //
 // Οι εγγραφές χωρίς κωδικό (παλιές, ελεύθερου κειμένου) δεν ομαδοποιούνται - δεν υπάρχει
 // αξιόπιστος τρόπος να ξέρουμε αν πρόκειται για το ίδιο εμβόλιο, οπότε μένουν μόνες τους.
+//
+// Μια ανακληθείσα δόση ΔΕΝ ομαδοποιείται ποτέ με τις υπόλοιπες δόσεις του ίδιου εμβολίου -
+// "σπάει" και γίνεται δική της ομάδα του ενός, ώστε να καταλήγει μόνη της στην ενότητα
+// ανακλημένων εγγραφών χωρίς να παρασύρει μαζί της τις ενεργές δόσεις. Οι ενεργές δόσεις
+// συνεχίζουν να ομαδοποιούνται κανονικά μεταξύ τους, με "latest" την πιο πρόσφατη ενεργή.
+
+import { partitionRetracted } from './recordRevision';
 
 export interface DoseGroup<T> {
   // Κωδικός εμβολίου, ή το url της εγγραφής όταν δεν υπάρχει κωδικός (μονή "ομάδα" του ενός).
@@ -18,9 +25,11 @@ export interface DoseGroup<T> {
 export function groupDoses<T extends { url: string; code?: string; administeredDate: string; retraction?: any }>(
   items: T[],
 ): DoseGroup<T>[] {
+  const { active, retracted } = partitionRetracted(items);
+
   // Δουλεύουμε πάντα σε σειρά νεότερα-πρώτα, ανεξάρτητα από το πώς θα ταξινομηθούν μετά οι
   // ομάδες - έτσι η πρώτη εγγραφή κάθε κωδικού που συναντάμε είναι πάντα η πιο πρόσφατη δόση.
-  const newestFirst = [...items].sort(
+  const newestFirst = [...active].sort(
     (a, b) => new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime()
   );
 
@@ -36,7 +45,13 @@ export function groupDoses<T extends { url: string; code?: string; administeredD
       }
       indexByCode.set(item.code, groups.length);
     }
-    groups.push({ key: item.code ?? item.url, latest: item, previousDoses: [], retraction: item.retraction });
+    groups.push({ key: item.code ?? item.url, latest: item, previousDoses: [], retraction: undefined });
+  }
+
+  // Κάθε ανακληθείσα δόση μπαίνει σαν δική της, ξεχωριστή ομάδα - δεν μοιράζεται ομάδα με
+  // καμία άλλη δόση, ενεργή ή ανακληθείσα, ακόμα κι αν έχουν τον ίδιο κωδικό εμβολίου.
+  for (const item of retracted) {
+    groups.push({ key: item.url, latest: item, previousDoses: [], retraction: item.retraction });
   }
 
   return groups;
