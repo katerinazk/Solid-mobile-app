@@ -172,14 +172,12 @@ export default function PatientAccessScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
-      {/* Κενό στην κορυφή. Εδώ καθόταν το εικονίδιο του προφίλ, που έφυγε: τα στοιχεία
-          του χρήστη έχουν πλέον δική τους καρτέλα, τον Λογαριασμό. */}
-      <View style={{ height: SPACING.topMargin }} />
-
-      {/* Ανοιχτό μπλε φόντο πίσω από τον τίτλο, σε πλάτος όλης της οθόνης: ξεχωρίζει τον τίτλο
-          από τα κουμπιά/τη λίστα από κάτω. Αδερφικό στοιχείο πριν το FlatList, οπότε μένει
-          σταθερό στην κορυφή όσο κάνει scroll η λίστα - μόνο ο τίτλος μένει ακίνητος, τα
-          κουμπιά/η αναζήτηση/το φίλτρο είναι πλέον μέσα στο ListHeaderComponent και κυλούν. */}
+      {/* Ίδιο μπλε φόντο πίσω από τον τίτλο, με την ίδια γραμματοσειρά/κεντράρισμα όπως στους
+          τίτλους των υπόλοιπων οθονών (historyHeader/historyTitle) - χωρίς βέλος επιστροφής,
+          αφού αυτή είναι καρτέλα, όχι οθόνη πάνω σε στοίβα. Αδερφικό στοιχείο πριν το FlatList,
+          οπότε μένει σταθερό στην κορυφή όσο κάνει scroll η λίστα - μόνο ο τίτλος μένει
+          ακίνητος, τα κουμπιά/η αναζήτηση/το φίλτρο είναι πλέον μέσα στο ListHeaderComponent
+          και κυλούν. */}
       <View style={localStyles.titleBand}>
         <Text style={localStyles.sectionTitle}>Προσβάσεις</Text>
       </View>
@@ -356,8 +354,8 @@ export default function PatientAccessScreen() {
 
 const localStyles = StyleSheet.create({
   // Ίδιο μπλε με το historyHeader των υπόλοιπων οθονών, με στρογγυλεμένες κάτω γωνίες.
-  titleBand: { backgroundColor: COLORS.medium, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, paddingHorizontal: SPACING.sideMargin, paddingTop: 18, paddingBottom: 18 },
-  sectionTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary },
+  titleBand: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.groupGap, paddingTop: 18, paddingBottom: 18, backgroundColor: COLORS.medium, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  sectionTitle: { fontSize: TYPOGRAPHY.mainTitle, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
   // Τα δύο κουμπιά δίπλα-δίπλα κάτω από τον τίτλο, ίδιο σχήμα με τα γεμάτα κουμπιά της εφαρμογής.
   actionRow: { flexDirection: 'row' },
   actionButton: {

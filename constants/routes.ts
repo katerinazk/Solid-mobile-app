@@ -22,6 +22,7 @@ export const ROUTES = {
   DOCTOR_LOGIN: '/doctor/doctor_login',
   DOCTOR_REGISTER: '/doctor/doctor_register',
   DOCTOR_HOME: '/doctor/screens/doctor_home',
+  DOCTOR_ADD_ACCESS: '/doctor/screens/doctor_add_access',
   DOCTOR_ACCOUNT: '/doctor/screens/doctor_account',
   DOCTOR_MED_HISTORY: '/doctor/patient_screens/med_history',
   DOCTOR_DIAGNOSEIS: '/doctor/patient_screens/doctor_diagnoseis',
