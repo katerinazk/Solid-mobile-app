@@ -3,6 +3,7 @@ import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, Styl
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
+import { doctorStyles } from '../../../constants/doctorStyles';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { isFemale } from '../../../constants/medicalOptions';
@@ -157,10 +158,10 @@ export default function PatientHomeScreen() {
           του χρήστη έχουν πλέον δική τους καρτέλα, τον Λογαριασμό. */}
       <View style={{ height: SPACING.topMargin }} />
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}>
-        <Text style={localStyles.welcome}>Καλωσορίσατε {salutation} {patient?.last_name || ''}</Text>
+      <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
+        <Text style={[localStyles.welcome, { paddingHorizontal: SPACING.sideMargin }]}>Καλωσορίσατε {salutation} {patient?.last_name || ''}</Text>
 
-        <View style={localStyles.historyContainer}>
+        <View style={[localStyles.historyContainer, { marginHorizontal: SPACING.sideMargin }]}>
           <Text style={[localStyles.sectionTitle, { marginTop: 0 }]}>Ιστορικό</Text>
           {rows.map((row, index) => (
             <View key={index} style={{ flexDirection: 'row', marginBottom: SPACING.groupGap }}>
@@ -177,8 +178,13 @@ export default function PatientHomeScreen() {
           ))}
         </View>
 
-        <Text style={localStyles.sectionTitle}>Ειδοποιήσεις</Text>
-        <Text style={[styles.emptyText, { marginTop: 10, textAlign: 'left' }]}>Δεν υπάρχουν ειδοποιήσεις αυτή τη στιγμή.</Text>
+        <View style={[doctorStyles.historyHeader, { marginTop: SPACING.sectionGap }]}>
+          <Text style={doctorStyles.historyTitle}>Ειδοποιήσεις</Text>
+        </View>
+
+        <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+          <Text style={[styles.emptyText, { marginTop: 0, textAlign: 'left' }]}>Δεν υπάρχουν ειδοποιήσεις αυτή τη στιγμή.</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
