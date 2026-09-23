@@ -40,7 +40,7 @@ const RELATED_TITLES: Record<string, string> = {
  * προβολή, οπότε ο γιατρός ακολουθεί την αλυσίδα "γιατί δόθηκε αυτό" όσο βαθιά θέλει.
  */
 export default function RecordDetailScreen() {
-  const params = useLocalSearchParams<{ url: string; category: string; webId: string }>();
+  const params = useLocalSearchParams<{ url: string; category: string; webId: string; amka?: string; firstName?: string; lastName?: string }>();
   const { accessToken, role } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
 
@@ -236,7 +236,7 @@ export default function RecordDetailScreen() {
   const openRelated = (item: HistoryRecordSummary) => {
     router.push({
       pathname: ROUTES.RECORD_DETAIL,
-      params: { url: item.url, category: item.category, webId: params.webId },
+      params: { url: item.url, category: item.category, webId: params.webId, amka: params.amka, firstName: params.firstName, lastName: params.lastName },
     });
   };
 
@@ -249,6 +249,7 @@ export default function RecordDetailScreen() {
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>{CATEGORY_SINGULAR[params.category] || params.category}</Text>
+        {!!params.amka && <Text style={doctorStyles.historyPatientName}>{`${params.firstName} ${params.lastName}`}</Text>}
       </View>
 
       {loading ? (

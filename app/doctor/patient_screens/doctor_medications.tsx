@@ -197,7 +197,7 @@ export default function DoctorMedicationsScreen() {
   };
 
   const openDetail = (item: Medication) => {
-    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId, amka, firstName, lastName } });
   };
 
   const openForm = (item?: Medication) => {

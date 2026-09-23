@@ -289,7 +289,7 @@ export default function DoctorExamsScreen() {
 
 
   const openDetail = (item: Exam) => {
-    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId, amka, firstName, lastName } });
   };
 
   const openForm = (item?: Exam) => {

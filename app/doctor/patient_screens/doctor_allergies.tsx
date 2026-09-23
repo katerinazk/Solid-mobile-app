@@ -190,7 +190,7 @@ export default function DoctorAllergiesScreen() {
 
   // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
   const openDetail = (item: { url: string }) => {
-    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Αλλεργίες', webId } });
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Αλλεργίες', webId, amka, firstName, lastName } });
   };
 
   // Η αναζήτηση πιάνει όσα δείχνει η κάρτα: όνομα, κωδικό, κατηγορία κωδικού, αντίδραση.

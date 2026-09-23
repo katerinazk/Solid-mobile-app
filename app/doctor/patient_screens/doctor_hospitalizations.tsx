@@ -181,7 +181,7 @@ export default function DoctorHospitalizationsScreen() {
   };
 
   const openDetail = (item: Hospitalization) => {
-    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
+    router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId, amka, firstName, lastName } });
   };
 
   // Καμία εγγραφή δεν σβήνεται από την εφαρμογή. Η λανθασμένη ΣΗΜΑΙΝΕΤΑΙ ως ανακληθείσα
