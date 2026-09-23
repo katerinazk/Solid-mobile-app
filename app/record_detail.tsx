@@ -84,6 +84,8 @@ export default function RecordDetailScreen() {
       .filter((group) => group.items.length > 0);
   }, [related]);
 
+  const revisions = useMemo(() => parseRevisions(record), [record]);
+
   const handleOpenResult = async () => {
     if (!record?.resultFile) return;
     try {
@@ -142,10 +144,12 @@ export default function RecordDetailScreen() {
   };
 
   /**
-   * Τα ίδια πεδία που δείχνει η κάρτα της κατηγορίας στη λίστα. Η αναλυτική προβολή δεν
-   * πρέπει να κρύβει τίποτα από όσα έβλεπε ήδη ο χρήστης πριν την ανοίξει.
+   * Τα ίδια πεδία που δείχνει η κάρτα της κατηγορίας στη λίστα, από ΟΠΟΙΑΔΗΠΟΤΕ μορφή της
+   * εγγραφής - την τρέχουσα ή μια παλιότερη, φυλαγμένη μέσα σε μια τροποποίηση. Έτσι το ίδιο
+   * σύνολο πεδίων χρησιμοποιείται και για την αναλυτική προβολή και για να βρεθεί τι άλλαξε σε
+   * κάθε τροποποίηση του Ιστορικού Αλλαγών.
    */
-  const detailFields = (): { label: string; value: string }[] => {
+  const fieldsFor = (rec: any): { label: string; value: string }[] => {
     const fields: { label: string; value: string }[] = [];
     const add = (label: string, value: any) => {
       if (value !== undefined && value !== null && String(value).trim() !== '') {
@@ -155,37 +159,65 @@ export default function RecordDetailScreen() {
 
     switch (params.category) {
       case 'Διαγνώσεις':
-        add('Ημερομηνία', record.date && formatDate(record.date));
+        add('Ημερομηνία', rec.date && formatDate(rec.date));
         break;
       case 'Αλλεργίες':
-        add('Αντίδραση', record.reaction);
-        add('Ημ. Καταχώρησης', formatDate(record.createdDate || createdDateFromUrl(params.url)));
+        add('Αντίδραση', rec.reaction);
+        add('Ημ. Καταχώρησης', formatDate(rec.createdDate || createdDateFromUrl(params.url)));
         break;
       case 'Νοσηλείες':
-        add('Νοσοκομείο / Κλινική', record.hospitalClinic && `${record.hospitalClinic}${record.hospitalArea ? ` (${record.hospitalArea})` : ''}`);
-        add('Ημερομηνία Εισαγωγής', record.admissionDate && formatDate(record.admissionDate));
-        add('Ημερομηνία Εξιτηρίου', record.dischargeDate && formatDate(record.dischargeDate));
+        add('Νοσοκομείο / Κλινική', rec.hospitalClinic && `${rec.hospitalClinic}${rec.hospitalArea ? ` (${rec.hospitalArea})` : ''}`);
+        add('Ημερομηνία Εισαγωγής', rec.admissionDate && formatDate(rec.admissionDate));
+        add('Ημερομηνία Εξιτηρίου', rec.dischargeDate && formatDate(rec.dischargeDate));
         break;
       case 'Φάρμακα':
-        add('Τρόπος Χορήγησης', record.route);
-        add('Δοσολογία', record.dosage);
-        add('Ημ. Έναρξης', record.startDate ? formatDate(record.startDate) : 'εκκρεμεί έναρξη από τον ασθενή');
-        add('Διάρκεια Χορήγησης', formatDuration(record.durationDays, record.durationMonths));
+        add('Τρόπος Χορήγησης', rec.route);
+        add('Δοσολογία', rec.dosage);
+        add('Ημ. Έναρξης', rec.startDate ? formatDate(rec.startDate) : 'εκκρεμεί έναρξη από τον ασθενή');
+        add('Διάρκεια Χορήγησης', formatDuration(rec.durationDays, rec.durationMonths));
         break;
       case 'Εμβολιασμοί':
-        add('Αριθμός Παρτίδας', record.batchNumber);
-        add('Αριθμός Δόσης', record.doseNumber);
-        add('Ημερομηνία Χορήγησης', record.administeredDate && formatDate(record.administeredDate));
+        add('Αριθμός Παρτίδας', rec.batchNumber);
+        add('Αριθμός Δόσης', rec.doseNumber);
+        add('Ημερομηνία Χορήγησης', rec.administeredDate && formatDate(rec.administeredDate));
         break;
       case 'Εξετάσεις':
-        add('Τύπος', record.type);
-        add('Ημ. Καταχώρησης', formatDate(record.createdDate || createdDateFromUrl(params.url)));
-        add('Ημ. Αποτελέσματος', record.completedDate && formatDate(record.completedDate));
+        add('Τύπος', rec.type);
+        add('Ημ. Καταχώρησης', formatDate(rec.createdDate || createdDateFromUrl(params.url)));
+        add('Ημ. Αποτελέσματος', rec.completedDate && formatDate(rec.completedDate));
         break;
     }
 
-    add('Καταχώρηση', displayDoctorName(params.category, record.doctorAmka, record.doctorName));
+    add('Καταχώρηση', displayDoctorName(params.category, rec.doctorAmka, rec.doctorName));
     return fields;
+  };
+
+  const detailFields = () => fieldsFor(record);
+
+  /**
+   * Ποια πεδία άλλαξαν σε μια συγκεκριμένη τροποποίηση, συγκρίνοντας τη μορφή πριν με τη
+   * μορφή μετά. Χωρίς αυτό, το "Ιστορικό Αλλαγών" έδειχνε μόνο τον τίτλο - κι αν η
+   * τροποποίηση άλλαξε κάτι άλλο (π.χ. τον τύπο μιας εξέτασης), ο τίτλος έμενε ίδιος και η
+   * καταχώρηση έδειχνε σαν να μην άλλαξε τίποτα.
+   */
+  const changedFields = (before: any, after: any): { label: string; from: string; to: string }[] => {
+    const changes: { label: string; from: string; to: string }[] = [];
+
+    const beforeTitle = before.title || 'άγνωστο';
+    const afterTitle = after.title || 'άγνωστο';
+    if (beforeTitle !== afterTitle || (before.code || '') !== (after.code || '')) {
+      changes.push({ label: 'Κωδικός/Τίτλος', from: beforeTitle, to: afterTitle });
+    }
+
+    const beforeMap = new Map(fieldsFor(before).map((f) => [f.label, f.value]));
+    const afterMap = new Map(fieldsFor(after).map((f) => [f.label, f.value]));
+    for (const label of new Set([...beforeMap.keys(), ...afterMap.keys()])) {
+      const from = beforeMap.get(label) ?? '—';
+      const to = afterMap.get(label) ?? '—';
+      if (from !== to) changes.push({ label, from, to });
+    }
+
+    return changes;
   };
 
   // Οι νοσηλείες κουβαλούν συνημμένα του γιατρού: εξιτήριο, γνωματεύσεις και τα σχετικά.
@@ -239,25 +271,41 @@ export default function RecordDetailScreen() {
 
           {/* Το ιστορικό αλλαγών: κάθε φορά που κάποιος άλλαξε την εγγραφή, με τη μορφή που
               είχε πριν. Χωρίς αυτό η επεξεργασία θα έσβηνε αθόρυβα ό,τι έγραψε ο προηγούμενος. */}
-          {parseRevisions(record).length > 0 && (
+          {revisions.length > 0 && (
             <View style={{ marginTop: SPACING.sectionGap }}>
               <Text style={localStyles.sectionTitle}>Ιστορικό Αλλαγών</Text>
 
-              {parseRevisions(record).map((revision, index) => (
-                <View key={`${revision.at}-${index}`} style={localStyles.attachmentRow}>
-                  <Ionicons name="create-outline" size={20} color={COLORS.primary} style={{ marginRight: 10 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={doctorStyles.diagnosisCardDetail}>
-                      <Text style={doctorStyles.diagnosisCardLabel}>Τροποποιήθηκε: </Text>
-                      {formatDate(revision.at)}{revision.byName ? ` - ${revision.byName}` : ''}
-                    </Text>
-                    <Text style={doctorStyles.diagnosisCardDetail}>
-                      <Text style={doctorStyles.diagnosisCardLabel}>Προηγουμένως: </Text>
-                      {revision.record?.title || 'άγνωστο'}
-                    </Text>
+              {/* Κάθε τροποποίηση σε δική της κάρτα, με σήμανση χρόνου σαν χρονολόγιο: έτσι
+                  ξεχωρίζει οπτικά από τις γύρω ενότητες αντί να μοιάζει με σκέτο κείμενο.
+                  Δείχνει τα πεδία που πράγματι άλλαξαν σε αυτή την τροποποίηση - η μορφή "μετά"
+                  είναι η επόμενη τροποποίηση αν υπάρχει, αλλιώς η σημερινή εγγραφή. */}
+              {revisions.map((revision, index) => {
+                const after = index + 1 < revisions.length ? revisions[index + 1].record : record;
+                const changes = changedFields(revision.record || {}, after || {});
+
+                return (
+                  <View key={`${revision.at}-${index}`} style={localStyles.revisionCard}>
+                    <View style={localStyles.revisionIconBadge}>
+                      <Ionicons name="create-outline" size={16} color={COLORS.white} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={localStyles.revisionDate}>
+                        {formatDate(revision.at)}{revision.byName ? `  ·  ${revision.byName}` : ''}
+                      </Text>
+                      {changes.length === 0 ? (
+                        <Text style={doctorStyles.diagnosisCardDetail}>Καμία ορατή αλλαγή πεδίου.</Text>
+                      ) : (
+                        changes.map((change) => (
+                          <Text key={change.label} style={doctorStyles.diagnosisCardDetail}>
+                            <Text style={doctorStyles.diagnosisCardLabel}>{change.label}: </Text>
+                            {change.from} → {change.to}
+                          </Text>
+                        ))
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -388,5 +436,31 @@ const localStyles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.medium,
+  },
+  // Κάρτα τροποποίησης: ίδια λογική με τις κάρτες εγγραφών (φόντο, στρογγυλεμένες γωνίες) αντί
+  // για γραμμή με απλό διαχωριστικό, ώστε κάθε αλλαγή να διαβάζεται ως ξεχωριστό συμβάν.
+  revisionCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.lightest,
+    borderRadius: 15,
+    padding: 14,
+    marginBottom: 10,
+  },
+  revisionIconBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  revisionDate: {
+    fontSize: TYPOGRAPHY.secondaryText,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: 4,
   },
 });

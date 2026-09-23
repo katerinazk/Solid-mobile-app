@@ -101,13 +101,31 @@ export function parseRevisions(record: any): RecordRevision[] {
  * Το ίδιο το ιστορικό ΔΕΝ μπαίνει μέσα στο ιστορικό: κρατάμε κάθε έκδοση μία φορά, αλλιώς το
  * αρχείο θα διπλασιαζόταν σε κάθε διόρθωση.
  */
+/** Σύγκριση χωρίς να μετράει η σειρά των πεδίων μέσα στο αντικείμενο. */
+function stableStringify(value: any): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function withRevision(existing: any, next: any, stamp: RecordStamp): any {
-  const { revisions, ...previous } = existing || {};
+  const { revisions, retracted, ...previous } = existing || {};
+
+  // Η φόρμα επεξεργασίας μπορεί να αποθηκευτεί χωρίς καμία πραγματική αλλαγή στα δεδομένα -
+  // π.χ. ανοίγει κάποιος τη φόρμα και πατάει απευθείας "Αποθήκευση". Χωρίς αυτόν τον έλεγχο θα
+  // καταγραφόταν "Τροποποιήθηκε" με ακριβώς την ίδια προηγούμενη μορφή, που δεν περιγράφει
+  // καμία αλλαγή και απλώς μπερδεύει όποιον το διαβάσει στο Ιστορικό Αλλαγών.
+  if (stableStringify(previous) === stableStringify(next)) {
+    return existing;
+  }
+
   return {
     // Η ανάκληση επιβιώνει της διόρθωσης. Οι ροές που ξαναγράφουν ολόκληρη την εγγραφή - το
     // "Έναρξη" σε φάρμακο, το ανέβασμα αποτελέσματος σε εξέταση - χτίζουν το αντικείμενο από
     // την αρχή, οπότε χωρίς αυτό θα ξε-ανακαλούσαν σιωπηλά μια αποσυρμένη εγγραφή.
-    ...(previous.retracted ? { retracted: previous.retracted } : {}),
+    ...(retracted ? { retracted } : {}),
     ...next,
     revisions: [...(Array.isArray(revisions) ? revisions : []), { ...stamp, kind: REVISION_EDIT, record: previous }],
   };

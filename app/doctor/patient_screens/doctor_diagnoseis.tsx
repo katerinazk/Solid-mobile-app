@@ -17,6 +17,7 @@ import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
+import { SortDropdown } from '../../../components/SortDropdown';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
@@ -256,11 +257,12 @@ export default function DoctorDiagnoseisScreen() {
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
-                <Text style={doctorStyles.diagnosisSortButtonText}>
-                  ↕ {newestFirst ? 'Νεότερες προς Παλαιότερες' : 'Παλαιότερες προς Νεότερες'}
-                </Text>
-              </TouchableOpacity>
+              <SortDropdown
+                value={newestFirst}
+                onChange={setNewestFirst}
+                newestLabel="Νεότερες προς Παλαιότερες"
+                oldestLabel="Παλαιότερες προς Νεότερες"
+              />
             </View>
 
             <RecordSearchBar

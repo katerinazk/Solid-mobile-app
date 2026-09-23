@@ -19,6 +19,7 @@ import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
+import { SortDropdown } from '../../../components/SortDropdown';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
@@ -287,11 +288,12 @@ export default function DoctorVaccinationsScreen() {
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
-                <Text style={doctorStyles.diagnosisSortButtonText}>
-                  ↕ {newestFirst ? 'Νεότεροι προς Παλαιότεροι' : 'Παλαιότεροι προς Νεότεροι'}
-                </Text>
-              </TouchableOpacity>
+              <SortDropdown
+                value={newestFirst}
+                onChange={setNewestFirst}
+                newestLabel="Νεότεροι προς Παλαιότεροι"
+                oldestLabel="Παλαιότεροι προς Νεότεροι"
+              />
             </View>
 
             <RecordSearchBar

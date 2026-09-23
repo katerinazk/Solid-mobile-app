@@ -19,6 +19,7 @@ import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
+import { SortDropdown } from '../../../components/SortDropdown';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -477,11 +478,12 @@ export default function PatientMedicationsScreen() {
             // τίτλο της ενότητας και όχι μέσα σε κάποια χρονιά.
             if (section.kind === 'toggle' && previousSectionOpen) {
               return (
-                <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setPreviousNewestFirst((prev) => !prev)}>
-                  <Text style={doctorStyles.diagnosisSortButtonText}>
-                    ↕ {previousNewestFirst ? 'Νεότερα προς Παλαιότερα' : 'Παλαιότερα προς Νεότερα'}
-                  </Text>
-                </TouchableOpacity>
+                <SortDropdown
+                  value={previousNewestFirst}
+                  onChange={setPreviousNewestFirst}
+                  newestLabel="Νεότερα προς Παλαιότερα"
+                  oldestLabel="Παλαιότερα προς Νεότερα"
+                />
               );
             }
 

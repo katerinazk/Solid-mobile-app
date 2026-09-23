@@ -21,6 +21,7 @@ import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { askText, showMessage } from '../../../utils/appMessage';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
+import { SortDropdown } from '../../../components/SortDropdown';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -266,11 +267,12 @@ export default function PatientVaccinationsScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
-              <Text style={doctorStyles.diagnosisSortButtonText}>
-                ↕ {newestFirst ? 'Νεότεροι προς Παλαιότεροι' : 'Παλαιότεροι προς Νεότεροι'}
-              </Text>
-            </TouchableOpacity>
+            <SortDropdown
+              value={newestFirst}
+              onChange={setNewestFirst}
+              newestLabel="Νεότεροι προς Παλαιότεροι"
+              oldestLabel="Παλαιότεροι προς Νεότεροι"
+            />
 
             <RecordSearchBar
               label="Αναζήτηση εμβολιασμού:"

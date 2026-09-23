@@ -16,6 +16,7 @@ import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
+import { SortDropdown } from '../../../components/SortDropdown';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { fetchPatientByAmka } from '../../../services/patients';
@@ -194,11 +195,12 @@ export default function PatientDiagnoseisScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
-              <Text style={doctorStyles.diagnosisSortButtonText}>
-                ↕ {newestFirst ? 'Νεότερες προς Παλαιότερες' : 'Παλαιότερες προς Νεότερες'}
-              </Text>
-            </TouchableOpacity>
+            <SortDropdown
+              value={newestFirst}
+              onChange={setNewestFirst}
+              newestLabel="Νεότερες προς Παλαιότερες"
+              oldestLabel="Παλαιότερες προς Νεότερες"
+            />
 
             <RecordSearchBar
               label="Αναζήτηση διάγνωσης:"
