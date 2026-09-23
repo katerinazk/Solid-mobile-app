@@ -176,10 +176,10 @@ export default function PatientDiagnoseisScreen() {
         stickySectionHeadersEnabled
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
-        contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
-            <View style={doctorStyles.diagnosisCategoryRow}>
+            <View style={[doctorStyles.diagnosisCategoryRow, { marginTop: SPACING.sectionGap }]}>
               <TouchableOpacity
                 style={[doctorStyles.diagnosisCategoryButton, activeCategory === 'adult' ? doctorStyles.diagnosisCategoryButtonActive : doctorStyles.diagnosisCategoryButtonInactive]}
                 onPress={() => setActiveCategory('adult')}

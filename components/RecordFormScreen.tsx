@@ -44,7 +44,7 @@ export function RecordFormScreen({ title, amka, saving, onSave, children }: Prop
             απλώς έκλεινε το πληκτρολόγιο και χανόταν. */}
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.sectionGap }}
+          contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingTop: SPACING.sectionGap, paddingBottom: SPACING.sectionGap }}
           keyboardShouldPersistTaps="handled"
         >
           {children}

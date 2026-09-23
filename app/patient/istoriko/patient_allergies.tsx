@@ -228,7 +228,7 @@ export default function PatientAllergiesScreen() {
         stickySectionHeadersEnabled
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
-        contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>

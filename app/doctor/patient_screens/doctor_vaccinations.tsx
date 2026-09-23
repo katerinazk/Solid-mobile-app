@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
-import { SPACING, TOUCH } from '../../../constants/designSystem';
+import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
@@ -231,7 +231,7 @@ export default function DoctorVaccinationsScreen() {
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
-            <Text style={[doctorStyles.historyAmka, { marginBottom: TOUCH.buttonGap }]}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
+            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>
               {!isReadOnly && (

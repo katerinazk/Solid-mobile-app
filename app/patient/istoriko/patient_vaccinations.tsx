@@ -6,7 +6,7 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { SPACING, TOUCH } from '../../../constants/designSystem';
+import { SPACING } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
@@ -209,10 +209,10 @@ export default function PatientVaccinationsScreen() {
         stickySectionHeadersEnabled
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
-        contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
-            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: TOUCH.buttonGap }}>
+            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
               <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
                 <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
               </TouchableOpacity>

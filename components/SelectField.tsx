@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Text, View, TouchableOpacity, ScrollView, StyleSheet, StyleProp, TextStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { loginStyles } from '../constants/loginStyles';
 import { TYPOGRAPHY } from '../constants/designSystem';
@@ -27,12 +28,14 @@ export function SelectField({ label, labelStyle, value, onChange, options, place
       <Text style={labelStyle ?? loginStyles.inputLabel}>{label}</Text>
 
       <TouchableOpacity
-        style={[loginStyles.loginInput, formStyles.input, inputStyle, { justifyContent: 'center', marginBottom: isOpen ? 0 : 30 }]}
+        style={[loginStyles.loginInput, formStyles.input, inputStyle, localStyles.field, { marginBottom: isOpen ? 0 : 30 }]}
         onPress={() => setIsOpen((prev) => !prev)}
       >
         <Text style={{ color: value ? COLORS.text : COLORS.medium, fontSize: TYPOGRAPHY.bodyText }}>
           {value || placeholder}
         </Text>
+        {/* Δείχνει ότι το πάτημα ανοίγει λίστα από κάτω - χωρίς αυτό δεν ξεχώριζε από απλό πεδίο κειμένου. */}
+        <Ionicons name="chevron-down" size={18} color={COLORS.primary} />
       </TouchableOpacity>
 
       {isOpen && (
@@ -55,6 +58,7 @@ export function SelectField({ label, labelStyle, value, onChange, options, place
 }
 
 const localStyles = StyleSheet.create({
+  field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   list: {
     backgroundColor: COLORS.white,
     borderWidth: 1,

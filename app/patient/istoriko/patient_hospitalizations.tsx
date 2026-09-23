@@ -187,7 +187,7 @@ export default function PatientHospitalizationsScreen() {
         stickySectionHeadersEnabled
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
-        contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <RecordSearchBar
             label="Αναζήτηση νοσηλείας:"
