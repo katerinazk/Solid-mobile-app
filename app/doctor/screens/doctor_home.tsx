@@ -26,6 +26,9 @@ export default function DoctorHomeScreen() {
 
   const [openingFolderFor, setOpeningFolderFor] = useState<string | null>(null);
   const [isSentRequestsModalVisible, setIsSentRequestsModalVisible] = useState(false);
+  // Χωρίς αυτό, ένα γρήγορο διπλό πάτημα (ή διπλό "Ναι" στην επιβεβαίωση) θα έστελνε δύο
+  // αιτήματα αλλαγής πρόσβασης για τον ίδιο ασθενή.
+  const [requestingChangeFor, setRequestingChangeFor] = useState<string | null>(null);
 
   // Αίτημα αλλαγής τύπου πρόσβασης σε ασθενή που ήδη έχει πρόσβαση. Με μόνο δύο δυνατούς
   // τύπους (Πλήρης/Μόνο Ανάγνωση) δεν χρειάζεται φόρμα επιλογής - το "Αλλαγή" ζητάει
@@ -38,6 +41,11 @@ export default function DoctorHomeScreen() {
       message: `Θέλετε να ζητήσετε αλλαγή από "${patient.accessType}" σε "${nextType}";`,
     });
     if (!confirmed) return;
+
+    // Το ίδιο κουμπί μένει ανενεργό μέχρι να ολοκληρωθεί το αίτημα - χωρίς αυτό, ένα δεύτερο
+    // πάτημα όσο περιμένουμε την απάντηση θα έστελνε το αίτημα δύο φορές.
+    if (requestingChangeFor === patient.amka) return;
+    setRequestingChangeFor(patient.amka);
 
     try {
       const { data: pendingRequest } = await hasPendingAccessRequest(loggedInDoctorAmka, patient.amka);
@@ -55,6 +63,8 @@ export default function DoctorHomeScreen() {
       showMessage("Το αίτημα στάλθηκε επιτυχώς!");
     } catch {
       showMessage("Απρόσμενο σφάλμα.");
+    } finally {
+      setRequestingChangeFor(null);
     }
   };
 
@@ -144,9 +154,14 @@ export default function DoctorHomeScreen() {
           <TouchableOpacity
             style={localStyles.changeAccessButton}
             onPress={() => requestAccessTypeChange(patient)}
+            disabled={requestingChangeFor === patient.amka}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Text style={localStyles.changeAccessButtonText}>Αλλαγή</Text>
+            {requestingChangeFor === patient.amka ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <Text style={localStyles.changeAccessButtonText}>Αλλαγή</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>

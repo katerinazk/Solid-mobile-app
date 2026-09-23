@@ -40,6 +40,7 @@ export default function PatientAccessScreen() {
     savingChange,
     savedTypeAmkas,
     resetSavedTypeAmkas,
+    deletingAmka,
     confirmChangeAccessType,
     handleSelectAccessType,
     handleDeleteAccess,
@@ -252,6 +253,7 @@ export default function PatientAccessScreen() {
             item={item}
             savingChange={savingChange}
             savedTypeAmkas={savedTypeAmkas}
+            deletingAmka={deletingAmka}
             onSelectType={handleSelectAccessType}
             onDelete={handleDeleteAccess}
           />

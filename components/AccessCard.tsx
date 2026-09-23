@@ -12,6 +12,9 @@ interface AccessCardProps {
   item: any;
   savingChange: { amka: string; type: string } | null;
   savedTypeAmkas: string[];
+  // ΑΜΚΑ του γιατρού που καταργείται αυτή τη στιγμή, αν υπάρχει - το κουμπί "Κατάργηση"
+  // μπλοκάρεται όσο διαρκεί, ώστε ένα δεύτερο πάτημα να μη στείλει διπλό αίτημα.
+  deletingAmka?: string | null;
   onSelectType: (doctorAmka: string, newType: string) => void;
   onDelete: (doctorAmka: string) => void;
 }
@@ -21,7 +24,8 @@ interface AccessCardProps {
  * μέσα στα αποτελέσματα αναζήτησης της οθόνης "Προσθήκη Πρόσβασης", όταν ο γιατρός που βρέθηκε
  * έχει ήδη πρόσβαση - ο ασθενής αλλάζει τον τύπο επιτόπου αντί να ψάχνει πάλι τη λίστα.
  */
-export function AccessCard({ item, savingChange, savedTypeAmkas, onSelectType, onDelete }: AccessCardProps) {
+export function AccessCard({ item, savingChange, savedTypeAmkas, deletingAmka, onSelectType, onDelete }: AccessCardProps) {
+  const deleting = deletingAmka === item.doctor_amka;
   return (
     <View style={styles.card}>
       <Text style={styles.doctorName}>
@@ -65,8 +69,8 @@ export function AccessCard({ item, savingChange, savedTypeAmkas, onSelectType, o
         <Text style={[styles.statusText, { color: COLORS.success, fontWeight: 'bold' }]}>Η αλλαγή αποθηκεύτηκε</Text>
       )}
 
-      <TouchableOpacity style={styles.removeButton} onPress={() => onDelete(item.doctor_amka)}>
-        <Text style={styles.removeButtonText}>Κατάργηση</Text>
+      <TouchableOpacity style={styles.removeButton} onPress={() => onDelete(item.doctor_amka)} disabled={deleting}>
+        {deleting ? <ActivityIndicator size="small" color={COLORS.white} /> : <Text style={styles.removeButtonText}>Κατάργηση</Text>}
       </TouchableOpacity>
     </View>
   );

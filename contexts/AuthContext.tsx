@@ -1,5 +1,5 @@
 import React, { createContext, useState, useRef, useEffect, ReactNode } from 'react';
-import { AppState } from 'react-native'; // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
+import { AppState } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';

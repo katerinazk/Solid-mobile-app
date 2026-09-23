@@ -28,6 +28,10 @@ export function usePatientAccessActions(
   const [savedTypeAmkas, setSavedTypeAmkas] = useState<string[]>([]);
   const resetSavedTypeAmkas = () => setSavedTypeAmkas([]);
 
+  // Ποιος γιατρός καταργείται αυτή τη στιγμή - ώστε το κουμπί "Κατάργηση" να μπλοκάρεται όσο
+  // η ενέργεια εκτελείται, χωρίς αυτό ένα δεύτερο πάτημα θα έστελνε διπλό αίτημα κατάργησης.
+  const [deletingAmka, setDeletingAmka] = useState<string | null>(null);
+
   const confirmDialog = (title: string, message: string): Promise<boolean> =>
     askConfirm({ message });
 
@@ -100,22 +104,28 @@ export function usePatientAccessActions(
       cancelText: "Ακύρωση",
     });
     if (!confirmed) return;
+    if (deletingAmka === doctorAmka) return;
+    setDeletingAmka(doctorAmka);
 
-    const doctorEntry = accessList.find((a) => a.doctor_amka === doctorAmka);
-    const doctorWebId = doctorEntry?.doctors?.web_id;
-    const { error } = await deleteAccess(loggedInPatientAmka, doctorAmka);
+    try {
+      const doctorEntry = accessList.find((a) => a.doctor_amka === doctorAmka);
+      const doctorWebId = doctorEntry?.doctors?.web_id;
+      const { error } = await deleteAccess(loggedInPatientAmka, doctorAmka);
 
-    if (!error) {
-      if (doctorWebId) {
-        await removeDoctorFromAcl({
-          activePatientFolderUrl,
-          accessToken,
-          accessList,
-          doctorWebId,
-        });
+      if (!error) {
+        if (doctorWebId) {
+          await removeDoctorFromAcl({
+            activePatientFolderUrl,
+            accessToken,
+            accessList,
+            doctorWebId,
+          });
+        }
+        setAccessList((prev) => prev.filter((a) => a.doctor_amka !== doctorAmka));
+        showMessage("Η πρόσβαση καταργήθηκε επιτυχώς!");
       }
-      setAccessList((prev) => prev.filter((a) => a.doctor_amka !== doctorAmka));
-      showMessage("Η πρόσβαση καταργήθηκε επιτυχώς!");
+    } finally {
+      setDeletingAmka(null);
     }
   };
 
@@ -123,6 +133,7 @@ export function usePatientAccessActions(
     savingChange,
     savedTypeAmkas,
     resetSavedTypeAmkas,
+    deletingAmka,
     confirmDialog,
     applyAccessType,
     confirmChangeAccessType,

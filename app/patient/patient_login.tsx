@@ -9,6 +9,7 @@ import { TYPOGRAPHY, TOUCH } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchPatientByAmka } from '../../services/patients';
 import { showMessage } from '../../utils/appMessage';
+import { isValidAmka } from '../../utils/validateAmka';
 import { SelectField } from '../../components/SelectField';
 import { AuthLoadingScreen } from '../../components/AuthLoadingScreen';
 import {
@@ -34,6 +35,10 @@ export default function PatientLoginScreen() {
   const handleLogin = async () => {
     if (!patientAmka.trim() || !solidProvider.trim()) {
       showMessage("Παρακαλώ συμπληρώστε ΑΜΚΑ και Solid Provider.");
+      return;
+    }
+    if (!isValidAmka(patientAmka)) {
+      showMessage("Το ΑΜΚΑ δεν είναι έγκυρο. Ελέγξτε ότι έχει 11 ψηφία και είναι σωστά γραμμένο.");
       return;
     }
 

@@ -12,6 +12,7 @@ import { showMessage } from '../../utils/appMessage';
 import { SelectField } from '../../components/SelectField';
 import { SEX_OPTIONS, BLOOD_TYPES } from '../../constants/medicalOptions';
 import { DateField } from '../../components/DateField';
+import { isValidAmka } from '../../utils/validateAmka';
 
 export default function PatientRegisterScreen() {
   const { login } = useAuth();
@@ -31,6 +32,10 @@ export default function PatientRegisterScreen() {
   const handlePatientRegister = async () => {
     if (!patientForm.first_name || !patientForm.last_name || !patientForm.amka) {
       showMessage("Παρακαλώ συμπληρώστε τουλάχιστον Όνομα, Επίθετο και ΑΜΚΑ.");
+      return;
+    }
+    if (!isValidAmka(patientForm.amka)) {
+      showMessage("Το ΑΜΚΑ δεν είναι έγκυρο. Ελέγξτε ότι έχει 11 ψηφία και είναι σωστά γραμμένο.");
       return;
     }
     try {
