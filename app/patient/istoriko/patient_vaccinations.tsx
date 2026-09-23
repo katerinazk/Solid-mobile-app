@@ -6,7 +6,7 @@ import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { doctorStyles } from '../../../constants/doctorStyles';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { SPACING } from '../../../constants/designSystem';
+import { SPACING, TOUCH } from '../../../constants/designSystem';
 import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
@@ -212,13 +212,13 @@ export default function PatientVaccinationsScreen() {
         contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
-            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: TOUCH.buttonGap }}>
               <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
                 <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={[doctorStyles.diagnosisSortButton, { marginTop: SPACING.sectionGap }]} onPress={() => setNewestFirst((prev) => !prev)}>
+            <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
               <Text style={doctorStyles.diagnosisSortButtonText}>
                 ↕ {newestFirst ? 'Νεότεροι προς Παλαιότεροι' : 'Παλαιότεροι προς Νεότεροι'}
               </Text>

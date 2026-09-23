@@ -297,7 +297,7 @@ export default function DoctorMedicationsScreen() {
   // περιεχόμενό της.
   const sections = useMemo(() => {
     const result: { kind: 'active' | 'toggle' | 'year'; title: string; data: Medication[] }[] = [
-      { kind: 'active', title: 'Ενεργή Αγωγή', data: activeMedications },
+      { kind: 'active', title: 'Ενεργής Αγωγή', data: activeMedications },
     ];
 
     // Χωρίς προηγούμενη αγωγή δεν δείχνουμε ούτε τον τίτλο.
@@ -375,7 +375,7 @@ export default function DoctorMedicationsScreen() {
 
             return (
               <View style={localStyles.stickyHeader}>
-                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ενεργή Αγωγή</Text>
+                <Text style={[doctorStyles.dashboardTitle, { color: COLORS.text, marginTop: 0, marginBottom: 0 }]}>Ενεργής Αγωγή</Text>
               </View>
             );
           }}
