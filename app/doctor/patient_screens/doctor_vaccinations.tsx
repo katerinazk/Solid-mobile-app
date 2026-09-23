@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Text, View, SectionList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl } from 'react-native';
+import { Text, View, SectionList, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
@@ -10,6 +10,7 @@ import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../hooks/useAuth';
 import { isCompleteRecord, timeOf } from '../../../utils/podRecords';
 import { groupByYearRetractedLast } from '../../../utils/groupByYear';
+import { groupDoses } from '../../../utils/groupDoses';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
@@ -74,6 +75,15 @@ export default function DoctorVaccinationsScreen() {
     });
   };
   const [newestFirst, setNewestFirst] = useState(true);
+  // Κλειδιά (κωδικός εμβολίου) των ομάδων δόσεων που είναι ανοιχτές αυτή τη στιγμή.
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const loadVaccinations = async (silent = false) => {
     if (!webId) {
@@ -146,12 +156,17 @@ export default function DoctorVaccinationsScreen() {
   const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: foundVaccinations } =
     useRecordSearch(vaccinations, (item) => [item.title, item.code, item.parentName, item.batchNumber]);
 
-  const sortedVaccinations = useMemo(() => {
-    return [...foundVaccinations].sort((a, b) => {
-      const diff = new Date(b.administeredDate).getTime() - new Date(a.administeredDate).getTime();
+  // Ομαδοποίηση ανά εμβόλιο (κοινός κωδικός): η πιο πρόσφατη δόση είναι η κάρτα, οι
+  // υπόλοιπες κρύβονται μέχρι να ανοίξει. Μετά ταξινομούμε τις ΟΜΑΔΕΣ κατά την πιο πρόσφατη
+  // δόση τους, ώστε το "↕" να δουλεύει το ίδιο όπως πριν, απλώς σε επίπεδο ομάδας.
+  const doseGroups = useMemo(() => groupDoses(foundVaccinations), [foundVaccinations]);
+
+  const sortedGroups = useMemo(() => {
+    return [...doseGroups].sort((a, b) => {
+      const diff = new Date(b.latest.administeredDate).getTime() - new Date(a.latest.administeredDate).getTime();
       return newestFirst ? diff : -diff;
     });
-  }, [foundVaccinations, newestFirst]);
+  }, [doseGroups, newestFirst]);
 
   const openForm = (item?: Vaccination) => {
     router.push({
@@ -203,10 +218,42 @@ export default function DoctorVaccinationsScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
   };
 
-  // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
+  // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα - τώρα σε
+  // επίπεδο ομάδας εμβολίου, με βάση την πιο πρόσφατη δόση της.
   const sections = useMemo(
-    () => groupByYearRetractedLast(sortedVaccinations, (item) => timeOf(item.administeredDate)),
-    [sortedVaccinations],
+    () => groupByYearRetractedLast(sortedGroups, (group) => timeOf(group.latest.administeredDate)),
+    [sortedGroups],
+  );
+
+  // Η κάρτα μιας δόσης, ίδια είτε είναι η πιο πρόσφατη είτε μία από τις κρυμμένες παλαιότερες -
+  // η μόνη διαφορά είναι το "extra" περιεχόμενο (το κουμπί εμφάνισης παλαιότερων) που παίρνει
+  // μόνο η πιο πρόσφατη.
+  const renderVaccinationCard = (item: Vaccination, extra?: React.ReactNode) => (
+    <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
+      <View style={doctorStyles.diagnosisCardHeader}>
+        <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+        <RecordCardActions
+          visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && !item.retraction}
+          onEdit={() => openForm(item)}
+          onRetract={() => handleRetractVaccination(item)}
+        />
+      </View>
+
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Παρτίδας: </Text>{item.batchNumber}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Δόσης: </Text>{item.doseNumber}
+      </Text>
+      <Text style={doctorStyles.diagnosisCardDetail}>
+        <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
+      </Text>
+      <RetractedNote retraction={item.retraction} />
+      {extra}
+    </TouchableOpacity>
   );
 
   return (
@@ -227,7 +274,7 @@ export default function DoctorVaccinationsScreen() {
         sections={sections}
         stickySectionHeadersEnabled
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
-        keyExtractor={(item) => item.url}
+        keyExtractor={(group) => group.key}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
@@ -265,33 +312,46 @@ export default function DoctorVaccinationsScreen() {
             </Text>
           )
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
-            <View style={doctorStyles.diagnosisCardHeader}>
-              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-              <RecordCardActions
-                visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && !item.retraction}
-                onEdit={() => openForm(item)}
-                onRetract={() => handleRetractVaccination(item)}
-              />
-            </View>
+        renderItem={({ item: group }) => {
+          const isExpanded = expandedGroups.has(group.key);
+          const hasPreviousDoses = group.previousDoses.length > 0;
 
-            <Text style={doctorStyles.diagnosisCardDetail}>
-              <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-            </Text>
-            <Text style={doctorStyles.diagnosisCardDetail}>
-              <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Παρτίδας: </Text>{item.batchNumber}
-            </Text>
-            <Text style={doctorStyles.diagnosisCardDetail}>
-              <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Δόσης: </Text>{item.doseNumber}
-            </Text>
-            <Text style={doctorStyles.diagnosisCardDetail}>
-              <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
-            </Text>
-            <RetractedNote retraction={item.retraction} />
-          </TouchableOpacity>
-        )}
+          // Το κουμπί εμφάνισης/απόκρυψης ζει ΜΕΣΑ στην κάρτα της πιο πρόσφατης δόσης, όπως
+          // ακριβώς τα "Συνημμένα Αρχεία" στις Νοσηλείες - φωλιασμένο TouchableOpacity μέσα σε
+          // άλλο, που στο React Native παίρνει το δικό του πάτημα χωρίς να ανοίγει και την
+          // αναλυτική προβολή της κάρτας.
+          const toggleButton = hasPreviousDoses ? (
+            <TouchableOpacity
+              style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginBottom: 0, marginTop: 12 }]}
+              onPress={() => toggleGroup(group.key)}
+            >
+              <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.white} style={{ marginRight: 8 }} />
+              <Text style={doctorStyles.diagnosisSortButtonText}>
+                {isExpanded
+                  ? 'Απόκρυψη προηγούμενων δόσεων'
+                  : group.previousDoses.length === 1 ? '1 προηγούμενη δόση' : `${group.previousDoses.length} προηγούμενες δόσεις`}
+              </Text>
+            </TouchableOpacity>
+          ) : null;
+
+          return (
+            <>
+              {renderVaccinationCard(group.latest, toggleButton)}
+              {isExpanded && group.previousDoses.map((dose) => (
+                <View key={dose.url} style={localStyles.previousDoseWrapper}>
+                  {renderVaccinationCard(dose)}
+                </View>
+              ))}
+            </>
+          );
+        }}
       />
     </SafeAreaView>
   );
 }
+
+const localStyles = StyleSheet.create({
+  // Μικρή εσοχή αριστερά, ώστε οι παλαιότερες δόσεις να διαβάζονται σαν "μέσα" στην ομάδα
+  // της πιο πρόσφατης, όχι σαν απλά επόμενες κάρτες της λίστας.
+  previousDoseWrapper: { marginLeft: 16 },
+});
