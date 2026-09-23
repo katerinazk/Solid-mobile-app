@@ -158,6 +158,8 @@ export default function DoctorHospitalizationsScreen() {
       pathname: ROUTES.HOSPITALIZATION_FORM,
       params: {
         amka,
+        firstName,
+        lastName,
         webId,
         accessType,
         ...(item ? {

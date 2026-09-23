@@ -175,6 +175,8 @@ export default function DoctorVaccinationsScreen() {
       pathname: ROUTES.VACCINATION_FORM,
       params: {
         amka,
+        firstName,
+        lastName,
         webId,
         accessType,
         ...(item ? {

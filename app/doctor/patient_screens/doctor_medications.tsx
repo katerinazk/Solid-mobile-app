@@ -205,6 +205,8 @@ export default function DoctorMedicationsScreen() {
       pathname: ROUTES.MEDICATION_FORM,
       params: {
         amka,
+        firstName,
+        lastName,
         webId,
         accessType,
         ...(item ? {

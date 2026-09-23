@@ -161,6 +161,8 @@ export default function DoctorDiagnoseisScreen() {
       pathname: ROUTES.DIAGNOSIS_FORM,
       params: {
         amka,
+        firstName,
+        lastName,
         webId,
         accessType,
         category: patientCategory,
@@ -234,7 +236,7 @@ export default function DoctorDiagnoseisScreen() {
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
-            <View style={[doctorStyles.diagnosisCategoryRow, { marginTop: SPACING.sectionGap }]}>
+            <View style={[doctorStyles.diagnosisCategoryRow, { marginTop: SPACING.groupGap }]}>
               <TouchableOpacity
                 style={[doctorStyles.diagnosisCategoryButton, activeCategory === 'adult' ? doctorStyles.diagnosisCategoryButtonActive : doctorStyles.diagnosisCategoryButtonInactive]}
                 onPress={() => setActiveCategory('adult')}

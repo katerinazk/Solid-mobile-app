@@ -180,7 +180,7 @@ export default function PatientDiagnoseisScreen() {
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
         ListHeaderComponent={
           <>
-            <View style={[doctorStyles.diagnosisCategoryRow, { marginTop: SPACING.sectionGap }]}>
+            <View style={[doctorStyles.diagnosisCategoryRow, { marginTop: SPACING.groupGap }]}>
               <TouchableOpacity
                 style={[doctorStyles.diagnosisCategoryButton, activeCategory === 'adult' ? doctorStyles.diagnosisCategoryButtonActive : doctorStyles.diagnosisCategoryButtonInactive]}
                 onPress={() => setActiveCategory('adult')}

@@ -19,6 +19,8 @@ import { showMessage } from '../../utils/appMessage';
 export default function MedicationFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
+    firstName: string;
+    lastName: string;
     webId: string;
     accessType: string;
     // Συμπληρωμένα μόνο στην επεξεργασία υπάρχοντος φαρμάκου.
@@ -166,7 +168,7 @@ export default function MedicationFormScreen() {
   return (
     <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέο Φάρμακο'}
-      amka={params.amka}
+      patientName={params.amka ? `${params.firstName} ${params.lastName}` : undefined}
       saving={saving}
       onSave={handleSave}
     >

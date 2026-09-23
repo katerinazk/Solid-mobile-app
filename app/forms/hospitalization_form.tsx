@@ -43,6 +43,8 @@ function parseAttachments(raw?: string): string[] {
 export default function HospitalizationFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
+    firstName: string;
+    lastName: string;
     webId: string;
     accessType: string;
     // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας νοσηλείας.
@@ -211,7 +213,7 @@ export default function HospitalizationFormScreen() {
   return (
     <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέα Νοσηλεία'}
-      amka={params.amka}
+      patientName={params.amka ? `${params.firstName} ${params.lastName}` : undefined}
       saving={saving}
       onSave={handleSave}
     >

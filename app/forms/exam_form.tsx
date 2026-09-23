@@ -24,6 +24,8 @@ import { showMessage } from '../../utils/appMessage';
 export default function ExamFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
+    firstName: string;
+    lastName: string;
     webId: string;
     accessType: string;
     // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας εξέτασης.
@@ -180,7 +182,7 @@ export default function ExamFormScreen() {
   return (
     <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέα Εξέταση'}
-      amka={params.amka}
+      patientName={params.amka ? `${params.firstName} ${params.lastName}` : undefined}
       saving={saving}
       onSave={handleSave}
     >

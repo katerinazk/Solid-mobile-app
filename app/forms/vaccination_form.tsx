@@ -16,6 +16,8 @@ import { showMessage } from '../../utils/appMessage';
 export default function VaccinationFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
+    firstName: string;
+    lastName: string;
     webId: string;
     accessType: string;
     // Συμπληρωμένα μόνο στην επεξεργασία υπάρχοντος εμβολιασμού.
@@ -106,7 +108,7 @@ export default function VaccinationFormScreen() {
   return (
     <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέος Εμβολιασμός'}
-      amka={params.amka}
+      patientName={params.amka ? `${params.firstName} ${params.lastName}` : undefined}
       saving={saving}
       onSave={handleSave}
     >

@@ -11,8 +11,8 @@ interface Props {
   // "Νέα Διάγνωση" / "Επεξεργασία" κ.λπ.
   title: string;
   // Λείπει όταν ο ασθενής καταχωρεί στον δικό του φάκελο: δεν έχει νόημα να
-  // βλέπει το ΑΜΚΑ του τυπωμένο πάνω από τα πεδία.
-  amka?: string;
+  // βλέπει το δικό του όνομα τυπωμένο πάνω από τα πεδία.
+  patientName?: string;
   saving: boolean;
   onSave: () => void;
   children: React.ReactNode;
@@ -22,8 +22,8 @@ interface Props {
 // ανοίγει σε δική
 // της οθόνη και όχι σε αναδυόμενο παράθυρο: η αναζήτηση στους καταλόγους προτύπων βγάζει
 // δεκάδες αποτελέσματα και σε παράθυρο δεν χωρούσαν. Επειδή η φόρμα ζει εδώ, οι έξι οθόνες
-// έχουν αναγκαστικά την ίδια εμφάνιση - κεφαλίδα, ΑΜΚΑ ασθενή, πεδία, κουμπί αποθήκευσης.
-export function RecordFormScreen({ title, amka, saving, onSave, children }: Props) {
+// έχουν αναγκαστικά την ίδια εμφάνιση - κεφαλίδα, ονοματεπώνυμο ασθενή, πεδία, κουμπί αποθήκευσης.
+export function RecordFormScreen({ title, patientName, saving, onSave, children }: Props) {
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -33,11 +33,8 @@ export function RecordFormScreen({ title, amka, saving, onSave, children }: Prop
           <Ionicons name="arrow-back-circle-outline" size={32} color={COLORS.primary} />
         </TouchableOpacity>
         <Text style={doctorStyles.historyTitle}>{title}</Text>
+        {!!patientName && <Text style={doctorStyles.historyPatientName}>{patientName}</Text>}
       </View>
-
-      {!!amka && (
-        <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
-      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* keyboardShouldPersistTaps: αλλιώς το πρώτο πάτημα σε αποτέλεσμα της αναζήτησης

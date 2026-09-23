@@ -17,6 +17,8 @@ import { showMessage } from '../../utils/appMessage';
 export default function AllergyFormScreen() {
   const params = useLocalSearchParams<{
     amka: string;
+    firstName: string;
+    lastName: string;
     webId: string;
     accessType: string;
     // Συμπληρωμένα μόνο στην επεξεργασία υπάρχουσας αλλεργίας.
@@ -104,7 +106,7 @@ export default function AllergyFormScreen() {
   return (
     <RecordFormScreen
       title={isEditing ? 'Επεξεργασία' : 'Νέα Αλλεργία'}
-      amka={params.amka}
+      patientName={params.amka ? `${params.firstName} ${params.lastName}` : undefined}
       saving={saving}
       onSave={handleSave}
     >

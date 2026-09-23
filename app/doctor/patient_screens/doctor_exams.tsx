@@ -283,6 +283,8 @@ export default function DoctorExamsScreen() {
       pathname: ROUTES.EXAM_FORM,
       params: {
         amka,
+        firstName,
+        lastName,
         webId,
         accessType,
         ...(item ? {

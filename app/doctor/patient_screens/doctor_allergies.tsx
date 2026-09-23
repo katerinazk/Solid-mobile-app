@@ -147,6 +147,8 @@ export default function DoctorAllergiesScreen() {
       pathname: ROUTES.ALLERGY_FORM,
       params: {
         amka,
+        firstName,
+        lastName,
         webId,
         accessType,
         ...(item ? {

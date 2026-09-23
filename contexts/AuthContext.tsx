@@ -72,9 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // αλλαγή AppState), οπότε το "σκούντημα" γίνεται τώρα ΚΑΙ κατευθείαν σε κάθε αλλαγή του
   // "loading" - ακριβώς τις στιγμές που ξέρουμε σίγουρα ότι η οθόνη πρέπει να αλλάξει.
   const [, forceRepaint] = useState(0);
-  // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
   const setLoading = (value: boolean) => {
-    console.log(`[AUTH loading] -> ${value} @ ${Date.now()}`);
     _setLoading(value);
     forceRepaint((n) => n + 1);
   };
@@ -188,13 +186,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from('patients')
           .update({ web_id: webId })
           .eq('amka', loggedInPatientAmka);
-        console.log("✅ WebID αποθηκεύτηκε:", webId);
       } else if (data.web_id !== webId) {
         showMessage("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
         return false;
       }
 
-      console.log("✅ Ο ασθενής επαληθεύτηκε επιτυχώς!");
       const patientFolder = webId.replace('profile/card#me', 'public/');
       setActivePatientFolderUrl(patientFolder);
 
@@ -248,13 +244,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .from('doctors')
           .update({ web_id: webId })
           .eq('amka', loggedInDoctorAmka);
-        console.log("✅ WebID γιατρού αποθηκεύτηκε:", webId);
       } else if (data.web_id !== webId) {
         showMessage("Συνδεθήκατε σε λάθος Pod! Παρακαλώ συνδεθείτε με τον λογαριασμό που αντιστοιχεί στο ΑΜΚΑ σας.");
         return false;
       }
 
-      console.log("✅ Ο γιατρός επαληθεύτηκε επιτυχώς!");
       return true;
 
     } catch (error) {
@@ -276,8 +270,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
     const getRealAccessToken = async () => {
-      // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
-      console.log(`[AUTH response effect] response=${JSON.stringify(response)} expecting=${expectingResponse.current} @ ${Date.now()}`);
       // Αγνοούμε ό,τι response δεν περιμένουμε (π.χ. stale από προηγούμενο login).
       if (!response || !expectingResponse.current) return;
 
@@ -296,7 +288,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       expectingResponse.current = false;
       const authCode = response.params.code;
-      console.log("1. Πήραμε το Εισιτήριο (Auth Code):", authCode);
 
       // Από εδώ και κάτω, κάθε δρόμος καταλήγει είτε σε επιτυχή σύνδεση είτε σε setLoading(false)
       // - η οθόνη φόρτωσης δεν πρέπει να μείνει ποτέ κολλημένη.
@@ -320,7 +311,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         const tokenData = await tokenResponse.json();
-        console.log("Token Response:", JSON.stringify(tokenData));
 
         if (tokenData.access_token) {
           setAccessToken(tokenData.access_token);
@@ -329,7 +319,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const tokenParts = tokenData.access_token.split('.');
           const tokenPayload = JSON.parse(atob(tokenParts[1]));
           const webId = tokenPayload.webid || tokenPayload.sub || '';
-          console.log("🔑 WebID από token:", webId);
 
           // Ο πάροχος απάντησε κανονικά, αλλά το Pod του έχει άλλη δομή από αυτή που ξέρει
           // η εφαρμογή. Χωρίς αυτόν τον έλεγχο η σύνδεση θα πετύχαινε και το ιστορικό θα
@@ -408,9 +397,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const openLoginBrowser = async () => {
     if (!AUTH_BRIDGE_URL) {
-      console.log(`[AUTH browser] opening @ ${Date.now()}`); // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
       await promptAsync({ preferEphemeralSession: true });
-      console.log(`[AUTH browser] closed @ ${Date.now()}`); // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
       return;
     }
 
@@ -538,7 +525,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const clientData = await registrationRes.json();
 
       if (clientData.client_id) {
-        console.log("Πήραμε δυναμικό Client ID:", clientData.client_id);
         storedClientId.current = clientData.client_id;
         setDynamicClientId(clientData.client_id);
         // Το "loading" ΔΕΝ σβήνει εδώ: μένει αναμμένο όσο ανοίγει ο browser, περιμένουμε την
