@@ -19,7 +19,6 @@ import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
-import { SortDropdown } from '../../../components/SortDropdown';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -184,7 +183,6 @@ export default function PatientMedicationsScreen() {
   // Η αναζήτηση εμφανίζεται μόνο όταν η λίστα ξεπερνά το όριο εγγραφών - το ίδιο όριο
   // με τις υπόλοιπες οθόνες ιστορικού.
   const { query: searchQuery, setQuery: setSearchQuery, searchVisible } = useSearchField(medications.length);
-  const [previousNewestFirst, setPreviousNewestFirst] = useState(true);
 
   const loadMedications = async (silent = false) => {
     try {
@@ -367,14 +365,12 @@ export default function PatientMedicationsScreen() {
     // Τα εκκρεμή φάρμακα (δεν έχει πατηθεί ακόμα "Έναρξη") εμφανίζονται πάντα πρώτα.
     active.sort((a, b) => Number(isPending(b)) - Number(isPending(a)));
 
-    previous.sort((a, b) => {
-      const diff = new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
-      return previousNewestFirst ? diff : -diff;
-    });
+    // Πιο πρόσφατη έναρξη πρώτα - σταθερή σειρά, χωρίς φίλτρο νεότερα/παλαιότερα.
+    previous.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 
     // Οι ανακληθείσες μένουν στην ενεργή αγωγή - δεν έγιναν προηγούμενη - αλλά τελευταίες.
     return { activeMedications: withRetractedLast(active), previousMedications: previous };
-  }, [medications, previousNewestFirst, searchQuery]);
+  }, [medications, searchQuery]);
 
   // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.
   const previousSections = useMemo(
@@ -471,19 +467,6 @@ export default function PatientMedicationsScreen() {
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
                   {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν ενεργές αγωγές.'}
                 </Text>
-              );
-            }
-
-            // Η ταξινόμηση αφορά ΟΛΗ την προηγούμενη αγωγή, γι' αυτό κάθεται κάτω από τον
-            // τίτλο της ενότητας και όχι μέσα σε κάποια χρονιά.
-            if (section.kind === 'toggle' && previousSectionOpen) {
-              return (
-                <SortDropdown
-                  value={previousNewestFirst}
-                  onChange={setPreviousNewestFirst}
-                  newestLabel="Νεότερα προς Παλαιότερα"
-                  oldestLabel="Παλαιότερα προς Νεότερα"
-                />
               );
             }
 
