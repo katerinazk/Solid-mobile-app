@@ -19,7 +19,7 @@ export function AuthLoadingScreen() {
       <ActivityIndicator size="large" color={COLORS.primary} />
       <Text style={styles.title}>Σύνδεση με το Pod</Text>
       <Text style={styles.subtitle}>
-        Περιμένουμε την επιβεβαίωση από τον πάροχο του Pod σας.
+        Παρακαλώ περιμένετε ...
       </Text>
     </SafeAreaView>
   );

@@ -18,6 +18,9 @@ export default function PatientTabsLayout() {
       <Tabs.Screen name="patient_home" options={{ title: 'Αρχική' }} />
       <Tabs.Screen name="patient_access" options={{ title: 'Προσβάσεις' }} />
       <Tabs.Screen name="patient_account" options={{ title: 'Λογαριασμός' }} />
+      {/* Ανοίγει μόνο από το κουμπί "+ Προσθήκη Πρόσβασης" - το href: null την κρύβει από τη
+          μπάρα καρτελών χωρίς να την αφαιρεί ως route, ο router.push συνεχίζει να δουλεύει. */}
+      <Tabs.Screen name="patient_add_access" options={{ href: null }} />
     </Tabs>
   );
 }

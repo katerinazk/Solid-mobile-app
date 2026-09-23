@@ -23,7 +23,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.medicalapp"
+      "package": "com.anonymous.medicalapp",
+      "backgroundColor": "#98bad5"
     },
     "web": {
       "favicon": "./assets/favicon.png"

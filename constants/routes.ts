@@ -8,6 +8,7 @@ export const ROUTES = {
   PATIENT_LOGIN: '/patient/patient_login',
   PATIENT_REGISTER: '/patient/patient_register',
   PATIENT_ACCESS: '/patient/screens/patient_access',
+  PATIENT_ADD_ACCESS: '/patient/screens/patient_add_access',
   PATIENT_HOME: '/patient/screens/patient_home',
   // Τα στοιχεία του χρήστη και οι ενέργειες λογαριασμού σε μία οθόνη - ήταν χωρισμένα
   // σε "Προφίλ" και "Ρυθμίσεις", που όμως δεν είχαν ποτέ καμία ρύθμιση μέσα τους.

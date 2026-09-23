@@ -33,7 +33,10 @@ export const doctorStyles = StyleSheet.create({
 
   /* Οθόνη Ιστορικού ασθενή (κατηγορίες φακέλου) */
   historyHeader: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: 10, minHeight: 40 },
-  historyBackButton: { position: 'absolute', left: SPACING.sideMargin, top: 0 },
+  // top+bottom αντί για μόνο top: το κουμπί απλώνεται σε όλο το ύψος της κεφαλίδας και
+  // κεντράρει το εικονίδιο μέσα του, ώστε να ευθυγραμμίζεται με τον τίτλο ό,τι ύψος κι αν
+  // πάρει εκείνος - ακόμα και σε δύο γραμμές.
+  historyBackButton: { position: 'absolute', left: SPACING.sideMargin, top: 0, bottom: 0, justifyContent: 'center' },
   historyTitle: { fontSize: TYPOGRAPHY.mainTitle, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
   historyAmka: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: 'bold', color: COLORS.primary, paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.sectionGap },
   historyAmkaValue: { fontWeight: 'normal' },

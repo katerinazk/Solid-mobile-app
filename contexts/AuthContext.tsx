@@ -1,4 +1,5 @@
 import React, { createContext, useState, useRef, useEffect, ReactNode } from 'react';
+import { AppState } from 'react-native'; // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
@@ -64,12 +65,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, _setLoading] = useState(false);
-  // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί): ξαναμπαίνει γιατί το προηγούμενο τεστ έδειξε καθαρή
-  // ροή, αλλά ένα αυτόματο (χωρίς πληκτρολόγηση) login μέσα σε ελάχιστο χρόνο φαίνεται να δίνει
-  // διαφορετική εικόνα - χρειάζονται νέα logs για να φανεί η ακριβής σειρά.
+  // Γνωστό ζήτημα Android/RN: η επιφάνεια σχεδίασης μερικές φορές δεν ξαναζωγραφίζεται μόνη
+  // της μετά την επιστροφή από παρασκήνιο (system browser) - η οθόνη μένει στο τελευταίο καρέ
+  // (π.χ. το spinner) ενώ το πραγματικό state έχει ήδη αλλάξει. Το AppState-based τέχνασμα δεν
+  // αρκούσε μόνο του (μια πολύ γρήγορη επιστροφή μπορεί να μην προλάβει καν να καταγραφεί ως
+  // αλλαγή AppState), οπότε το "σκούντημα" γίνεται τώρα ΚΑΙ κατευθείαν σε κάθε αλλαγή του
+  // "loading" - ακριβώς τις στιγμές που ξέρουμε σίγουρα ότι η οθόνη πρέπει να αλλάξει.
+  const [, forceRepaint] = useState(0);
+  // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
   const setLoading = (value: boolean) => {
     console.log(`[AUTH loading] -> ${value} @ ${Date.now()}`);
     _setLoading(value);
+    forceRepaint((n) => n + 1);
   };
   const [loggedInPatientAmka, setLoggedInPatientAmka] = useState('');
   const [loggedInDoctorAmka, setLoggedInDoctorAmka] = useState('');
@@ -120,6 +127,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isBrowserOpen = useRef(false);
   const expectingResponse = useRef(false);
+
+  // Δεύτερο σημείο σκουντήματος: κάθε φορά που η ίδια η εφαρμογή ξαναγίνει ενεργή (π.χ. έκλεισε
+  // ο system browser), ό,τι κι αν άλλαξε ή όχι το "loading" στο ενδιάμεσο.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        forceRepaint((n) => n + 1);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // Με γέφυρα, η επιστροφή δεν έχει το σχήμα που περιμένει ο SDK για να την αναγνωρίσει,
   // οπότε τη διαβάζουμε μόνοι μας. Το σχήμα του αντικειμένου μένει ίδιο, ώστε η συνέχεια
@@ -245,6 +263,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Μετά από αποτυχία, ένα απλό setLoading(false) αλλάζει σωστά το React state, αλλά σε
+  // ορισμένες συσκευές Android η επιφάνεια της οθόνης δεν ξαναζωγραφίζεται μόνη της μετά την
+  // επιστροφή από τον browser (επιβεβαιωμένο με logs: το "loading" γίνεται false κανονικά, η
+  // οθόνη όμως μένει στο τελευταίο ζωγραφισμένο καρέ, το spinner). Μια πραγματική πλοήγηση
+  // πίσω στην ίδια φόρμα αναγκάζει το react-native-screens να ξαναενεργοποιήσει και να
+  // ξαναζωγραφίσει σωστά την οθόνη - κάτι που ένα απλό state update δεν καταφέρνει πάντα.
+  const returnToLoginForm = () => {
+    router.replace(role === 'patient' ? ROUTES.PATIENT_LOGIN : ROUTES.DOCTOR_LOGIN);
+  };
+
   // Παρακολούθηση της επιστροφής από τον Browser (Όταν γίνει το Login)
   useEffect(() => {
     const getRealAccessToken = async () => {
@@ -259,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.type !== 'success' || !response.params?.code) {
         expectingResponse.current = false;
         setLoading(false);
+        returnToLoginForm();
         if (response.type === 'error') {
           showMessage('Η σύνδεση με το Pod απέτυχε ή απορρίφθηκε. Δοκιμάστε ξανά.');
         }
@@ -311,6 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               'Δοκιμάστε κάποιον από τους υπόλοιπους παρόχους της λίστας.'
             );
             setLoading(false);
+            returnToLoginForm();
             return;
           }
 
@@ -333,6 +363,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               // Ο έλεγχος απέτυχε - handlePatientLoginVerification έδειξε ήδη το γιατί.
               // Μένουμε στη φόρμα σύνδεσης, οπότε εδώ το "loading" πρέπει να σβήσει.
               setLoading(false);
+              returnToLoginForm();
             }
           } else if (role === 'doctor') {
             const verified = await handleDoctorLoginVerification(webId);
@@ -341,6 +372,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               router.replace(ROUTES.DOCTOR_HOME);
             } else {
               setLoading(false);
+              returnToLoginForm();
             }
           } else {
             // Δεν θα έπρεπε ποτέ να συμβεί - ο ρόλος ορίζεται πριν καν ξεκινήσει η σύνδεση.
@@ -350,12 +382,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           showMessage("Αποτυχία λήψης token: " + JSON.stringify(tokenData));
           setLoading(false);
+          returnToLoginForm();
         }
 
       } catch (error) {
         console.error("Σφάλμα κατά την ανταλλαγή του token:", error);
         showMessage("Αποτυχία λήψης Access Token!");
         setLoading(false);
+        returnToLoginForm();
       }
     };
 
