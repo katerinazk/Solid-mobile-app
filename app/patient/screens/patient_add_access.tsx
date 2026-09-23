@@ -288,7 +288,9 @@ export default function PatientAddAccessScreen() {
 const localStyles = StyleSheet.create({
   // Ο τίτλος σε δύο γραμμές είναι αρκετά στενός ώστε το κεντράρισμα να μην ακουμπάει πια το
   // βέλος επιστροφής - αυτό μένει σταθερό στα αριστερά με απόλυτη θέση.
-  headerRow: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: 10, minHeight: 40 },
+  // Ίδιο ανοιχτό μπλε φόντο με το historyHeader των υπόλοιπων οθονών: ξεχωρίζει τον τίτλο από
+  // την αναζήτηση/τη λίστα από κάτω, και μένει σταθερό στην κορυφή όσο κάνει scroll το FlatList.
+  headerRow: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.groupGap, paddingTop: 18, paddingBottom: 18, backgroundColor: COLORS.medium, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   headerBackButton: { position: 'absolute', left: SPACING.sideMargin, top: 0, bottom: 0, justifyContent: 'center' },
   headerTitle: { fontSize: TYPOGRAPHY.mainTitle, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
   searchLabel: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary, marginBottom: 8 },

@@ -336,52 +336,56 @@ export default function DoctorExamsScreen() {
         <Text style={doctorStyles.historyTitle}>Εξετάσεις</Text>
       </View>
 
-      <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
+      {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
+          ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
+      <SectionList
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        sections={sections}
+        keyExtractor={(item) => item.url}
+        stickySectionHeadersEnabled
+        ListHeaderComponent={
+          <>
+            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
-      <RecordSearchBar
-        label="Αναζήτηση εξέτασης:"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        visible={searchVisible}
-        containerStyle={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.groupGap }}
-      />
+            <RecordSearchBar
+              label="Αναζήτηση εξέτασης:"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              visible={searchVisible}
+              containerStyle={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.groupGap }}
+            />
 
-      <FilterScrollRow
-        contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}
-        style={localStyles.categoryBar}
-      >
-        {CATEGORIES.map((category) => {
-          const isSelected = category === selectedCategory;
-          return (
-            <TouchableOpacity
-              key={category}
-              style={[localStyles.categoryPill, isSelected ? localStyles.categoryPillSelected : localStyles.categoryPillUnselected]}
-              onPress={() => setSelectedCategory(category)}
+            <FilterScrollRow
+              contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}
+              style={localStyles.categoryBar}
             >
-              <Text style={isSelected ? localStyles.categoryPillTextSelected : localStyles.categoryPillTextUnselected}>{category}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </FilterScrollRow>
+              {CATEGORIES.map((category) => {
+                const isSelected = category === selectedCategory;
+                return (
+                  <TouchableOpacity
+                    key={category}
+                    style={[localStyles.categoryPill, isSelected ? localStyles.categoryPillSelected : localStyles.categoryPillUnselected]}
+                    onPress={() => setSelectedCategory(category)}
+                  >
+                    <Text style={isSelected ? localStyles.categoryPillTextSelected : localStyles.categoryPillTextUnselected}>{category}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </FilterScrollRow>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        {!isReadOnly && (
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Εξέτασης</Text>
-        </TouchableOpacity>
-        )}
-      </View>
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              {!isReadOnly && (
+              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
+                <Text style={styles.addButtonText}>+ Προσθήκη Εξέτασης</Text>
+              </TouchableOpacity>
+              )}
+            </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : (
-        <SectionList
-          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          sections={sections}
-          keyExtractor={(item) => item.url}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => {
+            {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />}
+          </>
+        }
+        renderSectionHeader={({ section }) => {
             if (section.kind === 'year') return <YearSectionHeader title={section.title} />;
 
             if (section.kind === 'toggle') {
@@ -403,7 +407,7 @@ export default function DoctorExamsScreen() {
             );
           }}
           renderSectionFooter={({ section }) => (
-            section.kind === 'pending' && pendingExams.length === 0 ? (
+            section.kind === 'pending' && !loading && pendingExams.length === 0 ? (
               <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εκκρεμείς εξετάσεις.</Text>
             ) : null
           )}
@@ -415,7 +419,6 @@ export default function DoctorExamsScreen() {
             )
           )}
         />
-      )}
     </SafeAreaView>
   );
 }

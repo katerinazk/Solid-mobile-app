@@ -221,82 +221,87 @@ export default function DoctorDiagnoseisScreen() {
         <Text style={doctorStyles.historyTitle}>Διαγνώσεις</Text>
       </View>
 
-      <View style={doctorStyles.diagnosisCategoryRow}>
-        <TouchableOpacity
-          style={[doctorStyles.diagnosisCategoryButton, activeCategory === 'adult' ? doctorStyles.diagnosisCategoryButtonActive : doctorStyles.diagnosisCategoryButtonInactive]}
-          onPress={() => setActiveCategory('adult')}
-        >
-          <Text style={doctorStyles.diagnosisCategoryButtonText}>Ενήλικες</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[doctorStyles.diagnosisCategoryButton, activeCategory === 'child' ? doctorStyles.diagnosisCategoryButtonActive : doctorStyles.diagnosisCategoryButtonInactive]}
-          onPress={() => setActiveCategory('child')}
-        >
-          <Text style={doctorStyles.diagnosisCategoryButtonText}>Παιδικές</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
+          ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
+      <SectionList
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        sections={sections}
+        stickySectionHeadersEnabled
+        renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
+        keyExtractor={(item) => item.url}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        ListHeaderComponent={
+          <>
+            <View style={doctorStyles.diagnosisCategoryRow}>
+              <TouchableOpacity
+                style={[doctorStyles.diagnosisCategoryButton, activeCategory === 'adult' ? doctorStyles.diagnosisCategoryButtonActive : doctorStyles.diagnosisCategoryButtonInactive]}
+                onPress={() => setActiveCategory('adult')}
+              >
+                <Text style={doctorStyles.diagnosisCategoryButtonText}>Ενήλικες</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[doctorStyles.diagnosisCategoryButton, activeCategory === 'child' ? doctorStyles.diagnosisCategoryButtonActive : doctorStyles.diagnosisCategoryButtonInactive]}
+                onPress={() => setActiveCategory('child')}
+              >
+                <Text style={doctorStyles.diagnosisCategoryButtonText}>Παιδικές</Text>
+              </TouchableOpacity>
+            </View>
 
-      <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
+            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        {canAddDiagnosis && (
-          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
-            <Text style={styles.addButtonText}>+ Προσθήκη Διάγνωσης</Text>
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              {canAddDiagnosis && (
+                <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
+                  <Text style={styles.addButtonText}>+ Προσθήκη Διάγνωσης</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
+                <Text style={doctorStyles.diagnosisSortButtonText}>
+                  ↕ {newestFirst ? 'Νεότερες προς Παλαιότερες' : 'Παλαιότερες προς Νεότερες'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <RecordSearchBar
+              label="Αναζήτηση διάγνωσης:"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              visible={searchVisible}
+              containerStyle={{ width: '70%', alignSelf: 'center', marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap }}
+            />
+          </>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+          ) : (
+            <Text style={styles.emptyText}>
+              {searching ? 'Δεν βρέθηκε διάγνωση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν διαγνώσεις.'}
+            </Text>
+          )
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
+            <View style={doctorStyles.diagnosisCardHeader}>
+              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+              {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
+              <RecordCardActions
+                visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && !item.retraction}
+                onEdit={() => openForm(item)}
+                onRetract={() => handleRetractDiagnosis(item)}
+              />
+            </View>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+            </Text>
+            <RetractedNote retraction={item.retraction} />
           </TouchableOpacity>
         )}
-
-        <TouchableOpacity style={doctorStyles.diagnosisSortButton} onPress={() => setNewestFirst((prev) => !prev)}>
-          <Text style={doctorStyles.diagnosisSortButtonText}>
-            ↕ {newestFirst ? 'Νεότερες προς Παλαιότερες' : 'Παλαιότερες προς Νεότερες'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <RecordSearchBar
-        label="Αναζήτηση διάγνωσης:"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        visible={searchVisible}
-        containerStyle={{ width: '70%', alignSelf: 'center', marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap }}
       />
-
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : visibleDiagnoses.length === 0 ? (
-        <Text style={styles.emptyText}>
-          {searching ? 'Δεν βρέθηκε διάγνωση με αυτά τα στοιχεία.' : 'Δεν υπάρχουν διαγνώσεις.'}
-        </Text>
-      ) : (
-        <SectionList
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          sections={sections}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
-          keyExtractor={(item) => item.url}
-          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
-              <View style={doctorStyles.diagnosisCardHeader}>
-                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
-                <RecordCardActions
-                  visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && !item.retraction}
-                  onEdit={() => openForm(item)}
-                  onRetract={() => handleRetractDiagnosis(item)}
-                />
-              </View>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία: </Text>{formatDate(item.date)}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-              </Text>
-              <RetractedNote retraction={item.retraction} />
-            </TouchableOpacity>
-          )}
-        />
-      )}
-
     </SafeAreaView>
   );
 }

@@ -217,62 +217,68 @@ export default function DoctorAllergiesScreen() {
         <Text style={doctorStyles.historyTitle}>Αλλεργίες</Text>
       </View>
 
-      <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
+      {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
+          ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
+      <SectionList
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        sections={sections}
+        stickySectionHeadersEnabled
+        renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
+        keyExtractor={(item) => item.url}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        ListHeaderComponent={
+          <>
+            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        {!isReadOnly && (
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Αλλεργίας</Text>
-        </TouchableOpacity>
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              {!isReadOnly && (
+              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
+                <Text style={styles.addButtonText}>+ Προσθήκη Αλλεργίας</Text>
+              </TouchableOpacity>
+              )}
+            </View>
+
+            <RecordSearchBar
+              label="Αναζήτηση αλλεργίας:"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              visible={searchVisible}
+            />
+          </>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+          ) : (
+            <Text style={styles.emptyText}>
+              {searching ? 'Δεν βρέθηκε αλλεργία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν αλλεργίες.'}
+            </Text>
+          )
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
+            <View style={doctorStyles.diagnosisCardHeader}>
+              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+              <RecordCardActions
+                visible={!isReadOnly && item.doctorAmka === loggedInDoctorAmka && !item.retraction}
+                onEdit={() => openForm(item)}
+                onRetract={() => handleRetractAllergy(item)}
+              />
+            </View>
+
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Αντίδραση: </Text>{item.reaction}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+            </Text>
+            <RetractedNote retraction={item.retraction} />
+          </TouchableOpacity>
         )}
-      </View>
-
-      <RecordSearchBar
-        label="Αναζήτηση αλλεργίας:"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        visible={searchVisible}
       />
-
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : sortedAllergies.length === 0 ? (
-        <Text style={styles.emptyText}>
-          {searching ? 'Δεν βρέθηκε αλλεργία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν αλλεργίες.'}
-        </Text>
-      ) : (
-        <SectionList
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          sections={sections}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
-          keyExtractor={(item) => item.url}
-          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
-              <View style={doctorStyles.diagnosisCardHeader}>
-                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                <RecordCardActions
-                  visible={!isReadOnly && item.doctorAmka === loggedInDoctorAmka && !item.retraction}
-                  onEdit={() => openForm(item)}
-                  onRetract={() => handleRetractAllergy(item)}
-                />
-              </View>
-
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Αντίδραση: </Text>{item.reaction}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Ημ. Καταχώρησης: </Text>{formatDate(item.createdDate)}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-              </Text>
-              <RetractedNote retraction={item.retraction} />
-            </TouchableOpacity>
-          )}
-        />
-      )}
     </SafeAreaView>
   );
 }

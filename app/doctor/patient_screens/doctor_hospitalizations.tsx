@@ -243,73 +243,79 @@ export default function DoctorHospitalizationsScreen() {
         <Text style={doctorStyles.historyTitle}>Νοσηλείες</Text>
       </View>
 
-      <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
+      {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
+          ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
+      <SectionList
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        sections={sections}
+        stickySectionHeadersEnabled
+        renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
+        keyExtractor={(item) => item.url}
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        ListHeaderComponent={
+          <>
+            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        {!isReadOnly && (
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Νοσηλείας</Text>
-        </TouchableOpacity>
-        )}
-      </View>
-
-      <RecordSearchBar
-        label="Αναζήτηση νοσηλείας:"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        visible={searchVisible}
-      />
-
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : sortedHospitalizations.length === 0 ? (
-        <Text style={styles.emptyText}>
-          {searching ? 'Δεν βρέθηκε νοσηλεία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν νοσηλείες.'}
-        </Text>
-      ) : (
-        <SectionList
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          sections={sections}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
-          keyExtractor={(item) => item.url}
-          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
-              <View style={doctorStyles.diagnosisCardHeader}>
-                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                <RecordCardActions
-                  visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && !item.retraction}
-                  onEdit={() => openForm(item)}
-                  onRetract={() => handleRetractHospitalization(item)}
-                />
-              </View>
-
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}{item.hospitalArea ? ` (${item.hospitalArea})` : ''}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Εισαγωγής: </Text>{formatDate(item.admissionDate)}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Εξιτηρίου: </Text>{formatDate(item.dischargeDate)}
-              </Text>
-
-              <TouchableOpacity
-                style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginBottom: 0, marginTop: 12 }]}
-                onPress={() => setViewingAttachmentsFor(item)}
-              >
-                <Ionicons name="link-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
-                <Text style={doctorStyles.diagnosisSortButtonText}>Συνημμένα Αρχεία</Text>
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              {!isReadOnly && (
+              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
+                <Text style={styles.addButtonText}>+ Προσθήκη Νοσηλείας</Text>
               </TouchableOpacity>
-              <RetractedNote retraction={item.retraction} />
+              )}
+            </View>
+
+            <RecordSearchBar
+              label="Αναζήτηση νοσηλείας:"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              visible={searchVisible}
+            />
+          </>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+          ) : (
+            <Text style={styles.emptyText}>
+              {searching ? 'Δεν βρέθηκε νοσηλεία με αυτά τα στοιχεία.' : 'Δεν υπάρχουν νοσηλείες.'}
+            </Text>
+          )
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
+            <View style={doctorStyles.diagnosisCardHeader}>
+              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+              <RecordCardActions
+                visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && !item.retraction}
+                onEdit={() => openForm(item)}
+                onRetract={() => handleRetractHospitalization(item)}
+              />
+            </View>
+
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Νοσοκομείο / Κλινική: </Text>{item.hospitalClinic}{item.hospitalArea ? ` (${item.hospitalArea})` : ''}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Εισαγωγής: </Text>{formatDate(item.admissionDate)}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Εξιτηρίου: </Text>{formatDate(item.dischargeDate)}
+            </Text>
+
+            <TouchableOpacity
+              style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginBottom: 0, marginTop: 12 }]}
+              onPress={() => setViewingAttachmentsFor(item)}
+            >
+              <Ionicons name="link-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
+              <Text style={doctorStyles.diagnosisSortButtonText}>Συνημμένα Αρχεία</Text>
             </TouchableOpacity>
-          )}
-        />
-      )}
+            <RetractedNote retraction={item.retraction} />
+          </TouchableOpacity>
+        )}
+      />
 
       <Modal
         animationType="slide"

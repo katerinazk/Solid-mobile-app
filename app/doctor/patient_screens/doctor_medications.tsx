@@ -330,34 +330,38 @@ export default function DoctorMedicationsScreen() {
         <Text style={doctorStyles.historyTitle}>Φάρμακα</Text>
       </View>
 
-      <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
+      {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
+          ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
+      <SectionList
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        sections={sections}
+        keyExtractor={(item) => item.url}
+        stickySectionHeadersEnabled
+        ListHeaderComponent={
+          <>
+            <Text style={doctorStyles.historyAmka}>ΑΜΚΑ: <Text style={doctorStyles.historyAmkaValue}>{amka}</Text></Text>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin }}>
-        {!isReadOnly && (
-          <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
-            <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
-          </TouchableOpacity>
-        )}
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+              {!isReadOnly && (
+                <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={() => openForm()}>
+                  <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
+                </TouchableOpacity>
+              )}
 
-        <RecordSearchBar
-          label="Αναζήτηση φαρμάκου:"
-          value={searchQuery}
-          onChange={setSearchQuery}
-          visible={searchVisible}
-          containerStyle={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.sectionGap }}
-        />
-      </View>
+              <RecordSearchBar
+                label="Αναζήτηση φαρμάκου:"
+                value={searchQuery}
+                onChange={setSearchQuery}
+                visible={searchVisible}
+                containerStyle={{ width: '70%', alignSelf: 'center', marginBottom: SPACING.sectionGap }}
+              />
+            </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : (
-        <SectionList
-          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          sections={sections}
-          keyExtractor={(item) => item.url}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => {
+            {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />}
+          </>
+        }
+        renderSectionHeader={({ section }) => {
             if (section.kind === 'year') return <YearSectionHeader title={section.title} />;
 
             if (section.kind === 'toggle') {
@@ -376,7 +380,7 @@ export default function DoctorMedicationsScreen() {
             );
           }}
           renderSectionFooter={({ section }) => (
-            section.kind === 'active' && activeMedications.length === 0 ? (
+            section.kind === 'active' && !loading && activeMedications.length === 0 ? (
               <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν ενεργές αγωγές.</Text>
             ) : null
           )}
@@ -394,7 +398,6 @@ export default function DoctorMedicationsScreen() {
             />
           )}
         />
-      )}
     </SafeAreaView>
   );
 }

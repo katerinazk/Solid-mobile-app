@@ -201,69 +201,75 @@ export default function PatientVaccinationsScreen() {
         <Text style={doctorStyles.historyTitle}>Εμβολιασμοί</Text>
       </View>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· τα υπόλοιπα μπαίνουν στο
+          ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
+      <SectionList
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        sections={sections}
+        stickySectionHeadersEnabled
+        renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
+        keyExtractor={(item) => item.url}
+        contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
+        ListHeaderComponent={
+          <>
+            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
+                <Text style={styles.addButtonText}>+ Προσθήκη Εμβολιασμού</Text>
+              </TouchableOpacity>
+            </View>
 
-      <TouchableOpacity style={[doctorStyles.diagnosisSortButton, { marginTop: SPACING.sectionGap }]} onPress={() => setNewestFirst((prev) => !prev)}>
-        <Text style={doctorStyles.diagnosisSortButtonText}>
-          ↕ {newestFirst ? 'Νεότεροι προς Παλαιότεροι' : 'Παλαιότεροι προς Νεότεροι'}
-        </Text>
-      </TouchableOpacity>
-
-      <RecordSearchBar
-        label="Αναζήτηση εμβολιασμού:"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        visible={searchVisible}
-        containerStyle={{ width: '70%', alignSelf: 'center', marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap }}
-      />
-
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : sortedVaccinations.length === 0 ? (
-        <Text style={[styles.emptyText, { marginTop: 30 }]}>
-          {searching ? 'Δεν βρέθηκε εμβολιασμός με αυτά τα στοιχεία.' : 'Δεν υπάρχουν εμβολιασμοί ακόμα.'}
-        </Text>
-      ) : (
-        <SectionList
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          sections={sections}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
-          keyExtractor={(item) => item.url}
-          contentContainerStyle={{ paddingTop: SPACING.sectionGap, paddingBottom: SPACING.bottomMargin }}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
-              <View style={doctorStyles.diagnosisCardHeader}>
-                <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-                {/* Ο ασθενής ανακαλεί μόνο ό,τι καταχώρησε ο ίδιος: εγγραφή γιατρού δεν την
-                    αγγίζει, αλλιώς ο φάκελος παύει να είναι αξιόπιστος για τον επόμενο γιατρό. */}
-                <RecordCardActions
-                  visible={item.doctorAmka === loggedInPatientAmka && !item.retraction}
-                  onRetract={() => handleRetractVaccination(item)}
-                />
-              </View>
-
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+            <TouchableOpacity style={[doctorStyles.diagnosisSortButton, { marginTop: SPACING.sectionGap }]} onPress={() => setNewestFirst((prev) => !prev)}>
+              <Text style={doctorStyles.diagnosisSortButtonText}>
+                ↕ {newestFirst ? 'Νεότεροι προς Παλαιότεροι' : 'Παλαιότεροι προς Νεότεροι'}
               </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Παρτίδας: </Text>{item.batchNumber}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Δόσης: </Text>{item.doseNumber}
-              </Text>
-              <Text style={doctorStyles.diagnosisCardDetail}>
-                <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
-              </Text>
-              <RetractedNote retraction={item.retraction} />
             </TouchableOpacity>
-          )}
-        />
-      )}
+
+            <RecordSearchBar
+              label="Αναζήτηση εμβολιασμού:"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              visible={searchVisible}
+              containerStyle={{ width: '70%', alignSelf: 'center', marginTop: SPACING.groupGap, marginBottom: SPACING.groupGap }}
+            />
+          </>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
+          ) : (
+            <Text style={[styles.emptyText, { marginTop: 30 }]}>
+              {searching ? 'Δεν βρέθηκε εμβολιασμός με αυτά τα στοιχεία.' : 'Δεν υπάρχουν εμβολιασμοί ακόμα.'}
+            </Text>
+          )
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => openDetail(item)}>
+            <View style={doctorStyles.diagnosisCardHeader}>
+              <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
+              {/* Ο ασθενής ανακαλεί μόνο ό,τι καταχώρησε ο ίδιος: εγγραφή γιατρού δεν την
+                  αγγίζει, αλλιώς ο φάκελος παύει να είναι αξιόπιστος για τον επόμενο γιατρό. */}
+              <RecordCardActions
+                visible={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                onRetract={() => handleRetractVaccination(item)}
+              />
+            </View>
+
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{displayDoctorName(item)}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Παρτίδας: </Text>{item.batchNumber}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Αριθμός Δόσης: </Text>{item.doseNumber}
+            </Text>
+            <Text style={doctorStyles.diagnosisCardDetail}>
+              <Text style={doctorStyles.diagnosisCardLabel}>Ημερομηνία Χορήγησης: </Text>{formatDate(item.administeredDate)}
+            </Text>
+            <RetractedNote retraction={item.retraction} />
+          </TouchableOpacity>
+        )}
+      />
     </SafeAreaView>
   );
 }

@@ -32,7 +32,10 @@ export const doctorStyles = StyleSheet.create({
   dashboardTitle: { fontSize: TYPOGRAPHY.subtitle, fontWeight: 'bold', color: COLORS.primary, marginTop: 10, marginBottom: 10 },
 
   /* Οθόνη Ιστορικού ασθενή (κατηγορίες φακέλου) */
-  historyHeader: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: 10, minHeight: 40 },
+  // Ανοιχτό μπλε φόντο πίσω από τον τίτλο, με στρογγυλεμένες κάτω γωνίες: ξεχωρίζει οπτικά από
+  // το περιεχόμενο της οθόνης από κάτω. Επειδή είναι αδερφικό στοιχείο ΠΡΙΝ από τη λίστα/scroll
+  // της κάθε οθόνης (όχι μέσα της), μένει σταθερό στην κορυφή ό,τι κι αν γίνει scroll.
+  historyHeader: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.groupGap, paddingTop: 18, paddingBottom: 18, backgroundColor: COLORS.medium, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   // top+bottom αντί για μόνο top: το κουμπί απλώνεται σε όλο το ύψος της κεφαλίδας και
   // κεντράρει το εικονίδιο μέσα του, ώστε να ευθυγραμμίζεται με τον τίτλο ό,τι ύψος κι αν
   // πάρει εκείνος - ακόμα και σε δύο γραμμές.

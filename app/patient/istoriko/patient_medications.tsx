@@ -420,29 +420,33 @@ export default function PatientMedicationsScreen() {
         <Text style={doctorStyles.historyTitle}>Φάρμακα</Text>
       </View>
 
-      <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
-        <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
-          <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Μόνο ο τίτλος (historyHeader) μένει σταθερός στην κορυφή· το κουμπί προσθήκης και η
+          αναζήτηση μπαίνουν στο ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
+      <SectionList
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
+        sections={sections}
+        keyExtractor={(item) => item.url}
+        stickySectionHeadersEnabled
+        ListHeaderComponent={
+          <>
+            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+              <TouchableOpacity style={[styles.addButton, { borderRadius: 25 }]} onPress={openAddForm}>
+                <Text style={styles.addButtonText}>+ Προσθήκη Φαρμάκου</Text>
+              </TouchableOpacity>
+            </View>
 
-      <RecordSearchBar
-        label="Αναζήτηση φαρμάκου:"
-        value={searchQuery}
-        onChange={setSearchQuery}
-        visible={searchVisible}
-      />
+            <RecordSearchBar
+              label="Αναζήτηση φαρμάκου:"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              visible={searchVisible}
+            />
 
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-      ) : (
-        <SectionList
-          contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
-          sections={sections}
-          keyExtractor={(item) => item.url}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => {
+            {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />}
+          </>
+        }
+        renderSectionHeader={({ section }) => {
             if (section.kind === 'year') return <YearSectionHeader title={section.title} />;
 
             if (section.kind === 'toggle') {
@@ -461,7 +465,7 @@ export default function PatientMedicationsScreen() {
             );
           }}
           renderSectionFooter={({ section }) => {
-            if (section.kind === 'active' && activeMedications.length === 0) {
+            if (section.kind === 'active' && !loading && activeMedications.length === 0) {
               return (
                 <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>
                   {searchQuery.trim() ? 'Δεν βρέθηκε φάρμακο με αυτό το όνομα.' : 'Δεν υπάρχουν ενεργές αγωγές.'}
@@ -504,7 +508,6 @@ export default function PatientMedicationsScreen() {
             )
           )}
         />
-      )}
     </SafeAreaView>
   );
 }
