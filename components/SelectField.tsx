@@ -34,8 +34,9 @@ export function SelectField({ label, labelStyle, value, onChange, options, place
         <Text style={{ color: value ? COLORS.text : COLORS.medium, fontSize: TYPOGRAPHY.bodyText }}>
           {value || placeholder}
         </Text>
-        {/* Δείχνει ότι το πάτημα ανοίγει λίστα από κάτω - χωρίς αυτό δεν ξεχώριζε από απλό πεδίο κειμένου. */}
-        <Ionicons name="chevron-down" size={18} color={COLORS.primary} />
+        {/* Δείχνει ότι το πάτημα ανοίγει λίστα από κάτω - χωρίς αυτό δεν ξεχώριζε από απλό πεδίο κειμένου.
+            Γυρίζει προς τα πάνω όσο η λίστα είναι ανοιχτή, αφού τότε εμφανίζεται ακριβώς από κάτω. */}
+        <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
       </TouchableOpacity>
 
       {isOpen && (
