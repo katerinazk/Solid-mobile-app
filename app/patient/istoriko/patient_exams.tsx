@@ -358,6 +358,10 @@ export default function PatientExamsScreen() {
   );
 
   const isSearching = searchQuery.trim().length > 0;
+  // Όταν υπάρχει ενεργό φίλτρο (αναζήτηση ή συγκεκριμένη κατηγορία αντί για "Όλες"), μια
+  // ενότητα χωρίς αποτέλεσμα δεν δείχνει καν τίτλο - μόνο η προεπιλεγμένη προβολή κρατάει την
+  // "Εκκρεμείς" πάντα ορατή, με δικό της μήνυμα αν τυχαίνει να είναι άδεια.
+  const isFiltering = isSearching || selectedCategory !== 'Όλες';
   const completedSectionOpen = showCompleted || (isSearching && completedExams.length > 0);
 
   // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας. Χρειάζεται λίστα και όχι απλή κυλιόμενη
@@ -366,9 +370,7 @@ export default function PatientExamsScreen() {
   const sections = useMemo(() => {
     const result: { kind: 'pending' | 'toggle' | 'year'; title: string; data: Exam[] }[] = [];
 
-    // Χωρίς αναζήτηση κρατάμε πάντα τον τίτλο "Εκκρεμείς" (με δικό του μήνυμα από κάτω αν
-    // είναι άδειος). Σε αναζήτηση όμως μια ενότητα χωρίς αποτέλεσμα δεν δείχνει καν τίτλο.
-    if (!isSearching || pendingExams.length > 0) {
+    if (!isFiltering || pendingExams.length > 0) {
       result.push({ kind: 'pending', title: 'Εκκρεμείς', data: pendingExams });
     }
 
@@ -384,11 +386,11 @@ export default function PatientExamsScreen() {
     }
 
     return result;
-  }, [pendingExams, completedExams, completedSections, completedSectionOpen, isSearching]);
+  }, [pendingExams, completedExams, completedSections, completedSectionOpen, isFiltering]);
 
-  // Όταν η αναζήτηση δεν βρίσκει τίποτα σε καμία από τις 2 ενότητες, δεν δείχνουμε κανέναν
-  // τίτλο ενότητας - μόνο ένα γενικό μήνυμα "δεν βρέθηκε".
-  const noSearchResults = isSearching && pendingExams.length === 0 && completedExams.length === 0;
+  // Όταν το ενεργό φίλτρο δεν βρίσκει τίποτα σε καμία από τις 2 ενότητες, δεν δείχνουμε
+  // κανέναν τίτλο ενότητας - μόνο ένα γενικό μήνυμα "δεν βρέθηκε".
+  const noSearchResults = isFiltering && pendingExams.length === 0 && completedExams.length === 0;
 
   // Ίδια λογική με την οθόνη του γιατρού: όσο υπάρχει αναζήτηση ανοίγουμε αυτόματα και τις
   // "Ολοκληρωμένες", αλλιώς ένα αποτέλεσμα εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
