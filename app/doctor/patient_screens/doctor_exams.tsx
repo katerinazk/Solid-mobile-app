@@ -259,15 +259,20 @@ export default function DoctorExamsScreen() {
     [completedExams],
   );
 
-  const completedSectionOpen = showCompleted || (searchQuery.trim().length > 0 && completedExams.length > 0);
+  const isSearching = searchQuery.trim().length > 0;
+  const completedSectionOpen = showCompleted || (isSearching && completedExams.length > 0);
 
   // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας. Χρειάζεται λίστα και όχι απλή κυλιόμενη
   // περιοχή, ώστε ο τίτλος κάθε ενότητας να μένει κολλημένος στην κορυφή όσο κυλάει το
   // περιεχόμενό της. Ο τύπος κάθε ενότητας λέει τι ζωγραφίζεται ως κεφαλίδα και ως κάρτα.
   const sections = useMemo(() => {
-    const result: { kind: 'pending' | 'toggle' | 'year'; title: string; data: Exam[] }[] = [
-      { kind: 'pending', title: 'Εκκρεμείς', data: pendingExams },
-    ];
+    const result: { kind: 'pending' | 'toggle' | 'year'; title: string; data: Exam[] }[] = [];
+
+    // Χωρίς αναζήτηση κρατάμε πάντα τον τίτλο "Εκκρεμείς" (με δικό του μήνυμα από κάτω αν
+    // είναι άδειος). Σε αναζήτηση όμως μια ενότητα χωρίς αποτέλεσμα δεν δείχνει καν τίτλο.
+    if (!isSearching || pendingExams.length > 0) {
+      result.push({ kind: 'pending', title: 'Εκκρεμείς', data: pendingExams });
+    }
 
     // Χωρίς ολοκληρωμένες δεν δείχνουμε ούτε τον τίτλο: μια κεφαλίδα που ανοίγει σε άδειο
     // περιεχόμενο δεν προσφέρει τίποτα στον χρήστη.
@@ -281,7 +286,11 @@ export default function DoctorExamsScreen() {
     }
 
     return result;
-  }, [pendingExams, completedExams, completedSections, completedSectionOpen]);
+  }, [pendingExams, completedExams, completedSections, completedSectionOpen, isSearching]);
+
+  // Όταν η αναζήτηση δεν βρίσκει τίποτα σε καμία από τις 2 ενότητες, δεν δείχνουμε κανέναν
+  // τίτλο ενότητας - μόνο ένα γενικό μήνυμα "δεν βρέθηκε".
+  const noSearchResults = isSearching && pendingExams.length === 0 && completedExams.length === 0;
 
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και τις "Ολοκληρωμένες" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
@@ -399,6 +408,10 @@ export default function DoctorExamsScreen() {
             </View>
 
             {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />}
+
+            {!loading && noSearchResults && (
+              <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν βρέθηκε εξέταση.</Text>
+            )}
           </>
         }
         renderSectionHeader={({ section }) => {
