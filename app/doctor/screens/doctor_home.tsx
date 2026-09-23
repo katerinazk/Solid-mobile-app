@@ -9,13 +9,15 @@ import { ROUTES } from '../../../constants/routes';
 import { SentRequestsModal } from '../../../components/doctor/SentRequestsModal';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
+import { ACCESS_FULL, ACCESS_READ_ONLY } from '../../../constants/accessTypes';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { fetchAccessEntry } from '../../../services/access';
+import { hasPendingAccessRequest, createAccessRequest } from '../../../services/accessRequests';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { Patient } from '../../../types/Patient';
-import { showMessage } from '../../../utils/appMessage';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 
 export default function DoctorHomeScreen() {
   const { loggedInDoctorAmka } = useAuth();
@@ -24,6 +26,37 @@ export default function DoctorHomeScreen() {
 
   const [openingFolderFor, setOpeningFolderFor] = useState<string | null>(null);
   const [isSentRequestsModalVisible, setIsSentRequestsModalVisible] = useState(false);
+
+  // Αίτημα αλλαγής τύπου πρόσβασης σε ασθενή που ήδη έχει πρόσβαση. Με μόνο δύο δυνατούς
+  // τύπους (Πλήρης/Μόνο Ανάγνωση) δεν χρειάζεται φόρμα επιλογής - το "Αλλαγή" ζητάει
+  // κατευθείαν τον άλλο τύπο από τον τρέχοντα, με απλή ερώτηση ναι/όχι. Δεν αλλάζει τίποτα
+  // αμέσως - στέλνει αίτημα που πρέπει να εγκρίνει ο ασθενής, όπως κάθε αίτημα πρόσβασης.
+  const requestAccessTypeChange = async (patient: Patient) => {
+    const nextType = patient.accessType === ACCESS_FULL ? ACCESS_READ_ONLY : ACCESS_FULL;
+
+    const confirmed = await askConfirm({
+      message: `Θέλετε να ζητήσετε αλλαγή από "${patient.accessType}" σε "${nextType}";`,
+    });
+    if (!confirmed) return;
+
+    try {
+      const { data: pendingRequest } = await hasPendingAccessRequest(loggedInDoctorAmka, patient.amka);
+      if (pendingRequest) {
+        showMessage("Υπάρχει ήδη εκκρεμές αίτημα πρόσβασης για αυτόν τον ασθενή.");
+        return;
+      }
+
+      const { error } = await createAccessRequest(loggedInDoctorAmka, patient.amka, nextType);
+      if (error) {
+        showMessage("Σφάλμα: " + error.message);
+        return;
+      }
+
+      showMessage("Το αίτημα στάλθηκε επιτυχώς!");
+    } catch {
+      showMessage("Απρόσμενο σφάλμα.");
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -103,7 +136,19 @@ export default function DoctorHomeScreen() {
       <View style={sharedStyles.cardDetails}>
         <Text style={[sharedStyles.patientName, { color: COLORS.primary }]}>{patient.first_name} {patient.last_name}</Text>
         <Text style={sharedStyles.cardLabel}>AMKA: <Text style={sharedStyles.cardValue}>{patient.amka}</Text></Text>
-        <Text style={sharedStyles.cardLabel}>Τύπος πρόσβασης: <Text style={sharedStyles.cardValue}>{patient.accessType}</Text></Text>
+        {/* Το "Αλλαγή" σαν μικρό περιγραμμένο κουμπί, σπρωγμένο τέρμα δεξιά - στέλνει αίτημα
+            (χρειάζεται έγκριση του ασθενή), δεν αλλάζει τίποτα αμέσως, οπότε μένει
+            δευτερεύον/περιγραμμένο αντί για γεμάτο σαν το "Προβολή Φακέλου". */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={sharedStyles.cardLabel}>Τύπος πρόσβασης: <Text style={sharedStyles.cardValue}>{patient.accessType}</Text></Text>
+          <TouchableOpacity
+            style={localStyles.changeAccessButton}
+            onPress={() => requestAccessTypeChange(patient)}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={localStyles.changeAccessButtonText}>Αλλαγή</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity
@@ -195,6 +240,7 @@ export default function DoctorHomeScreen() {
         doctorAmka={loggedInDoctorAmka}
         onClose={() => setIsSentRequestsModalVisible(false)}
       />
+
     </SafeAreaView>
   );
 }
@@ -214,4 +260,14 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   actionButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText, textAlign: 'center', flexShrink: 1 },
+  changeAccessButton: {
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginLeft: SPACING.groupGap,
+  },
+  changeAccessButtonText: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary },
 });
