@@ -337,6 +337,20 @@ export default function PatientExamsScreen() {
     };
   }, [exams, selectedCategory, searchQuery]);
 
+  // Δείχνουμε μόνο φίλτρα που αντιστοιχούν σε τουλάχιστον 1 εγγραφή - το "Όλες" μένει πάντα.
+  const visibleCategories = useMemo(
+    () => CATEGORIES.filter((category) => category === 'Όλες' || exams.some((e) => e.type === category)),
+    [exams],
+  );
+
+  // Αν η επιλεγμένη κατηγορία χάσει την τελευταία της εγγραφή, το φίλτρο της εξαφανίζεται -
+  // γυρνάμε αυτόματα σε "Όλες" ώστε να μη μείνει η λίστα κολλημένη σε άδειο αποτέλεσμα.
+  useEffect(() => {
+    if (!visibleCategories.includes(selectedCategory as typeof CATEGORIES[number])) {
+      setSelectedCategory('Όλες');
+    }
+  }, [visibleCategories, selectedCategory]);
+
   // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.
   const completedSections = useMemo(
     () => groupByYear(completedExams, (item) => timeOf(item.completedDate || item.createdDate)),
@@ -410,7 +424,7 @@ export default function PatientExamsScreen() {
               contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}
               style={localStyles.categoryBar}
             >
-              {CATEGORIES.map((category) => {
+              {visibleCategories.map((category) => {
                 const isSelected = category === selectedCategory;
                 return (
                   <TouchableOpacity
