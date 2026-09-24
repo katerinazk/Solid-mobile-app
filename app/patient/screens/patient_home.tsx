@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, SafeAreaView, StatusBar, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
@@ -21,6 +21,7 @@ import {
   isPrefetchRunning,
 } from '../../../utils/podPrefetchStore';
 import { isNetworkError } from '../../../utils/networkError';
+import { exportPatientHistoryPdf } from '../../../utils/exportHistory';
 
 // Οι ετικέτες κατηγοριών αντιστοιχούν 1-1 στα ονόματα των φακέλων ιστορικού στο Pod του
 // ασθενή (Κατηγορίες.tsx), ώστε να μπορούμε να μετρήσουμε πόσες εγγραφές έχει η καθεμία.
@@ -69,10 +70,25 @@ function chunkPairs<T>(items: T[]): T[][] {
 
 export default function PatientHomeScreen() {
   const { loggedInPatientAmka, accessToken, activePatientFolderUrl } = useAuth();
-  const [patient, setPatient] = useState<{ last_name: string; sex: string | null } | null>(null);
+  const [patient, setPatient] = useState<{ first_name: string; last_name: string; sex: string | null } | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [exporting, setExporting] = useState(false);
   const { accessList } = usePatientAccessList();
   const aclSynced = useRef(false);
+
+  const handleExportHistory = async () => {
+    if (exporting) return;
+    const webId = getOwnerWebId(activePatientFolderUrl);
+    if (!webId) return;
+
+    setExporting(true);
+    try {
+      const patientName = `${patient?.first_name || ''} ${patient?.last_name || ''}`.trim() || loggedInPatientAmka;
+      await exportPatientHistoryPdf(webId, accessToken, patientName);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Ο ασθενής μπορεί να έχει δώσει πρόσβαση σε γιατρό που δεν είχε ακόμα WebID (δεν είχε κάνει
   // ποτέ Solid login), οπότε ο γιατρός δεν είχε μπει στο ACL του Pod. Μόνο ο ασθενής μπορεί να
@@ -180,6 +196,17 @@ export default function PatientHomeScreen() {
               ))}
             </View>
           ))}
+          <TouchableOpacity
+            style={[localStyles.exportButton, { marginTop: SPACING.groupGap }]}
+            onPress={handleExportHistory}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : (
+              <Text style={localStyles.exportButtonText}>Εξαγωγή Ιστορικού (PDF)</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={[doctorStyles.historyHeader, { marginTop: SPACING.sectionGap }]}>
@@ -200,4 +227,6 @@ const localStyles = StyleSheet.create({
   historyContainer: { backgroundColor: COLORS.light, borderRadius: 15, padding: 16, marginBottom: SPACING.groupGap },
   categoryButton: { flex: 1, backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
   categoryButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
+  exportButton: { minHeight: TOUCH.buttonHeight, borderRadius: 25, borderWidth: 1.5, borderColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
+  exportButtonText: { color: COLORS.primary, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
 });

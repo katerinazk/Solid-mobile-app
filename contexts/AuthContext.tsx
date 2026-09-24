@@ -1,5 +1,5 @@
 import React, { createContext, useState, useRef, useEffect, ReactNode } from 'react';
-import { AppState } from 'react-native';
+import { AppState, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
@@ -20,6 +20,10 @@ import { friendlyErrorMessage } from '../utils/networkError';
 type Role = 'doctor' | 'patient';
 
 const SOLID_PROVIDER_URL = 'https://datapod.igrant.io';
+
+// Αυτόματη αποσύνδεση λόγω αδράνειας - σημαντικό σε κοινόχρηστο κινητό (π.χ. ιατρείο), ώστε ένα
+// ανοιχτό ιατρικό ιστορικό να μην μένει προσβάσιμο σε όποιον πάρει στα χέρια του τη συσκευή.
+const IDLE_LOGOUT_MS = 5 * 60 * 1000;
 
 // Το όνομα με το οποίο συστήνεται η εφαρμογή στον Solid provider.
 const APP_NAME = 'MedPod';
@@ -573,6 +577,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.replace(ROUTES.LOGIN);
   };
 
+  // --- ΑΥΤΟΜΑΤΗ ΑΠΟΣΥΝΔΕΣΗ ΛΟΓΩ ΑΔΡΑΝΕΙΑΣ ---
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearIdleTimer = () => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+  };
+
+  // Καλείται σε κάθε άγγιγμα της οθόνης (βλ. View με onStartShouldSetResponderCapture πιο κάτω)
+  // - ξεκινάει ξανά το χρονόμετρο από την αρχή. Δεν πιάνει πληκτρολόγηση χωρίς κανένα άγγιγμα
+  // ενδιάμεσα (σπάνιο σενάριο σε φόρμες αυτής της έκτασης), απλοποίηση συνειδητή.
+  const resetIdleTimer = () => {
+    if (!isLoggedIn) return;
+    clearIdleTimer();
+    idleTimerRef.current = setTimeout(() => {
+      showMessage('Αποσυνδεθήκατε λόγω αδράνειας.');
+      logout();
+    }, IDLE_LOGOUT_MS);
+  };
+
+  // Ξεκινάει μόλις γίνει το login και σταματάει στο logout - όχι νωρίτερα, ώστε η ίδια η οθόνη
+  // σύνδεσης (όπου ο χρήστης μπορεί να αργήσει, π.χ. στον browser του Pod) να μην επηρεάζεται.
+  useEffect(() => {
+    if (isLoggedIn) {
+      resetIdleTimer();
+    } else {
+      clearIdleTimer();
+    }
+    return clearIdleTimer;
+  }, [isLoggedIn]);
+
   /**
    * Αποδεσμεύει το ΑΜΚΑ από το τωρινό Pod και βγάζει τον χρήστη στην οθόνη σύνδεσης.
    *
@@ -642,7 +679,12 @@ ${consequence}`,
         confirmSwitchPod,
       }}
     >
-      {children}
+      {/* onStartShouldSetResponderCapture: ενημερώνεται σε ΚΑΘΕ άγγιγμα σε ΟΛΗ την εφαρμογή
+          πριν καν αποφασιστεί ποιο στοιχείο θα το χειριστεί, χωρίς όμως να "κλέβει" το άγγιγμα -
+          το false στο τέλος αφήνει το κανονικό κουμπί/scroll από κάτω να δουλέψει κανονικά. */}
+      <View style={{ flex: 1 }} onStartShouldSetResponderCapture={() => { resetIdleTimer(); return false; }}>
+        {children}
+      </View>
     </AuthContext.Provider>
   );
 }
