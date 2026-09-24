@@ -387,12 +387,17 @@ export default function PatientMedicationsScreen() {
 
   const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
+  // Χωρίς καμία αγωγή δεν δείχνουμε τον τίτλο "Ενεργής Αγωγή" - μόνο ένα γενικό μήνυμα.
+  const noMedicationsAtAll = medications.length === 0;
+
   // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας, ώστε ο τίτλος κάθε ενότητας να μένει
   // κολλημένος στην κορυφή όσο κυλάει το περιεχόμενό της.
   const sections = useMemo(() => {
-    const result: { kind: 'active' | 'toggle' | 'year'; title: string; data: Medication[] }[] = [
-      { kind: 'active', title: 'Ενεργής Αγωγή', data: activeMedications },
-    ];
+    const result: { kind: 'active' | 'toggle' | 'year'; title: string; data: Medication[] }[] = [];
+
+    if (!noMedicationsAtAll) {
+      result.push({ kind: 'active', title: 'Ενεργής Αγωγή', data: activeMedications });
+    }
 
     // Χωρίς προηγούμενη αγωγή δεν δείχνουμε ούτε τον τίτλο.
     if (previousMedications.length > 0) {
@@ -405,7 +410,7 @@ export default function PatientMedicationsScreen() {
     }
 
     return result;
-  }, [activeMedications, previousMedications, previousSections, previousSectionOpen]);
+  }, [activeMedications, previousMedications, previousSections, previousSectionOpen, noMedicationsAtAll]);
 
   // Όσο υπάρχει αναζήτηση ανοίγουμε μόνοι μας την "Προηγούμενη Αγωγή", αλλιώς τα αποτελέσματα
   // που βρίσκονται εκεί θα έμεναν κρυμμένα μέσα στην κλειστή ενότητα.
@@ -448,6 +453,10 @@ export default function PatientMedicationsScreen() {
             />
 
             {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />}
+
+            {!loading && noMedicationsAtAll && (
+              <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν φάρμακα ακόμα.</Text>
+            )}
           </>
         }
         renderSectionHeader={({ section }) => {

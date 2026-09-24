@@ -369,6 +369,9 @@ export default function PatientExamsScreen() {
   // ενότητα χωρίς αποτέλεσμα δεν δείχνει καν τίτλο - μόνο η προεπιλεγμένη προβολή κρατάει την
   // "Εκκρεμείς" πάντα ορατή, με δικό της μήνυμα αν τυχαίνει να είναι άδεια.
   const isFiltering = isSearching || selectedCategory !== 'Όλες';
+  // Χωρίς καμία εξέταση δεν έχει νόημα ούτε η λωρίδα φίλτρων ούτε ο τίτλος "Εκκρεμείς" - δείχνουμε
+  // μόνο ένα μήνυμα ότι δεν υπάρχει τίποτα.
+  const noExamsAtAll = exams.length === 0;
   const completedSectionOpen = showCompleted || (isSearching && completedExams.length > 0);
 
   // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας. Χρειάζεται λίστα και όχι απλή κυλιόμενη
@@ -377,7 +380,7 @@ export default function PatientExamsScreen() {
   const sections = useMemo(() => {
     const result: { kind: 'pending' | 'toggle' | 'year'; title: string; data: Exam[] }[] = [];
 
-    if (!isFiltering || pendingExams.length > 0) {
+    if ((!isFiltering && !noExamsAtAll) || pendingExams.length > 0) {
       result.push({ kind: 'pending', title: 'Εκκρεμείς', data: pendingExams });
     }
 
@@ -393,7 +396,7 @@ export default function PatientExamsScreen() {
     }
 
     return result;
-  }, [pendingExams, completedExams, completedSections, completedSectionOpen, isFiltering]);
+  }, [pendingExams, completedExams, completedSections, completedSectionOpen, isFiltering, noExamsAtAll]);
 
   // Όταν το ενεργό φίλτρο δεν βρίσκει τίποτα σε καμία από τις 2 ενότητες, δεν δείχνουμε
   // κανέναν τίτλο ενότητας - μόνο ένα γενικό μήνυμα "δεν βρέθηκε".
@@ -438,25 +441,31 @@ export default function PatientExamsScreen() {
               visible={searchVisible}
             />
 
-            <FilterScrollRow
-              contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}
-              style={localStyles.categoryBar}
-            >
-              {visibleCategories.map((category) => {
-                const isSelected = category === selectedCategory;
-                return (
-                  <TouchableOpacity
-                    key={category}
-                    style={[localStyles.categoryPill, isSelected ? localStyles.categoryPillSelected : localStyles.categoryPillUnselected]}
-                    onPress={() => setSelectedCategory(category)}
-                  >
-                    <Text style={isSelected ? localStyles.categoryPillTextSelected : localStyles.categoryPillTextUnselected}>{category}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </FilterScrollRow>
+            {!noExamsAtAll && (
+              <FilterScrollRow
+                contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, alignItems: 'center' }}
+                style={localStyles.categoryBar}
+              >
+                {visibleCategories.map((category) => {
+                  const isSelected = category === selectedCategory;
+                  return (
+                    <TouchableOpacity
+                      key={category}
+                      style={[localStyles.categoryPill, isSelected ? localStyles.categoryPillSelected : localStyles.categoryPillUnselected]}
+                      onPress={() => setSelectedCategory(category)}
+                    >
+                      <Text style={isSelected ? localStyles.categoryPillTextSelected : localStyles.categoryPillTextUnselected}>{category}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </FilterScrollRow>
+            )}
 
             {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />}
+
+            {!loading && noExamsAtAll && (
+              <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν εξετάσεις ακόμα.</Text>
+            )}
 
             {!loading && noSearchResults && (
               <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν βρέθηκε εξέταση.</Text>

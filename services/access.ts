@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { ACCESS_NONE } from '../constants/accessTypes';
 import { resolveMatchingAccessRequest } from './accessRequests';
 import { notifyAccessGranted, notifyAccessChanged, notifyAccessRevoked } from './notifications';
 
@@ -52,12 +53,17 @@ export async function markAccessAclSynced(patientAmka: string, doctorAmkas: stri
 }
 
 export async function deleteAccess(patientAmka: string, doctorAmka: string) {
+  // Αν είχε ήδη μπει "Καμία Πρόσβαση", ο γιατρός ειδοποιήθηκε τότε ότι έχασε την πρόσβαση - η
+  // οριστική αφαίρεση δεν του αλλάζει κάτι, οπότε δεν του στέλνουμε δεύτερη ειδοποίηση.
+  const { data: existing } = await fetchAccessEntry(patientAmka, doctorAmka);
+  const alreadyRevoked = existing?.access_type === ACCESS_NONE;
+
   const result = await supabase
     .from('access')
     .delete()
     .eq('patient_amka', patientAmka)
     .eq('doctor_amka', doctorAmka);
-  if (!result.error) await notifyAccessRevoked(doctorAmka, patientAmka);
+  if (!result.error && !alreadyRevoked) await notifyAccessRevoked(doctorAmka, patientAmka);
   return result;
 }
 

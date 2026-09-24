@@ -271,12 +271,15 @@ export default function DoctorDiagnoseisScreen() {
                 </TouchableOpacity>
               )}
 
-              <SortDropdown
-                value={newestFirst}
-                onChange={setNewestFirst}
-                newestLabel="Νεότερες προς Παλαιότερες"
-                oldestLabel="Παλαιότερες προς Νεότερες"
-              />
+              {/* Με λιγότερες από 2 εγγραφές η σειρά δεν αλλάζει τίποτα - δεν χρειάζεται φίλτρο. */}
+              {diagnoses.length >= 2 && (
+                <SortDropdown
+                  value={newestFirst}
+                  onChange={setNewestFirst}
+                  newestLabel="Νεότερες προς Παλαιότερες"
+                  oldestLabel="Παλαιότερες προς Νεότερες"
+                />
+              )}
             </View>
 
             <RecordSearchBar

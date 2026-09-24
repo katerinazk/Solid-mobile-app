@@ -303,13 +303,18 @@ export default function DoctorMedicationsScreen() {
 
   const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
 
+  // Χωρίς καμία αγωγή δεν δείχνουμε τον τίτλο "Ενεργής Αγωγή" - μόνο ένα γενικό μήνυμα.
+  const noMedicationsAtAll = medications.length === 0;
+
   // Όλα όσα δείχνει η οθόνη ως ενότητες μιας λίστας. Χρειάζεται λίστα και όχι απλή κυλιόμενη
   // περιοχή, ώστε ο τίτλος κάθε ενότητας να μένει κολλημένος στην κορυφή όσο κυλάει το
   // περιεχόμενό της.
   const sections = useMemo(() => {
-    const result: { kind: 'active' | 'toggle' | 'year'; title: string; data: Medication[] }[] = [
-      { kind: 'active', title: 'Ενεργής Αγωγή', data: activeMedications },
-    ];
+    const result: { kind: 'active' | 'toggle' | 'year'; title: string; data: Medication[] }[] = [];
+
+    if (!noMedicationsAtAll) {
+      result.push({ kind: 'active', title: 'Ενεργής Αγωγή', data: activeMedications });
+    }
 
     // Χωρίς προηγούμενη αγωγή δεν δείχνουμε ούτε τον τίτλο.
     if (previousMedications.length > 0) {
@@ -322,7 +327,7 @@ export default function DoctorMedicationsScreen() {
     }
 
     return result;
-  }, [activeMedications, previousMedications, previousSections, previousSectionOpen]);
+  }, [activeMedications, previousMedications, previousSections, previousSectionOpen, noMedicationsAtAll]);
 
   // Όταν ο γιατρός ψάχνει κάτι, ανοίγουμε αυτόματα και την "Προηγούμενη Αγωγή" - αλλιώς ένα
   // αποτέλεσμα που βρίσκεται εκεί θα έμενε κρυμμένο πίσω από το κλειστό section.
@@ -369,6 +374,10 @@ export default function DoctorMedicationsScreen() {
             </View>
 
             {loading && <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />}
+
+            {!loading && noMedicationsAtAll && (
+              <Text style={[styles.emptyText, { paddingHorizontal: SPACING.sideMargin }]}>Δεν υπάρχουν φάρμακα.</Text>
+            )}
           </>
         }
         renderSectionHeader={({ section }) => {

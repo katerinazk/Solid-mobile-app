@@ -27,18 +27,19 @@ function accessTypeAsObject(accessType: string): string {
   return accessType;
 }
 
-// Η αρχή της πρότασης με το σωστό γένος: "Ο γιατρός Χ" / "Η γιατρός Χ" - το γένος έρχεται από το
+// Η αρχή της πρότασης με το σωστό γένος: "Ο Χ (Παθολόγος)" / "Η Χ (Παθολόγος)" - το γένος έρχεται από το
 // φύλο που δήλωσε ο ίδιος στην εγγραφή του (όπως στο καλωσόρισμα των αρχικών οθονών).
 async function doctorSubject(doctorAmka: string): Promise<string> {
-  const { data } = await supabase.from('doctors').select('first_name, last_name, sex').eq('amka', doctorAmka).maybeSingle();
-  if (!data) return 'Ένας γιατρός';
-  return `${isFemale(data.sex) ? 'Η' : 'Ο'} γιατρός ${data.first_name} ${data.last_name}`;
+  const { data } = await supabase.from('doctors').select('first_name, last_name, sex, specialty').eq('amka', doctorAmka).maybeSingle();
+  if (!data) return 'Ένας χρήστης';
+  const specialty = data.specialty ? ` (${data.specialty})` : '';
+  return `${isFemale(data.sex) ? 'Η' : 'Ο'} ${data.first_name} ${data.last_name}${specialty}`;
 }
 
 async function patientSubject(patientAmka: string): Promise<string> {
   const { data } = await supabase.from('patients').select('first_name, last_name, sex').eq('amka', patientAmka).maybeSingle();
-  if (!data) return 'Ένας ασθενής';
-  return `${isFemale(data.sex) ? 'Η' : 'Ο'} ασθενής ${data.first_name} ${data.last_name}`;
+  if (!data) return 'Ένας χρήστης';
+  return `${isFemale(data.sex) ? 'Η' : 'Ο'} ${data.first_name} ${data.last_name}`;
 }
 
 // Η ειδοποίηση είναι δευτερεύουσα: αν αποτύχει να γραφτεί, η ίδια η ενέργεια (αίτημα, πρόσβαση)

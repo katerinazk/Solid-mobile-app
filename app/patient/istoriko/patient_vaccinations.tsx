@@ -274,12 +274,15 @@ export default function PatientVaccinationsScreen() {
               </TouchableOpacity>
             </View>
 
-            <SortDropdown
-              value={newestFirst}
-              onChange={setNewestFirst}
-              newestLabel="Νεότεροι προς Παλαιότεροι"
-              oldestLabel="Παλαιότεροι προς Νεότεροι"
-            />
+            {/* Με λιγότερες από 2 εγγραφές η σειρά δεν αλλάζει τίποτα - δεν χρειάζεται φίλτρο. */}
+            {vaccinations.length >= 2 && (
+              <SortDropdown
+                value={newestFirst}
+                onChange={setNewestFirst}
+                newestLabel="Νεότεροι προς Παλαιότεροι"
+                oldestLabel="Παλαιότεροι προς Νεότεροι"
+              />
+            )}
 
             <RecordSearchBar
               label="Αναζήτηση εμβολιασμού:"
