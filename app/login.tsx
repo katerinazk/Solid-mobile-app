@@ -7,7 +7,6 @@ import { ROUTES } from '../constants/routes';
 import { TYPOGRAPHY, TOUCH } from '../constants/designSystem';
 
 export default function RoleSelectionScreen() {
-  console.log(`[ROLE SELECTION render] @ ${Date.now()}`); // ΠΡΟΣΩΡΙΝΟ debug logging (θα αφαιρεθεί)
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />

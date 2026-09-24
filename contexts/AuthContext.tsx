@@ -187,14 +187,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handlePatientLoginVerification = async (webId: string): Promise<boolean> => {
     try {
-      // Ελέγχουμε αν το webId ανήκει σε γιατρό (cached browser session από γιατρό)
+      // Ελέγχουμε αν το webId ανήκει σε γιατρό με ΔΙΑΦΟΡΕΤΙΚΟ ΑΜΚΑ (cached browser session από
+      // άλλο πρόσωπο) - το ίδιο ΑΜΚΑ επιτρέπεται να χρησιμοποιεί το ίδιο Pod και ως ασθενής
+      // και ως γιατρός (π.χ. για δοκιμές), οπότε δεν το μπλοκάρουμε.
       const { data: doctorCheck } = await supabase
         .from('doctors')
         .select('amka')
         .eq('web_id', webId)
         .maybeSingle();
 
-      if (doctorCheck) {
+      if (doctorCheck && doctorCheck.amka !== loggedInPatientAmka) {
         showMessage("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε γιατρό. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
         return false;
       }
@@ -246,14 +248,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleDoctorLoginVerification = async (webId: string): Promise<boolean> => {
     try {
-      // Ελέγχουμε αν το webId ανήκει σε ασθενή (cached browser session από ασθενή)
+      // Ελέγχουμε αν το webId ανήκει σε ασθενή με ΔΙΑΦΟΡΕΤΙΚΟ ΑΜΚΑ (cached browser session από
+      // άλλο πρόσωπο) - το ίδιο ΑΜΚΑ επιτρέπεται να χρησιμοποιεί το ίδιο Pod και ως ασθενής
+      // και ως γιατρός (π.χ. για δοκιμές), οπότε δεν το μπλοκάρουμε.
       const { data: patientCheck } = await supabase
         .from('patients')
         .select('amka')
         .eq('web_id', webId)
         .maybeSingle();
 
-      if (patientCheck) {
+      if (patientCheck && patientCheck.amka !== loggedInDoctorAmka) {
         showMessage("Ο λογαριασμός Pod που χρησιμοποιείτε ανήκει σε ασθενή. Παρακαλώ αποσυνδεθείτε από τον τρέχοντα λογαριασμό στον browser και δοκιμάστε ξανά με τον δικό σας λογαριασμό.");
         return false;
       }

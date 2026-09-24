@@ -564,9 +564,7 @@ export async function removeDoctorFromAcl({
     body: aclContent,
   });
 
-  if (response.ok) {
-    console.log("✅ Η πρόσβαση αφαιρέθηκε από το Pod!");
-  } else {
-    console.error("❌ ACL error:", response.status, await response.text());
+  if (!response.ok) {
+    throw new Error(`Αποτυχία ενημέρωσης δικαιωμάτων στο Pod (${response.status}).`);
   }
 }
