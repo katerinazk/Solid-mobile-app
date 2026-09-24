@@ -14,6 +14,7 @@ import { clearRecordCache } from '../utils/recordCache';
 import { prefetchAllCategories } from '../utils/podPrefetch';
 import { clearPodPrefetch } from '../utils/podPrefetchStore';
 import { clearDoctorCache } from '../utils/doctorCache';
+import { clearNewNotificationMarks } from '../services/notifications';
 import { isSupportedWebId } from '../services/solidPod';
 import { askConfirm, showMessage } from '../utils/appMessage';
 import { friendlyErrorMessage } from '../utils/networkError';
@@ -755,6 +756,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearRecordCache();
     clearPodPrefetch();
     clearDoctorCache();
+    clearNewNotificationMarks();
     setIsLoggedIn(false);
     // Έμεινε αναμμένο από την επιτυχή σύνδεση (βλ. σχόλιο στο getRealAccessToken) ώστε να
     // μην ξαναφανεί η φόρμα σύνδεσης λίγο πριν μπούμε στην εφαρμογή. Σβήνει τώρα, γιατί

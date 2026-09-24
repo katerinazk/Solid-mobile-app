@@ -7,6 +7,7 @@ import { sharedStyles } from '../../../constants/sharedStyles';
 import { doctorStyles as styles } from '../../../constants/doctorStyles';
 import { ROUTES } from '../../../constants/routes';
 import { SentRequestsModal } from '../../../components/doctor/SentRequestsModal';
+import { NotificationsList } from '../../../components/NotificationsList';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../../../constants/designSystem';
 import { ACCESS_FULL, ACCESS_READ_ONLY } from '../../../constants/accessTypes';
@@ -17,7 +18,7 @@ import { fetchAccessEntry } from '../../../services/access';
 import { hasPendingAccessRequest, createAccessRequest } from '../../../services/accessRequests';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { Patient } from '../../../types/Patient';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 
 export default function DoctorHomeScreen() {
@@ -198,7 +199,7 @@ export default function DoctorHomeScreen() {
           <Text style={styles.historyTitle}>Προσβάσεις</Text>
         </View>
 
-        <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+        <View style={{ paddingHorizontal: SPACING.sideMargin }}>
           {/* Ίδιο μοτίβο με τις Προσβάσεις του ασθενή: δύο κουμπιά δίπλα-δίπλα κάτω από τον
               τίτλο. Το αίτημα προς νέο ασθενή έχει τη δική του οθόνη, με την αναζήτηση σε ΟΛΗ
               τη βάση ασθενών - εδώ μένει μόνο η αναζήτηση μέσα σε όσους έχει ήδη πρόσβαση. */}
@@ -246,8 +247,8 @@ export default function DoctorHomeScreen() {
           <Text style={styles.historyTitle}>Ειδοποιήσεις</Text>
         </View>
 
-        <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
-          <Text style={[sharedStyles.emptyText, { marginTop: 0, textAlign: 'left' }]}>Δεν υπάρχουν ειδοποιήσεις αυτή τη στιγμή.</Text>
+        <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+          <NotificationsList role="doctor" amka={loggedInDoctorAmka} />
         </View>
       </ScrollView>
 

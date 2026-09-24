@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { notifyAccessRequested } from './notifications';
 
 // Ένα αίτημα πρόσβασης που στέλνει ο γιατρός σε έναν ασθενή - παραμένει "pending" μέχρι ο
 // ίδιος ο ασθενής να το εγκρίνει από τη δική του οθόνη "Αιτήματα" (γίνεται εκεί γιατί μόνο ο
@@ -46,12 +47,14 @@ export async function createAccessRequest(doctorAmka: string, patientAmka: strin
     .eq('status', 'pending')
     .lt('created_at', requestCutoffIso());
 
-  return supabase.from('access_requests').insert([{
+  const result = await supabase.from('access_requests').insert([{
     doctor_amka: doctorAmka,
     patient_amka: patientAmka,
     access_type: accessType,
     status: 'pending',
   }]);
+  if (!result.error) await notifyAccessRequested(patientAmka, doctorAmka, accessType);
+  return result;
 }
 
 export async function fetchPendingAccessRequestsForPatient(patientAmka: string) {

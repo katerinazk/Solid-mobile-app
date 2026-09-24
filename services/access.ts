@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { notifyAccessGranted, notifyAccessChanged, notifyAccessRevoked } from './notifications';
 
 export async function fetchAccessListForPatient(patientAmka: string) {
   return supabase
@@ -27,7 +28,7 @@ export async function fetchAccessEntry(patientAmka: string, doctorAmka: string) 
 // aclSynced = μπήκε ο γιατρός στο ACL του Pod; Είναι false όταν δεν έχει ακόμα WebID (δεν έχει
 // κάνει ποτέ Solid login) - ο φάκελος του ασθενή δεν του εμφανίζεται μέχρι να συγχρονιστεί.
 export async function addAccess(patientAmka: string, doctorAmka: string, accessType: string, aclSynced: boolean) {
-  return supabase
+  const result = await supabase
     .from('access')
     .insert([{
       patient_amka: patientAmka,
@@ -35,6 +36,8 @@ export async function addAccess(patientAmka: string, doctorAmka: string, accessT
       access_type: accessType,
       acl_synced: aclSynced,
     }]);
+  if (!result.error) await notifyAccessGranted(doctorAmka, patientAmka, accessType);
+  return result;
 }
 
 // Καλείται μόλις ο ασθενής ξαναγράψει το ACL του Pod του, για τους γιατρούς που μπήκαν τελικά.
@@ -48,11 +51,13 @@ export async function markAccessAclSynced(patientAmka: string, doctorAmkas: stri
 }
 
 export async function deleteAccess(patientAmka: string, doctorAmka: string) {
-  return supabase
+  const result = await supabase
     .from('access')
     .delete()
     .eq('patient_amka', patientAmka)
     .eq('doctor_amka', doctorAmka);
+  if (!result.error) await notifyAccessRevoked(doctorAmka, patientAmka);
+  return result;
 }
 
 // Το acl_synced είναι η πύλη της πλευράς του γιατρού: όσο είναι false, ο ασθενής δεν του
@@ -62,11 +67,13 @@ export async function updateAccessType(patientAmka: string, doctorAmka: string, 
   const changes: { access_type: string; acl_synced?: boolean } = { access_type: newType };
   if (aclSynced !== undefined) changes.acl_synced = aclSynced;
 
-  return supabase
+  const result = await supabase
     .from('access')
     .update(changes)
     .eq('patient_amka', patientAmka)
     .eq('doctor_amka', doctorAmka);
+  if (!result.error) await notifyAccessChanged(doctorAmka, patientAmka, newType);
+  return result;
 }
 
 // Μετά από αλλαγή Pod, καμία από τις παλιές εγγραφές ACL δεν ισχύει: το νέο Pod του ασθενή

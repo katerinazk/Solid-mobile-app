@@ -20,6 +20,7 @@ import {
   subscribeCounts,
   isPrefetchRunning,
 } from '../../../utils/podPrefetchStore';
+import { NotificationsList } from '../../../components/NotificationsList';
 import { isNetworkError } from '../../../utils/networkError';
 
 // Οι ετικέτες κατηγοριών αντιστοιχούν 1-1 στα ονόματα των φακέλων ιστορικού στο Pod του
@@ -186,8 +187,8 @@ export default function PatientHomeScreen() {
           <Text style={doctorStyles.historyTitle}>Ειδοποιήσεις</Text>
         </View>
 
-        <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
-          <Text style={[styles.emptyText, { marginTop: 0, textAlign: 'left' }]}>Δεν υπάρχουν ειδοποιήσεις αυτή τη στιγμή.</Text>
+        <View style={{ paddingHorizontal: SPACING.sideMargin }}>
+          <NotificationsList role="patient" amka={loggedInPatientAmka} />
         </View>
       </ScrollView>
     </SafeAreaView>

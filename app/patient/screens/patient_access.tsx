@@ -10,6 +10,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { usePatientAccessActions } from '../../../hooks/usePatientAccessActions';
 import { fetchAccessEntry, addAccess } from '../../../services/access';
+import { notifyRequestRejected } from '../../../services/notifications';
 import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, isAccessRequestExpired } from '../../../services/accessRequests';
 import { updatePodAcl } from '../../../services/solidPod';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -17,7 +18,7 @@ import { ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessT
 import { AccessCard } from '../../../components/AccessCard';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useRecordSearch } from '../../../utils/recordSearch';
-import { showMessage } from '../../../utils/appMessage';
+import { showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 
 // Οι επιλογές του φίλτρου. Η πρώτη είναι η "χωρίς φίλτρο", ώστε να υπάρχει δρόμος πίσω.
@@ -160,6 +161,7 @@ export default function PatientAccessScreen() {
     try {
       setResolvingRequestId(request.id);
       await resolveAccessRequest(request.id, 'rejected');
+      await notifyRequestRejected(request.doctor_amka, loggedInPatientAmka);
       setRequests((prev) => prev.filter((r) => r.id !== request.id));
     } catch (error) {
       showMessage("Απρόσμενο σφάλμα.");
@@ -192,7 +194,7 @@ export default function PatientAccessScreen() {
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin, flexGrow: 1 }}
         ListHeaderComponent={
           <>
-            <View style={{ paddingHorizontal: SPACING.sideMargin, marginTop: SPACING.sectionGap }}>
+            <View style={{ paddingHorizontal: SPACING.sideMargin }}>
               {/* Δίπλα-δίπλα αντί το ένα κάτω από το άλλο: δύο ίδια γεμάτα κουμπιά σε στοίβα
                   έδειχναν βαριά. Η προσθήκη πρόσβασης έχει τη δική της οθόνη, με την αναζήτηση
                   γιατρού. Τα αιτήματα ανοίγουν το ίδιο παράθυρο όπως πριν, απλώς από κουμπί
@@ -340,7 +342,7 @@ export default function PatientAccessScreen() {
 
 const localStyles = StyleSheet.create({
   // Ίδιο μπλε με το historyHeader των υπόλοιπων οθονών, με στρογγυλεμένες κάτω γωνίες.
-  titleBand: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: SPACING.groupGap, paddingTop: 18, paddingBottom: 18, backgroundColor: COLORS.medium, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  titleBand: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.sideMargin, marginTop: 10, marginBottom: TOUCH.buttonGap, paddingTop: 18, paddingBottom: 18, backgroundColor: COLORS.medium, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   sectionTitle: { fontSize: TYPOGRAPHY.mainTitle, fontWeight: 'bold', color: COLORS.primary, textAlign: 'center' },
   // Τα δύο κουμπιά δίπλα-δίπλα κάτω από τον τίτλο, ίδιο σχήμα με τα γεμάτα κουμπιά της εφαρμογής.
   actionRow: { flexDirection: 'row' },
