@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 import { sharedStyles as styles } from '../../constants/sharedStyles';
 import { TYPOGRAPHY } from '../../constants/designSystem';
-import { fetchPendingAccessRequestsForDoctor } from '../../services/accessRequests';
+import { fetchPendingAccessRequestsForDoctor, deleteExpiredAccessRequestsForDoctor, isAccessRequestExpired } from '../../services/accessRequests';
 import { showMessage } from '../../utils/appMessage';
 import { friendlyErrorMessage } from '../../utils/networkError';
 
@@ -12,6 +12,7 @@ interface SentAccessRequest {
   id: string;
   patient_amka: string;
   access_type: string;
+  created_at: string;
   patients: { first_name: string; last_name: string } | null;
 }
 
@@ -40,7 +41,13 @@ export function SentRequestsModal({ visible, doctorAmka, onClose }: Props) {
           showMessage(friendlyErrorMessage(error, "Σφάλμα φόρτωσης αιτημάτων."));
           return;
         }
-        setRequests((data || []) as unknown as SentAccessRequest[]);
+        const loaded = (data || []) as unknown as SentAccessRequest[];
+        setRequests(loaded);
+
+        // Τα ληγμένα εμφανίζονται τώρα, μία φορά, και σβήνονται από τη βάση - την επόμενη φορά
+        // που θα ανοίξει το παράθυρο δεν θα υπάρχουν. Αν η διαγραφή αποτύχει, θα ξαναδειχτούν.
+        const expiredIds = loaded.filter((r) => isAccessRequestExpired(r.created_at)).map((r) => r.id);
+        if (expiredIds.length > 0) await deleteExpiredAccessRequestsForDoctor(expiredIds);
       } finally {
         if (!canceled) setLoading(false);
       }
@@ -73,7 +80,9 @@ export function SentRequestsModal({ visible, doctorAmka, onClose }: Props) {
                   </Text>
                   <Text style={localStyles.requestDetail}>ΑΜΚΑ: <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{item.patient_amka}</Text></Text>
                   <Text style={localStyles.requestDetail}>Τύπος πρόσβασης: <Text style={{ fontWeight: 'bold', color: COLORS.primary }}>{item.access_type}</Text></Text>
-                  <Text style={[localStyles.requestDetail, { color: COLORS.danger, fontWeight: 'bold', marginTop: 6 }]}>Εκκρεμεί αποδοχή από τον ασθενή</Text>
+                  <Text style={[localStyles.requestDetail, { color: COLORS.danger, fontWeight: 'bold', marginTop: 6 }]}>
+                    {isAccessRequestExpired(item.created_at) ? 'Το αίτημα έληξε - στείλτε ξανά αίτημα' : 'Εκκρεμεί αποδοχή από τον ασθενή'}
+                  </Text>
                 </View>
               ))}
             </ScrollView>

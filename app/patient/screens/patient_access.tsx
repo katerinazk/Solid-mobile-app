@@ -10,7 +10,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { usePatientAccessList } from '../../../hooks/usePatientAccessList';
 import { usePatientAccessActions } from '../../../hooks/usePatientAccessActions';
 import { fetchAccessEntry, addAccess } from '../../../services/access';
-import { fetchPendingAccessRequestsForPatient, resolveAccessRequest } from '../../../services/accessRequests';
+import { fetchPendingAccessRequestsForPatient, resolveAccessRequest, isAccessRequestExpired } from '../../../services/accessRequests';
 import { updatePodAcl } from '../../../services/solidPod';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
@@ -31,6 +31,7 @@ interface AccessRequest {
   id: string;
   doctor_amka: string;
   access_type: string;
+  created_at: string;
   doctors: { first_name: string; last_name: string; specialty: string | null; web_id: string | null } | null;
 }
 
@@ -95,6 +96,13 @@ export default function PatientAccessScreen() {
   };
 
   const handleAcceptRequest = async (request: AccessRequest) => {
+    // Η λίστα φορτώθηκε όταν άνοιξε το παράθυρο - το αίτημα μπορεί να έληξε στο μεταξύ.
+    if (isAccessRequestExpired(request.created_at)) {
+      showMessage("Το αίτημα έχει λήξει. Ο γιατρός πρέπει να στείλει νέο αίτημα.");
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+      return;
+    }
+
     try {
       setResolvingRequestId(request.id);
 

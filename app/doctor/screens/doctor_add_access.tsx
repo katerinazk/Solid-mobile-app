@@ -10,7 +10,7 @@ import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { AccessRequestModal } from '../../../components/doctor/AccessRequestModal';
 import { InvitePatientModal } from '../../../components/doctor/InvitePatientModal';
 import { searchPatients } from '../../../services/patients';
-import { fetchPendingAccessRequestsForDoctor } from '../../../services/accessRequests';
+import { fetchPendingAccessRequestsForDoctor, isAccessRequestExpired } from '../../../services/accessRequests';
 import { isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { isValidAmka } from '../../../utils/validateAmka';
 
@@ -43,7 +43,7 @@ export default function DoctorAddAccessScreen() {
     try {
       const { data, error } = await fetchPendingAccessRequestsForDoctor(loggedInDoctorAmka);
       if (error) return;
-      setPendingRequestAmkas(((data || []) as any[]).map((r) => r.patient_amka));
+      setPendingRequestAmkas(((data || []) as any[]).filter((r) => !isAccessRequestExpired(r.created_at)).map((r) => r.patient_amka));
     } catch {
       // Αν αποτύχει, οι καρτέλες απλώς δείχνουν κανονικά το κουμπί αιτήματος.
     }

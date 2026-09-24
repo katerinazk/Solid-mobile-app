@@ -12,6 +12,19 @@ export interface AccessRequestRecord {
   created_at: string;
 }
 
+// Ένα αίτημα που δεν απαντήθηκε μέσα σε τόσες μέρες θεωρείται ληγμένο: ο ασθενής δεν το βλέπει
+// πια και δεν μπορεί να το εγκρίνει, ώστε να μη δοθεί πρόσβαση σε ιατρικά δεδομένα με βάση
+// ένα παλιό αίτημα που κανείς δεν θυμάται. Ο έλεγχος γίνεται στον κώδικα, όχι στη βάση.
+export const ACCESS_REQUEST_TTL_DAYS = 30;
+
+function requestCutoffIso(): string {
+  return new Date(Date.now() - ACCESS_REQUEST_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+export function isAccessRequestExpired(createdAt: string): boolean {
+  return new Date(createdAt).getTime() < Date.now() - ACCESS_REQUEST_TTL_DAYS * 24 * 60 * 60 * 1000;
+}
+
 export async function hasPendingAccessRequest(doctorAmka: string, patientAmka: string) {
   return supabase
     .from('access_requests')
@@ -19,10 +32,20 @@ export async function hasPendingAccessRequest(doctorAmka: string, patientAmka: s
     .eq('doctor_amka', doctorAmka)
     .eq('patient_amka', patientAmka)
     .eq('status', 'pending')
+    .gte('created_at', requestCutoffIso())
     .maybeSingle();
 }
 
 export async function createAccessRequest(doctorAmka: string, patientAmka: string, accessType: string) {
+  // Αν το προηγούμενο αίτημα προς τον ίδιο ασθενή έχει λήξει, το καθαρίζουμε πριν μπει το νέο.
+  await supabase
+    .from('access_requests')
+    .delete()
+    .eq('doctor_amka', doctorAmka)
+    .eq('patient_amka', patientAmka)
+    .eq('status', 'pending')
+    .lt('created_at', requestCutoffIso());
+
   return supabase.from('access_requests').insert([{
     doctor_amka: doctorAmka,
     patient_amka: patientAmka,
@@ -43,7 +66,8 @@ export async function fetchPendingAccessRequestsForPatient(patientAmka: string) 
       doctors (first_name, last_name, specialty, web_id)
     `)
     .eq('patient_amka', patientAmka)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .gte('created_at', requestCutoffIso());
 }
 
 export async function fetchPendingAccessRequestsForDoctor(doctorAmka: string) {
@@ -59,6 +83,19 @@ export async function fetchPendingAccessRequestsForDoctor(doctorAmka: string) {
     `)
     .eq('doctor_amka', doctorAmka)
     .eq('status', 'pending');
+}
+
+// Τα ληγμένα αιτήματα ο γιατρός τα βλέπει μία φορά (με μήνυμα "Έληξε") και μετά σβήνονται, ώστε
+// να μη μαζεύονται στη λίστα του. Το φίλτρο status/created_at ξαναελέγχεται εδώ ώστε να μη
+// διαγραφεί ποτέ αίτημα που στο μεταξύ απαντήθηκε.
+export async function deleteExpiredAccessRequestsForDoctor(requestIds: string[]) {
+  if (requestIds.length === 0) return { error: null };
+  return supabase
+    .from('access_requests')
+    .delete()
+    .in('id', requestIds)
+    .eq('status', 'pending')
+    .lt('created_at', requestCutoffIso());
 }
 
 // Ο γιατρός ακυρώνει ένα δικό του αίτημα πριν προλάβει ο ασθενής να απαντήσει - το διαγράφουμε
