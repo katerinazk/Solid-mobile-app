@@ -8,6 +8,7 @@ import { ROUTES } from '../../../constants/routes';
 import { SPACING } from '../../../constants/designSystem';
 import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
+import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFilesOrEmpty, getCategoryFolderUrl } from '../../../services/solidPod';
 
 // Ίδιες ετικέτες με τους φακέλους ιστορικού στο Pod του ασθενή (Κατηγορίες.tsx) - ίδιο σύνολο
@@ -28,24 +29,31 @@ export default function DoctorHistoryScreen() {
   // ανθρώπου: δεν υπάρχει δική του σύνδεση στην οποία να είχε ήδη ξεκινήσει η μέτρηση.
   const [counts, setCounts] = useState<Record<string, number>>({});
 
-  useEffect(() => {
+  // Ξεχωριστή συνάρτηση (όχι ανώνυμη μέσα στο useEffect) ώστε να μπορεί να την ξανακαλέσει και
+  // το usePodAutoRefresh όταν η οθόνη ξαναπαίρνει εστίαση - π.χ. επιστροφή με "πίσω" από μια
+  // κατηγορία μετά από νέα καταχώρηση. Χωρίς αυτό, η οθόνη μένει "ζωντανή" στο navigation stack
+  // και δεν ξαναμετρά τίποτα μόνη της, δείχνοντας παλιωμένο νούμερο μέχρι να ξαναφορτωθεί εξαρχής.
+  const loadCounts = async () => {
     if (!webId || !accessToken) return;
-    let canceled = false;
 
-    CATEGORIES.forEach((category) => {
-      listFolderFilesOrEmpty(getCategoryFolderUrl(webId, category), accessToken)
-        .then((files) => {
-          if (canceled) return;
+    await Promise.all(
+      CATEGORIES.map(async (category) => {
+        try {
+          const files = await listFolderFilesOrEmpty(getCategoryFolderUrl(webId, category), accessToken);
           const total = files.filter((url) => url.endsWith('.json')).length;
           setCounts((prev) => ({ ...prev, [category]: total }));
-        })
-        .catch(() => {
+        } catch {
           // Αν αποτύχει, η κατηγορία μένει χωρίς νούμερο - δεν δείχνουμε σφάλμα.
-        });
-    });
+        }
+      })
+    );
+  };
 
-    return () => { canceled = true; };
+  useEffect(() => {
+    loadCounts();
   }, [webId, accessToken]);
+
+  usePodAutoRefresh(loadCounts);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: COLORS.light }]}>
