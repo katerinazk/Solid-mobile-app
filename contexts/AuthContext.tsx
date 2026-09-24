@@ -1,5 +1,6 @@
 import React, { createContext, useState, useRef, useEffect, ReactNode } from 'react';
-import { AppState, View } from 'react-native';
+import { AppState, View, Platform, Modal, SafeAreaView, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { WebView } from 'react-native-webview';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { router } from 'expo-router';
@@ -131,6 +132,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isBrowserOpen = useRef(false);
   const expectingResponse = useRef(false);
 
+  // --- ANDROID: IN-APP INCOGNITO WEBVIEW ΓΙΑ ΤΗ ΣΥΝΔΕΣΗ ΣΤΟ POD ---
+  // Το Custom Tabs (system browser) στο Android μοιράζεται cookies με το Chrome της συσκευής,
+  // και επιβεβαιώθηκε ότι ο συγκεκριμένος πάροχος αγνοεί το prompt=login/max_age=0 που ήδη
+  // στέλνουμε: ένα session cookie από προηγούμενο login περνάει σιωπηλά, χωρίς να ζητηθούν
+  // ξανά credentials. Ένα incognito WebView μέσα στην ίδια την εφαρμογή δεν έχει καθόλου
+  // persistent cookies - κάθε άνοιγμα ξεκινάει από καθαρό μηδέν, άσχετα με τι κάνει ή δεν κάνει
+  // ο πάροχος. Στο iOS δεν χρειάζεται: το preferEphemeralSession του SDK λύνει ήδη το ίδιο θέμα.
+  const [webViewAuthUrl, setWebViewAuthUrl] = useState<string | null>(null);
+  const webViewReturnResolver = useRef<((url: string | null) => void) | null>(null);
+
+  // Κοινό σημείο: πιάνει την επιστροφή είτε από onShouldStartLoadWithRequest είτε από
+  // onNavigationStateChange - το πρώτο ΔΕΝ καλείται πάντα στο Android για redirect που
+  // ακολουθεί υποβολή φόρμας (π.χ. το "Allow" της οθόνης συγκατάθεσης), οπότε το δεύτερο
+  // λειτουργεί σαν αξιόπιστο δίχτυ ασφαλείας. Το resolver γίνεται null μετά την πρώτη
+  // επιτυχή σύλληψη, οπότε τυχόν δεύτερη κλήση απλώς δεν κάνει τίποτα.
+  const captureReturnIfMatch = (url: string): boolean => {
+    if (!url.startsWith(APP_LINK_PREFIX)) return false;
+    webViewReturnResolver.current?.(url);
+    webViewReturnResolver.current = null;
+    return true;
+  };
+
+  const handleWebViewShouldStart = (navRequest: { url: string }): boolean => {
+    return !captureReturnIfMatch(navRequest.url);
+  };
+
+  const handleWebViewNavStateChange = (navState: { url: string }) => {
+    captureReturnIfMatch(navState.url);
+  };
+
+  const handleWebViewClose = () => {
+    webViewReturnResolver.current?.(null);
+    webViewReturnResolver.current = null;
+  };
+
   // Δεύτερο σημείο σκουντήματος: κάθε φορά που η ίδια η εφαρμογή ξαναγίνει ενεργή (π.χ. έκλεισε
   // ο system browser), ό,τι κι αν άλλαξε ή όχι το "loading" στο ενδιάμεσο.
   useEffect(() => {
@@ -142,11 +178,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, []);
 
-  // Με γέφυρα, η επιστροφή δεν έχει το σχήμα που περιμένει ο SDK για να την αναγνωρίσει,
-  // οπότε τη διαβάζουμε μόνοι μας. Το σχήμα του αντικειμένου μένει ίδιο, ώστε η συνέχεια
-  // της ροής - η ανταλλαγή του κωδικού με token - να μην ξέρει καν ποιος δρόμος ακολουθήθηκε.
+  // Με γέφυρα (ή στο Android, που περνάει πάντα από το incognito WebView - βλ. πιο κάτω), η
+  // επιστροφή δεν έχει το σχήμα που περιμένει ο SDK για να την αναγνωρίσει από μόνος του,
+  // οπότε τη διαβάζουμε μόνοι μας. Το σχήμα του αντικειμένου μένει ίδιο, ώστε η συνέχεια της
+  // ροής - η ανταλλαγή του κωδικού με token - να μην ξέρει καν ποιος δρόμος ακολουθήθηκε.
   const [bridgeResponse, setBridgeResponse] = useState<any>(null);
-  const response = AUTH_BRIDGE_URL ? bridgeResponse : sdkResponse;
+  const response = (AUTH_BRIDGE_URL || Platform.OS === 'android') ? bridgeResponse : sdkResponse;
 
   const handlePatientLoginVerification = async (webId: string): Promise<boolean> => {
     try {
@@ -390,10 +427,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getRealAccessToken();
   }, [response]);
 
+  // Σπάει ένα πλήρες URL επιστροφής (από το incognito WebView ή τη γέφυρα) σε params και
+  // επιβεβαιώνει το state - κοινή λογική και για τους δύο δρόμους που δεν περνάνε από τον SDK.
+  const handleReturnUrl = (returnUrl: string | null) => {
+    if (!returnUrl) {
+      setBridgeResponse({ type: 'dismiss' });
+      return;
+    }
+
+    const query = returnUrl.split('?')[1] || '';
+    const params: Record<string, string> = {};
+    new URLSearchParams(query).forEach((value, key) => { params[key] = value; });
+
+    // Το state είναι η προστασία απέναντι σε ξένη απάντηση: αν δεν είναι αυτό που στείλαμε,
+    // ο κωδικός δεν ήρθε από τη δική μας σύνδεση και δεν τον αγγίζουμε.
+    if (params.state !== request!.state) {
+      setBridgeResponse({ type: 'error' });
+      showMessage('Η απάντηση της σύνδεσης δεν αντιστοιχεί στο αίτημα. Δοκιμάστε ξανά.');
+      return;
+    }
+
+    setBridgeResponse({ type: 'success', params });
+  };
+
   /**
    * Ανοίγει τη σελίδα σύνδεσης του Pod και περιμένει την επιστροφή.
    *
-   * Χωρίς γέφυρα το αναλαμβάνει όλο ο SDK. Με γέφυρα πρέπει να τα χωρίσουμε: στον provider
+   * Android: πάντα μέσω incognito WebView (βλ. σχόλιο στο webViewAuthUrl πιο πάνω) - το
+   * Custom Tabs δεν είναι αξιόπιστο εδώ.
+   *
+   * iOS χωρίς γέφυρα το αναλαμβάνει όλο ο SDK. Με γέφυρα πρέπει να τα χωρίσουμε: στον provider
    * φεύγει η https διεύθυνση (αυτή που διαβάζει ο χρήστης), ενώ πίσω στην εφαρμογή γυρνάει
    * το σχήμα της - και ο SDK αναγνωρίζει την επιστροφή μόνο αν οι δύο ταυτίζονται.
    *
@@ -401,6 +464,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * διαδοχικά logins, ώστε να μη "θυμάται" τον προηγούμενο χρήστη.
    */
   const openLoginBrowser = async () => {
+    if (Platform.OS === 'android') {
+      const returnUrl = await new Promise<string | null>((resolve) => {
+        webViewReturnResolver.current = resolve;
+        setWebViewAuthUrl(request!.url);
+      });
+      setWebViewAuthUrl(null);
+      handleReturnUrl(returnUrl);
+      return;
+    }
+
     if (!AUTH_BRIDGE_URL) {
       await promptAsync({ preferEphemeralSession: true });
       return;
@@ -414,19 +487,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const query = result.url.split('?')[1] || '';
-    const params: Record<string, string> = {};
-    new URLSearchParams(query).forEach((value, key) => { params[key] = value; });
-
-    // Το state είναι η προστασία απέναντι σε ξένη απάντηση: αν δεν είναι αυτό που στείλαμε,
-    // ο κωδικός δεν ήρθε από τη δική μας σύνδεση και δεν τον αγγίζουμε.
-    if (params.state !== request!.state) {
-      setBridgeResponse({ type: 'error' });
-      showMessage('Η απάντηση της σύνδεσης δεν αντιστοιχεί στο αίτημα. Δοκιμάστε ξανά.');
-      return;
-    }
-
-    setBridgeResponse({ type: 'success', params });
+    handleReturnUrl(result.url);
   };
 
   // Όταν έχουμε το δυναμικό Client ID και το request είναι έτοιμο, ανοίγουμε τον browser
@@ -685,6 +746,31 @@ ${consequence}`,
       <View style={{ flex: 1 }} onStartShouldSetResponderCapture={() => { resetIdleTimer(); return false; }}>
         {children}
       </View>
+
+      {/* Android: η σύνδεση στο Pod ανοίγει εδώ, σε incognito WebView - βλ. σχόλιο στο
+          webViewAuthUrl. onShouldStartLoadWithRequest πιάνει την επιστροφή ΠΡΙΝ προσπαθήσει
+          το ίδιο το WebView να "φορτώσει" το solidmedicalapp:// (θα απέτυχε, δεν είναι σελίδα). */}
+      <Modal visible={!!webViewAuthUrl} animationType="slide" onRequestClose={handleWebViewClose}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+            <TouchableOpacity onPress={handleWebViewClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+              <Text style={{ fontSize: 16, color: '#304674', fontWeight: 'bold' }}>Κλείσιμο</Text>
+            </TouchableOpacity>
+          </View>
+          {webViewAuthUrl && (
+            <WebView
+              source={{ uri: webViewAuthUrl }}
+              incognito
+              onShouldStartLoadWithRequest={handleWebViewShouldStart}
+              onNavigationStateChange={handleWebViewNavStateChange}
+              startInLoadingState
+              renderLoading={() => (
+                <ActivityIndicator style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} size="large" color="#304674" />
+              )}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
     </AuthContext.Provider>
   );
 }
