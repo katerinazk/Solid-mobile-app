@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { loginStyles } from '../../constants/loginStyles';
@@ -11,6 +11,8 @@ import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../compo
 import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { saveRecordEdit } from '../../services/recordRevisions';
+import { RecordLinkPicker } from '../../components/RecordLinkPicker';
+import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
 import { showMessage } from '../../utils/appMessage';
 import { friendlyErrorMessage } from '../../utils/networkError';
 
@@ -31,6 +33,8 @@ export default function DiagnosisFormScreen() {
     editDate?: string;
     editDoctorName?: string;
     editDoctorAmka?: string;
+    // Οι σύνδεσμοι προς άλλες εγγραφές ιστορικού, ως JSON πίνακας.
+    editLinks?: string;
   }>();
 
   const { accessToken, loggedInDoctorAmka, role, loggedInPatientAmka } = useAuth();
@@ -42,7 +46,23 @@ export default function DiagnosisFormScreen() {
   const [selectedCode, setSelectedCode] = useState<MedicalCode | null>(
     codeFromRecord({ code: params.editCode, title: params.editTitle, parentName: params.editParentName })
   );
+  const [links, setLinks] = useState<LinkedRecord[]>(parseLinkedRecords(params.editLinks));
   const [saving, setSaving] = useState(false);
+
+  // Αν ο ασθενής έσβησε στο μεταξύ κάποια από τις συνδεδεμένες εγγραφές, φεύγει και η
+  // σύνδεση: δεν θέλουμε ο γιατρός να βλέπει, και να ξαναποθηκεύει, σύνδεσμο προς το κενό.
+  useEffect(() => {
+    if (links.length === 0) return;
+
+    let canceled = false;
+    (async () => {
+      const alive = await filterExistingLinks(params.webId, links, accessToken);
+      if (!canceled && alive.length !== links.length) setLinks(alive);
+    })();
+
+    return () => { canceled = true; };
+    // Μία φορά, με τους συνδέσμους που ήρθαν από την καρτέλα.
+  }, []);
 
   const handleSave = async () => {
     // Η απόφαση του ασθενή υπερισχύει: αν άλλαξε ή καταργήθηκε η πρόσβαση στο μεταξύ,
@@ -83,6 +103,7 @@ export default function DiagnosisFormScreen() {
         doctorName,
         doctorAmka,
         category: params.category,
+        links: links.length > 0 ? links : undefined,
       };
 
       const fileUrl = params.editUrl || newRecordFileName(`${folderUrl}${params.category}_`);
@@ -119,6 +140,14 @@ export default function DiagnosisFormScreen() {
         onChange={setSelectedCode}
         inputStyle={[loginStyles.loginInput, formStyles.input]}
         resultsMaxHeight={PICKER_RESULTS_HEIGHT}
+      />
+
+      <RecordLinkPicker
+        webId={params.webId}
+        accessToken={accessToken}
+        excludeCategory="Διαγνώσεις"
+        value={links}
+        onChange={setLinks}
       />
     </RecordFormScreen>
   );

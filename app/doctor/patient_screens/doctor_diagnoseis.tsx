@@ -29,6 +29,7 @@ import { askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
+import { readLinks, LinkedRecord } from '../../../services/historyRecords';
 
 type Category = 'adult' | 'child';
 
@@ -45,6 +46,9 @@ interface Diagnosis {
   code?: string;
   // Η κατηγορία-γονέας του κωδικού, ως συμφραζόμενο ("Κάτω γνάθος" -> κακοήθη νεοπλάσματα).
   parentName?: string;
+  // Σύνδεσμοι προς άλλες εγγραφές ιστορικού (π.χ. φάρμακα, εξετάσεις) που σχετίζονται με αυτή
+  // τη διάγνωση.
+  links?: LinkedRecord[];
 }
 
 export default function DoctorDiagnoseisScreen() {
@@ -99,7 +103,7 @@ export default function DoctorDiagnoseisScreen() {
             const record = JSON.parse(content);
             // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
             if (!isCompleteRecord('Διαγνώσεις', record)) return null;
-            return { url, retraction: parseRetraction(record), title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName } as Diagnosis;
+            return { url, retraction: parseRetraction(record), title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName, links: readLinks(record) } as Diagnosis;
           } catch {
             return null;
           }
@@ -175,6 +179,7 @@ export default function DoctorDiagnoseisScreen() {
           editDate: item.date,
           editDoctorName: item.doctorName,
           editDoctorAmka: item.doctorAmka,
+          editLinks: item.links?.length ? JSON.stringify(item.links) : '',
         } : {}),
       },
     });
