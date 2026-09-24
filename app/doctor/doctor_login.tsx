@@ -38,7 +38,7 @@ export default function DoctorLoginScreen() {
       return;
     }
     if (!isValidAmka(doctorAmka)) {
-      showMessage("Το ΑΜΚΑ δεν είναι έγκυρο. Ελέγξτε ότι έχει 11 ψηφία και είναι σωστά γραμμένο.");
+      showMessage("Μη έγκυρο ΑΜΚΑ.");
       return;
     }
 

@@ -8,7 +8,7 @@ import { ROUTES } from '../../constants/routes';
 import { TYPOGRAPHY, TOUCH, SPACING } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { registerPatient } from '../../services/patients';
-import { showMessage } from '../../utils/appMessage';
+import { showMessage } from '../../utils/appMessage';
 import { friendlyErrorMessage } from '../../utils/networkError';
 import { SelectField } from '../../components/SelectField';
 import { SEX_OPTIONS, BLOOD_TYPES } from '../../constants/medicalOptions';
@@ -36,7 +36,7 @@ export default function PatientRegisterScreen() {
       return;
     }
     if (!isValidAmka(patientForm.amka)) {
-      showMessage("Το ΑΜΚΑ δεν είναι έγκυρο. Ελέγξτε ότι έχει 11 ψηφία και είναι σωστά γραμμένο.");
+      showMessage("Μη έγκυρο ΑΜΚΑ.");
       return;
     }
     try {
