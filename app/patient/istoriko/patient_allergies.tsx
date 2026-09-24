@@ -24,6 +24,7 @@ import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askText, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -82,8 +83,11 @@ export default function PatientAllergiesScreen() {
           // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
           await new Promise((resolve) => setTimeout(resolve, 800));
           files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
+        } catch (innerError) {
           // Ο φάκελος δεν υπάρχει ακόμα - δεν έχουν καταχωρηθεί αλλεργίες.
+          // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος υπάρχει - το σφάλμα περνάει προς τα
+          // πάνω, ώστε το εξωτερικό catch να δείξει μήνυμα αντί για άδεια λίστα.
+          if (isNetworkError(innerError)) throw innerError;
           files = [];
         }
       }
@@ -123,8 +127,11 @@ export default function PatientAllergiesScreen() {
       setAllergies(valid);
       setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((a) => a.doctorAmka));
-    } catch {
-      // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
+    } catch (error) {
+      // Χωρίς σύνδεση δείχνουμε μήνυμα αντί να αφήσουμε τον χρήστη να νομίζει ότι δεν
+      // υπάρχουν εγγραφές - σε ιατρικό ιστορικό αυτό θα ήταν παραπλανητικό. Άλλα σφάλματα
+      // (π.χ. ο φάκελος δεν υπάρχει ακόμα) συνεχίζουν να δείχνουν απλώς άδεια λίστα.
+      if (isNetworkError(error)) showMessage(NETWORK_ERROR_MESSAGE);
       setAllergies([]);
     } finally {
       if (!silent) setLoading(false);
@@ -184,7 +191,7 @@ export default function PatientAllergiesScreen() {
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateAllergies((prev) => prev.map((a) => (a.url === item.url ? { ...a, retraction } : a)));
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
   };
 

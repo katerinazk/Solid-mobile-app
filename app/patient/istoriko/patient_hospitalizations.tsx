@@ -22,6 +22,7 @@ import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -75,8 +76,11 @@ export default function PatientHospitalizationsScreen() {
           // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
           await new Promise((resolve) => setTimeout(resolve, 800));
           files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
+        } catch (innerError) {
           // Ο φάκελος δεν υπάρχει ακόμα - δεν έχουν καταχωρηθεί νοσηλείες.
+          // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος υπάρχει - το σφάλμα περνάει προς τα
+          // πάνω, ώστε το εξωτερικό catch να δείξει μήνυμα αντί για άδεια λίστα.
+          if (isNetworkError(innerError)) throw innerError;
           files = [];
         }
       }
@@ -117,8 +121,11 @@ export default function PatientHospitalizationsScreen() {
       setHospitalizations(valid);
       setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((h) => h.doctorAmka));
-    } catch {
-      // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
+    } catch (error) {
+      // Χωρίς σύνδεση δείχνουμε μήνυμα αντί να αφήσουμε τον χρήστη να νομίζει ότι δεν
+      // υπάρχουν εγγραφές - σε ιατρικό ιστορικό αυτό θα ήταν παραπλανητικό. Άλλα σφάλματα
+      // (π.χ. ο φάκελος δεν υπάρχει ακόμα) συνεχίζουν να δείχνουν απλώς άδεια λίστα.
+      if (isNetworkError(error)) showMessage(NETWORK_ERROR_MESSAGE);
       setHospitalizations([]);
     } finally {
       if (!silent) setLoading(false);
@@ -146,7 +153,7 @@ export default function PatientHospitalizationsScreen() {
       const localUri = await downloadAttachment(item.url, fileName, accessToken);
       await openLocalFile(localUri, fileName);
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανοίγματος αρχείου.'));
     } finally {
       setDownloadingAttachment(null);
     }

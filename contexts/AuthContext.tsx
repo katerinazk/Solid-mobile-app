@@ -15,6 +15,7 @@ import { clearPodPrefetch } from '../utils/podPrefetchStore';
 import { clearDoctorCache } from '../utils/doctorCache';
 import { isSupportedWebId } from '../services/solidPod';
 import { askConfirm, showMessage } from '../utils/appMessage';
+import { friendlyErrorMessage } from '../utils/networkError';
 
 type Role = 'doctor' | 'patient';
 
@@ -536,7 +537,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error: any) {
       console.error("DCR Error:", error);
-      showMessage(error.message || "Αποτυχία επικοινωνίας με τον Provider.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία επικοινωνίας με τον Provider."));
       setLoading(false);
     } finally {
       isDcrRunning.current = false;

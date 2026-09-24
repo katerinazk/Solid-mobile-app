@@ -20,6 +20,7 @@ import { EXAM_TYPES, EXAM_STATUS_OPTIONS, EXAM_STATUS_PENDING, EXAM_STATUS_COMPL
 import { RecordLinkPicker } from '../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
 import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 
 export default function ExamFormScreen() {
   const params = useLocalSearchParams<{
@@ -88,7 +89,7 @@ export default function ExamFormScreen() {
       const asset = picked.assets[0];
       setPendingResult({ name: asset.name, uri: asset.uri, mimeType: asset.mimeType || 'application/octet-stream' });
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία επιλογής αρχείου.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία επιλογής αρχείου.'));
     }
   };
 
@@ -173,7 +174,7 @@ export default function ExamFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία σύνδεσης με το Pod."));
     } finally {
       setSaving(false);
     }

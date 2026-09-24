@@ -27,6 +27,7 @@ import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { askText, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -136,7 +137,7 @@ export default function DoctorHospitalizationsScreen() {
         checkAccess();
         return;
       }
-      showMessage(error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      showMessage(friendlyErrorMessage(error, "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει."));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -203,7 +204,7 @@ export default function DoctorHospitalizationsScreen() {
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateHospitalizations((prev) => prev.map((h) => (h.url === item.url ? { ...h, retraction } : h)));
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
   };
 
@@ -213,7 +214,7 @@ export default function DoctorHospitalizationsScreen() {
       const localUri = await downloadAttachment(item.url, fileName, accessToken);
       await openLocalFile(localUri, fileName);
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανοίγματος αρχείου.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανοίγματος αρχείου.'));
     } finally {
       setDownloadingAttachment(null);
     }

@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { createDpopToken } from '../utils/dpop';
 import { takeListing, takeContent } from '../utils/podPrefetchStore';
 import { ACCESS_FULL, grantsPodAccess } from '../constants/accessTypes';
+import { isNetworkError } from '../utils/networkError';
 
 // Ανακατασκευάζει το WebID του ασθενή-ιδιοκτήτη από το URL του δημόσιου φακέλου του
 // (αντίστροφος μετασχηματισμός του webId.replace('profile/card#me', 'public/') στο AuthContext).
@@ -174,6 +175,10 @@ export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: str
     return await listFolderFiles(folderUrl, accessToken);
   } catch (error) {
     if (isPodAccessDenied(error)) throw error;
+    // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος είναι πράγματι άδειος - δεν πρέπει να δείξουμε
+    // "καμία εγγραφή" σε ιατρικό ιστορικό σαν να το ξέραμε σίγουρα. Το σφάλμα περνάει προς τα
+    // πάνω, ώστε η οθόνη να δείξει μήνυμα σύνδεσης αντί για άδεια λίστα.
+    if (isNetworkError(error)) throw error;
     // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - δημιουργείται με την πρώτη καταχώρηση.
     return [];
   }

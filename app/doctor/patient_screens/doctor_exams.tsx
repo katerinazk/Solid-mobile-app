@@ -28,6 +28,7 @@ import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAc
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askText, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -190,7 +191,7 @@ export default function DoctorExamsScreen() {
         checkAccess();
         return;
       }
-      showMessage(error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      showMessage(friendlyErrorMessage(error, "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει."));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -349,7 +350,7 @@ export default function DoctorExamsScreen() {
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction } : e)));
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
   };
 

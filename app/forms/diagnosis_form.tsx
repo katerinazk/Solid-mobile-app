@@ -12,6 +12,7 @@ import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { saveRecordEdit } from '../../services/recordRevisions';
 import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 
 export default function DiagnosisFormScreen() {
   const params = useLocalSearchParams<{
@@ -94,7 +95,7 @@ export default function DiagnosisFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία σύνδεσης με το Pod."));
     } finally {
       setSaving(false);
     }

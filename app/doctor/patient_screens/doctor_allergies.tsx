@@ -25,6 +25,7 @@ import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askText, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -125,7 +126,7 @@ export default function DoctorAllergiesScreen() {
         checkAccess();
         return;
       }
-      showMessage(error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      showMessage(friendlyErrorMessage(error, "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει."));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -184,7 +185,7 @@ export default function DoctorAllergiesScreen() {
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateAllergies((prev) => prev.map((a) => (a.url === item.url ? { ...a, retraction } : a)));
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
   };
 

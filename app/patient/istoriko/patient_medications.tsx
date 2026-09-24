@@ -26,6 +26,7 @@ import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -195,8 +196,11 @@ export default function PatientMedicationsScreen() {
           // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
           await new Promise((resolve) => setTimeout(resolve, 800));
           files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
+        } catch (innerError) {
           // Ο φάκελος δεν υπάρχει ακόμα - δεν έχουν καταχωρηθεί φάρμακα.
+          // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος υπάρχει - το σφάλμα περνάει προς τα
+          // πάνω, ώστε το εξωτερικό catch να δείξει μήνυμα αντί για άδεια λίστα.
+          if (isNetworkError(innerError)) throw innerError;
           files = [];
         }
       }
@@ -239,8 +243,11 @@ export default function PatientMedicationsScreen() {
       setMedications(valid);
       setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((m) => m.doctorAmka));
-    } catch {
-      // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
+    } catch (error) {
+      // Χωρίς σύνδεση δείχνουμε μήνυμα αντί να αφήσουμε τον χρήστη να νομίζει ότι δεν
+      // υπάρχουν εγγραφές - σε ιατρικό ιστορικό αυτό θα ήταν παραπλανητικό. Άλλα σφάλματα
+      // (π.χ. ο φάκελος δεν υπάρχει ακόμα) συνεχίζουν να δείχνουν απλώς άδεια λίστα.
+      if (isNetworkError(error)) showMessage(NETWORK_ERROR_MESSAGE);
       setMedications([]);
     } finally {
       if (!silent) setLoading(false);
@@ -310,7 +317,7 @@ export default function PatientMedicationsScreen() {
 
       updateMedications((prev) => prev.map((m) => m.url === item.url ? { ...m, startDate, started: true } : m));
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία σύνδεσης με το Pod."));
     }
   };
 
@@ -330,7 +337,7 @@ export default function PatientMedicationsScreen() {
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateMedications((prev) => prev.map((m) => (m.url === item.url ? { ...m, retraction } : m)));
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
   };
 

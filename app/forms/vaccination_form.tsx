@@ -12,6 +12,7 @@ import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../compo
 import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
 import { dateToIso } from '../../utils/dateInput';
 import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 
 export default function VaccinationFormScreen() {
   const params = useLocalSearchParams<{
@@ -99,7 +100,7 @@ export default function VaccinationFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία σύνδεσης με το Pod."));
     } finally {
       setSaving(false);
     }

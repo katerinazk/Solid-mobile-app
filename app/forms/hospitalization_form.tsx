@@ -22,6 +22,7 @@ import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../ser
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { saveRecordEdit } from '../../services/recordRevisions';
 import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 
 interface PendingFile {
   name: string;
@@ -113,7 +114,7 @@ export default function HospitalizationFormScreen() {
         })),
       ]);
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία επιλογής αρχείου.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία επιλογής αρχείου.'));
     }
   };
 
@@ -204,7 +205,7 @@ export default function HospitalizationFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία σύνδεσης με το Pod."));
     } finally {
       setSaving(false);
     }

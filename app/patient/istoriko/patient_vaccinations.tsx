@@ -19,6 +19,7 @@ import { RecordCardActions } from '../../../components/RecordCardActions';
 import { retractRecord } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { askText, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { SortDropdown } from '../../../components/SortDropdown';
@@ -94,8 +95,11 @@ export default function PatientVaccinationsScreen() {
           // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
           await new Promise((resolve) => setTimeout(resolve, 800));
           files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
+        } catch (innerError) {
           // Ο φάκελος δεν υπάρχει ακόμα - δεν έχουν καταχωρηθεί εμβολιασμοί.
+          // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος υπάρχει - το σφάλμα περνάει προς τα
+          // πάνω, ώστε το εξωτερικό catch να δείξει μήνυμα αντί για άδεια λίστα.
+          if (isNetworkError(innerError)) throw innerError;
           files = [];
         }
       }
@@ -134,8 +138,11 @@ export default function PatientVaccinationsScreen() {
       setVaccinations(valid);
       setCachedRecords(webId, CATEGORY, valid);
       ensureDoctorInfo(valid.map((v) => v.doctorAmka));
-    } catch {
-      // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
+    } catch (error) {
+      // Χωρίς σύνδεση δείχνουμε μήνυμα αντί να αφήσουμε τον χρήστη να νομίζει ότι δεν
+      // υπάρχουν εγγραφές - σε ιατρικό ιστορικό αυτό θα ήταν παραπλανητικό. Άλλα σφάλματα
+      // (π.χ. ο φάκελος δεν υπάρχει ακόμα) συνεχίζουν να δείχνουν απλώς άδεια λίστα.
+      if (isNetworkError(error)) showMessage(NETWORK_ERROR_MESSAGE);
       setVaccinations([]);
     } finally {
       if (!silent) setLoading(false);
@@ -192,7 +199,7 @@ export default function PatientVaccinationsScreen() {
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateVaccinations((prev) => prev.map((v) => (v.url === item.url ? { ...v, retraction } : v)));
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
   };
 

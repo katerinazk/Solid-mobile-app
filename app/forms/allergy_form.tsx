@@ -13,6 +13,7 @@ import { MedicalCodePicker } from '../../components/MedicalCodePicker';
 import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
 import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
 import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 
 export default function AllergyFormScreen() {
   const params = useLocalSearchParams<{
@@ -97,7 +98,7 @@ export default function AllergyFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία σύνδεσης με το Pod."));
     } finally {
       setSaving(false);
     }

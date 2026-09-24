@@ -15,6 +15,7 @@ import { ADMINISTRATION_ROUTES, matchAdministrationRoute } from '../../constants
 import { RecordLinkPicker } from '../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
 import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 
 export default function MedicationFormScreen() {
   const params = useLocalSearchParams<{
@@ -159,7 +160,7 @@ export default function MedicationFormScreen() {
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();
     } catch (error: any) {
-      showMessage(error.message || "Αποτυχία σύνδεσης με το Pod.");
+      showMessage(friendlyErrorMessage(error, "Αποτυχία σύνδεσης με το Pod."));
     } finally {
       setSaving(false);
     }

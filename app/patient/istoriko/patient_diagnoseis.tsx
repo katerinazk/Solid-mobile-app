@@ -18,7 +18,9 @@ import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { SortDropdown } from '../../../components/SortDropdown';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
-import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
+import { showMessage } from '../../../utils/appMessage';
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { fetchPatientByAmka } from '../../../services/patients';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -81,8 +83,11 @@ export default function PatientDiagnoseisScreen() {
           // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
           await new Promise((resolve) => setTimeout(resolve, 800));
           files = await listFolderFiles(folderUrl, accessToken);
-        } catch {
+        } catch (innerError) {
           // Ο φάκελος δεν υπάρχει ακόμα - δεν έχουν καταχωρηθεί διαγνώσεις.
+          // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος υπάρχει - το σφάλμα περνάει προς τα
+          // πάνω, ώστε το εξωτερικό catch να δείξει μήνυμα αντί για άδεια λίστα.
+          if (isNetworkError(innerError)) throw innerError;
           files = [];
         }
       }
@@ -110,8 +115,11 @@ export default function PatientDiagnoseisScreen() {
       setDiagnoses(valid);
       setCachedRecords(webId, 'Διαγνώσεις', valid);
       ensureDoctorInfo(valid.map((d) => d.doctorAmka));
-    } catch {
-      // Πρόβλημα σύνδεσης με το Pod - δείχνουμε απλώς άδεια λίστα αντί για σφάλμα.
+    } catch (error) {
+      // Χωρίς σύνδεση δείχνουμε μήνυμα αντί να αφήσουμε τον χρήστη να νομίζει ότι δεν
+      // υπάρχουν εγγραφές - σε ιατρικό ιστορικό αυτό θα ήταν παραπλανητικό. Άλλα σφάλματα
+      // (π.χ. ο φάκελος δεν υπάρχει ακόμα) συνεχίζουν να δείχνουν απλώς άδεια λίστα.
+      if (isNetworkError(error)) showMessage(NETWORK_ERROR_MESSAGE);
       setDiagnoses([]);
     } finally {
       if (!silent) setLoading(false);

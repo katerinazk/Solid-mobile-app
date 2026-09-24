@@ -27,6 +27,7 @@ import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askText, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
 
@@ -179,7 +180,7 @@ export default function DoctorMedicationsScreen() {
         checkAccess();
         return;
       }
-      showMessage(error.message || "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει.");
+      showMessage(friendlyErrorMessage(error, "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει."));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -248,7 +249,7 @@ export default function DoctorMedicationsScreen() {
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateMedications((prev) => prev.map((m) => (m.url === item.url ? { ...m, retraction } : m)));
     } catch (error: any) {
-      showMessage(error.message || 'Αποτυχία ανάκλησης.');
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
   };
 
