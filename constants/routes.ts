@@ -4,6 +4,8 @@
 export const ROUTES = {
   // Κοινή οθόνη: την ανοίγουν και ο γιατρός και ο ασθενής.
   RECORD_DETAIL: '/record_detail',
+  // Κοινή οθόνη: όλες οι ειδοποιήσεις, για ασθενή και γιατρό.
+  NOTIFICATIONS: '/notifications',
   LOGIN: '/login',
   PATIENT_LOGIN: '/patient/patient_login',
   PATIENT_REGISTER: '/patient/patient_register',

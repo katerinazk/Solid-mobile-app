@@ -16,7 +16,8 @@ export interface NotificationRecord {
 
 // Μετά από τόσες μέρες η ειδοποίηση σβήνεται.
 const NOTIFICATION_TTL_DAYS = 30;
-const MAX_SHOWN = 30;
+// Πόσες ειδοποιήσεις φέρνει μία ανάγνωση, αν δεν ζητηθεί άλλο μέγεθος (η αρχική οθόνη).
+export const DEFAULT_PAGE_SIZE = 30;
 
 // Ο τύπος πρόσβασης σε πτώση αιτιατικής, ώστε να διαβάζεται σαν πρόταση ("ζήτησε Πλήρη Πρόσβαση").
 function accessTypeAsObject(accessType: string): string {
@@ -101,16 +102,19 @@ export async function notifyRequestRejected(doctorAmka: string, patientAmka: str
 
 // --- Ανάγνωση και διαχείριση από τον παραλήπτη ---
 
-export async function fetchNotifications(role: NotificationRole, recipientAmka: string) {
+export async function fetchNotifications(role: NotificationRole, recipientAmka: string, offset = 0, limit = DEFAULT_PAGE_SIZE) {
   const cutoff = new Date(Date.now() - NOTIFICATION_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  // Καθαρίζουμε τις ληγμένες του ίδιου του παραλήπτη - αν αποτύχει, το φίλτρο παρακάτω τις κρύβει ούτως ή άλλως.
-  await supabase
-    .from('notifications')
-    .delete()
-    .eq('recipient_role', role)
-    .eq('recipient_amka', recipientAmka)
-    .lt('created_at', cutoff);
+  // Καθαρίζουμε τις ληγμένες του ίδιου του παραλήπτη, μόνο στην πρώτη σελίδα - αν αποτύχει, το
+  // φίλτρο παρακάτω τις κρύβει ούτως ή άλλως.
+  if (offset === 0) {
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('recipient_role', role)
+      .eq('recipient_amka', recipientAmka)
+      .lt('created_at', cutoff);
+  }
 
   return supabase
     .from('notifications')
@@ -119,7 +123,7 @@ export async function fetchNotifications(role: NotificationRole, recipientAmka: 
     .eq('recipient_amka', recipientAmka)
     .gte('created_at', cutoff)
     .order('created_at', { ascending: false })
-    .limit(MAX_SHOWN);
+    .range(offset, offset + limit - 1);
 }
 
 // Οι ειδοποιήσεις που ο χρήστης βλέπει για πρώτη φορά σε αυτή τη σύνδεση - παίρνουν την κουκκίδα
