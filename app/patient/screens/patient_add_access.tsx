@@ -15,8 +15,10 @@ import { hasPendingAccessRequest, resolveAccessRequest } from '../../../services
 import { updatePodAcl } from '../../../services/solidPod';
 import { ACCESS_FULL, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
 import { SelectField } from '../../../components/SelectField';
+import { InviteDoctorModal } from '../../../components/patient/InviteDoctorModal';
 import { showMessage } from '../../../utils/appMessage';
 import { isNetworkError, NETWORK_ERROR_MESSAGE, friendlyErrorMessage } from '../../../utils/networkError';
+import { isValidAmka } from '../../../utils/validateAmka';
 
 // Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
 // τα πάντα και το αποτέλεσμα δεν λέει τίποτα στον ασθενή.
@@ -40,6 +42,8 @@ export default function PatientAddAccessScreen() {
   const [newDoctorAmka, setNewDoctorAmka] = useState('');
   const [newAccessType, setNewAccessType] = useState(ACCESS_FULL);
   const [addingAccess, setAddingAccess] = useState(false);
+  // Το ΑΜΚΑ που έψαξε ο ασθενής δεν αντιστοιχεί σε κανέναν - προσφέρουμε πρόσκληση σε αυτό.
+  const [inviteAmka, setInviteAmka] = useState<string | null>(null);
 
   // Η αναζήτηση πηγαίνει σε ΟΛΟΥΣ τους γιατρούς της βάσης, όχι μόνο σε όσους έχει ήδη δώσει
   // πρόσβαση ο ασθενής: αλλιώς δεν θα μπορούσε ποτέ να βρει καινούργιο γιατρό με το όνομά του.
@@ -237,9 +241,21 @@ export default function PatientAddAccessScreen() {
           searching ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
           ) : isSearchActive ? (
-            <Text style={[styles.emptyText, { marginTop: 50 }]}>
-              {searchError && isNetworkError(searchError) ? NETWORK_ERROR_MESSAGE : 'Δεν βρέθηκε γιατρός με αυτά τα στοιχεία.'}
-            </Text>
+            <View style={{ marginTop: 50, paddingHorizontal: SPACING.sideMargin }}>
+              <Text style={styles.emptyText}>
+                {searchError && isNetworkError(searchError) ? NETWORK_ERROR_MESSAGE : 'Δεν βρέθηκε γιατρός με αυτά τα στοιχεία.'}
+              </Text>
+              {/* Μόνο όταν η αναζήτηση είναι πραγματικό ΑΜΚΑ - χωρίς αυτό δεν έχουμε πού να
+                  στείλουμε την πρόσκληση, ούτε νόημα να προτείνουμε αναζήτηση με όνομα. */}
+              {!searchError && isValidAmka(trimmedQuery) && (
+                <TouchableOpacity
+                  style={[localStyles.grantButton, { marginTop: SPACING.groupGap }]}
+                  onPress={() => setInviteAmka(trimmedQuery)}
+                >
+                  <Text style={localStyles.grantButtonText}>Πρόσκληση στην εφαρμογή</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : null
         }
         renderItem={({ item }) => renderSearchResultCard(item)}
@@ -288,6 +304,12 @@ export default function PatientAddAccessScreen() {
           </View>
         </View>
       </Modal>
+
+      <InviteDoctorModal
+        visible={inviteAmka !== null}
+        doctorAmka={inviteAmka || ''}
+        onClose={() => setInviteAmka(null)}
+      />
     </SafeAreaView>
   );
 }
