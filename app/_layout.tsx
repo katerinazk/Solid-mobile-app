@@ -2,6 +2,7 @@ import 'react-native-get-random-values';
 import 'text-encoding';
 import { Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { AuthProvider } from '../contexts/AuthContext';
 import { AppMessageHost } from '../components/AppMessage';
 
@@ -9,6 +10,11 @@ import { AppMessageHost } from '../components/AppMessage';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
+  // Εμποδίζει screenshot/screen recording σε όλη την εφαρμογή (Android: πλήρης αποκλεισμός,
+  // iOS 13+: αποκλεισμός screenshot, iOS 11+: αποκλεισμός recording) - το περιεχόμενο είναι
+  // ιατρικό δεδομένο σε κάθε οθόνη μετά τη σύνδεση, οπότε εφαρμόζεται καθολικά αντί ανά οθόνη.
+  usePreventScreenCapture();
+
   return (
     <AuthProvider>
       <Stack screenOptions={{ headerShown: false }}>
