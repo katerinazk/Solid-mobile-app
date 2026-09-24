@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { resolveMatchingAccessRequest } from './accessRequests';
 import { notifyAccessGranted, notifyAccessChanged, notifyAccessRevoked } from './notifications';
 
 export async function fetchAccessListForPatient(patientAmka: string) {
@@ -72,7 +73,10 @@ export async function updateAccessType(patientAmka: string, doctorAmka: string, 
     .update(changes)
     .eq('patient_amka', patientAmka)
     .eq('doctor_amka', doctorAmka);
-  if (!result.error) await notifyAccessChanged(doctorAmka, patientAmka, newType);
+  if (!result.error) {
+    await notifyAccessChanged(doctorAmka, patientAmka, newType);
+    await resolveMatchingAccessRequest(doctorAmka, patientAmka, newType);
+  }
   return result;
 }
 

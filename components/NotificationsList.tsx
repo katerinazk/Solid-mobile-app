@@ -36,15 +36,16 @@ function timeAgo(createdAt: string): string {
 }
 
 // Η κάρτα μιας ειδοποίησης - κοινή για την αρχική και για την οθόνη με όλες τις ειδοποιήσεις.
-// Πάνω σειρά: η κουκκίδα "νέο" αριστερά, ο χρόνος δεξιά. Το κείμενο από κάτω.
+// Πάνω σειρά: η κουκκίδα "νέο" αριστερά, ο χρόνος δεξιά. Το κείμενο από κάτω, έντονο μόνο στις νέες.
 export function NotificationCard({ item }: { item: NotificationRecord }) {
+  const isNew = isNewNotification(item.id);
   return (
     <View style={localStyles.card}>
       <View style={localStyles.topRow}>
-        {isNewNotification(item.id) && <View style={localStyles.dot} />}
+        {isNew && <View style={localStyles.dot} />}
         <Text style={localStyles.time}>{timeAgo(item.created_at)}</Text>
       </View>
-      <Text style={localStyles.message}>{item.message}</Text>
+      <Text style={[localStyles.message, isNew && localStyles.messageNew]}>{item.message}</Text>
     </View>
   );
 }
@@ -106,7 +107,8 @@ const localStyles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 6 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary, marginRight: 'auto' },
   time: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: 'bold', color: COLORS.primary },
-  message: { fontSize: TYPOGRAPHY.bodyText, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
+  message: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, marginBottom: 8 },
+  messageNew: { fontWeight: 'bold' },
   moreButton: { backgroundColor: COLORS.primary, minHeight: TOUCH.buttonHeight, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginTop: SPACING.groupGap },
   moreButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText },
 });

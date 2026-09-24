@@ -279,12 +279,12 @@ const localStyles = StyleSheet.create({
   actionButtonText: { color: COLORS.white, fontWeight: 'bold', fontSize: TYPOGRAPHY.bodyText, textAlign: 'center', flexShrink: 1 },
   changeAccessButton: {
     borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.white,
+    borderColor: COLORS.medium,
+    backgroundColor: COLORS.primary,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 4,
     marginLeft: SPACING.groupGap,
   },
-  changeAccessButtonText: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.primary },
+  changeAccessButtonText: { fontSize: TYPOGRAPHY.secondaryText, fontWeight: '600', color: COLORS.white },
 });

@@ -37,6 +37,20 @@ export async function hasPendingAccessRequest(doctorAmka: string, patientAmka: s
     .maybeSingle();
 }
 
+// Όταν ο ασθενής δώσει με το χέρι ακριβώς τον τύπο που είχε ζητήσει ο γιατρός, το αίτημα έχει
+// ουσιαστικά ικανοποιηθεί - το κλείνουμε ως αποδεκτό αντί να μένει εκκρεμές. Αν ο τύπος διαφέρει
+// από τον ζητούμενο, το αίτημα μένει: ο γιατρός ζήτησε κάτι άλλο και ο ασθενής μπορεί ακόμα να απαντήσει.
+export async function resolveMatchingAccessRequest(doctorAmka: string, patientAmka: string, accessType: string) {
+  return supabase
+    .from('access_requests')
+    .update({ status: 'accepted' })
+    .eq('doctor_amka', doctorAmka)
+    .eq('patient_amka', patientAmka)
+    .eq('status', 'pending')
+    .eq('access_type', accessType)
+    .gte('created_at', requestCutoffIso());
+}
+
 export async function createAccessRequest(doctorAmka: string, patientAmka: string, accessType: string) {
   // Αν το προηγούμενο αίτημα προς τον ίδιο ασθενή έχει λήξει, το καθαρίζουμε πριν μπει το νέο.
   await supabase
