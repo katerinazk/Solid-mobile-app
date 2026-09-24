@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -77,6 +77,10 @@ export default function HospitalizationFormScreen() {
     hospitalFromRecord({ hospitalClinic: params.editHospitalClinic, hospitalArea: params.editHospitalArea })
   );
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  // Αρχεία που ανέβηκαν επιτυχώς σε προηγούμενη, αποτυχημένη προσπάθεια αποθήκευσης (π.χ. αν
+  // κόπηκε η σύνδεση ενώ ανέβαινε το 2ο από 3 συνημμένα). Σε επανάληψη δεν τα ξανανεβάζουμε -
+  // θα έμεναν διπλά, ορφανά αρχεία στο Pod.
+  const uploadedFileCache = useRef<Map<string, string>>(new Map());
   const [saving, setSaving] = useState(false);
   const [links, setLinks] = useState<LinkedRecord[]>(parseLinkedRecords(params.editLinks));
 
@@ -158,7 +162,11 @@ export default function HospitalizationFormScreen() {
       let doctorName = params.editDoctorName || '';
       let doctorAmka = params.editDoctorAmka || '';
       if (!isEditing) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        const { data: doctorData, error: doctorError } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        // Χωρίς αυτό, μια αποτυχημένη αναζήτηση (π.χ. λόγω σύνδεσης) θα αποθήκευε σιωπηλά τη
+        // νοσηλεία με γενικό "Δρ." αντί να ενημερώσει τον χρήστη και να τον αφήσει να
+        // ξαναδοκιμάσει.
+        if (doctorError) throw doctorError;
         doctorName = doctorData
           ? `Δρ. ${doctorData.last_name} ${doctorData.first_name} (${doctorData.specialty})`
           : 'Δρ.';
@@ -175,7 +183,14 @@ export default function HospitalizationFormScreen() {
       // με αυτά ξαναβρίσκονται.
       const uploadedNames: string[] = [];
       for (const file of pendingFiles) {
-        uploadedNames.push(await uploadAttachment(fileUrl, file.name, file.uri, file.mimeType, accessToken));
+        const alreadyUploaded = uploadedFileCache.current.get(file.uri);
+        if (alreadyUploaded) {
+          uploadedNames.push(alreadyUploaded);
+          continue;
+        }
+        const uploadedName = await uploadAttachment(fileUrl, file.name, file.uri, file.mimeType, accessToken);
+        uploadedFileCache.current.set(file.uri, uploadedName);
+        uploadedNames.push(uploadedName);
       }
 
       const record = {

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchDoctorByAmka, updateDoctor } from '../../../services/doctors';
 import { AccountScreen, AccountField } from '../../../components/AccountScreen';
-import { showMessage } from '../../../utils/appMessage';
+import { showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage } from '../../../utils/networkError';
 import { SEX_OPTIONS } from '../../../constants/medicalOptions';
 import { MEDICAL_SPECIALTIES } from '../../../constants/specialties';
 
@@ -72,7 +73,7 @@ export default function DoctorAccountScreen() {
       });
 
       if (error) {
-        showMessage("Σφάλμα αποθήκευσης: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα αποθήκευσης."));
         return;
       }
 

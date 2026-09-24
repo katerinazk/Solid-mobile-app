@@ -20,6 +20,7 @@ import {
   subscribeCounts,
   isPrefetchRunning,
 } from '../../../utils/podPrefetchStore';
+import { isNetworkError } from '../../../utils/networkError';
 
 // Οι ετικέτες κατηγοριών αντιστοιχούν 1-1 στα ονόματα των φακέλων ιστορικού στο Pod του
 // ασθενή (Κατηγορίες.tsx), ώστε να μπορούμε να μετρήσουμε πόσες εγγραφές έχει η καθεμία.
@@ -49,7 +50,10 @@ async function countCategory(webId: string, category: string, accessToken: strin
       // Μπορεί να ήταν στιγμιαίο πρόβλημα του server - ξαναδοκιμάζουμε μία φορά.
       await new Promise((resolve) => setTimeout(resolve, 800));
       files = await listFolderFiles(folderUrl, accessToken);
-    } catch {
+    } catch (error) {
+      // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος είναι πράγματι άδειος - το σφάλμα περνάει
+      // προς τα πάνω, ώστε ο καλών να ΜΗΝ καταγράψει ψευδές μηδέν (βλ. .catch στη χρήση).
+      if (isNetworkError(error)) throw error;
       // Ο φάκελος πιθανώς δεν υπάρχει ακόμα - καμία εγγραφή.
       return 0;
     }

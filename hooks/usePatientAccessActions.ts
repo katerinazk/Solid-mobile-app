@@ -4,6 +4,7 @@ import { updateAccessType, deleteAccess } from '../services/access';
 import { updatePodAcl, removeDoctorFromAcl } from '../services/solidPod';
 import { ACCESS_NONE } from '../constants/accessTypes';
 import { askConfirm, showMessage } from '../utils/appMessage';
+import { friendlyErrorMessage } from '../utils/networkError';
 
 /**
  * Οι ενέργειες πάνω σε μία ήδη υπάρχουσα πρόσβαση (αλλαγή τύπου, κατάργηση) - κοινές ανάμεσα
@@ -47,22 +48,29 @@ export function usePatientAccessActions(
 
     const { error } = await updateAccessType(loggedInPatientAmka, doctorAmka, newType, revoking ? false : !!doctorWebId);
     if (error) {
-      showMessage("Σφάλμα: " + error.message);
+      showMessage(friendlyErrorMessage(error, "Σφάλμα."));
       return false;
     }
 
     // Χωρίς WebID ο γιατρός δεν βρίσκεται καν στο ACL - δεν υπάρχει τίποτα να γραφτεί.
     if (doctorWebId) {
-      if (revoking) {
-        await removeDoctorFromAcl({ activePatientFolderUrl, accessToken, accessList, doctorWebId });
-      } else {
-        await updatePodAcl({
-          activePatientFolderUrl,
-          accessToken,
-          accessList,
-          newDoctorWebId: doctorWebId,
-          accessType: newType,
-        });
+      try {
+        if (revoking) {
+          await removeDoctorFromAcl({ activePatientFolderUrl, accessToken, accessList, doctorWebId });
+        } else {
+          await updatePodAcl({
+            activePatientFolderUrl,
+            accessToken,
+            accessList,
+            newDoctorWebId: doctorWebId,
+            accessType: newType,
+          });
+        }
+      } catch (aclError) {
+        // Η βάση ενημερώθηκε, αλλά το ACL του Pod όχι - ο γιατρός μπορεί να κρατήσει (ή να μην
+        // αποκτήσει) πρόσβαση διαφορετική από αυτή που δείχνει η εφαρμογή. Δεν λέμε "επιτυχία".
+        showMessage(friendlyErrorMessage(aclError, "Η αλλαγή αποθηκεύτηκε, αλλά απέτυχε η ενημέρωση του Pod. Δοκιμάστε ξανά."));
+        return false;
       }
     }
 
@@ -112,18 +120,25 @@ export function usePatientAccessActions(
       const doctorWebId = doctorEntry?.doctors?.web_id;
       const { error } = await deleteAccess(loggedInPatientAmka, doctorAmka);
 
-      if (!error) {
-        if (doctorWebId) {
-          await removeDoctorFromAcl({
-            activePatientFolderUrl,
-            accessToken,
-            accessList,
-            doctorWebId,
-          });
-        }
-        setAccessList((prev) => prev.filter((a) => a.doctor_amka !== doctorAmka));
-        showMessage("Η πρόσβαση καταργήθηκε επιτυχώς!");
+      if (error) {
+        showMessage(friendlyErrorMessage(error, "Αποτυχία κατάργησης πρόσβασης."));
+        return;
       }
+
+      if (doctorWebId) {
+        await removeDoctorFromAcl({
+          activePatientFolderUrl,
+          accessToken,
+          accessList,
+          doctorWebId,
+        });
+      }
+      setAccessList((prev) => prev.filter((a) => a.doctor_amka !== doctorAmka));
+      showMessage("Η πρόσβαση καταργήθηκε επιτυχώς!");
+    } catch (error) {
+      // Η εγγραφή σβήστηκε από τη βάση, αλλά το ACL του Pod μπορεί να μην ενημερώθηκε - ο
+      // γιατρός ίσως κρατήσει πρόσβαση στον φάκελο παρόλο που η εφαρμογή δείχνει κατάργηση.
+      showMessage(friendlyErrorMessage(error, "Η κατάργηση αποθηκεύτηκε, αλλά απέτυχε η ενημέρωση του Pod. Δοκιμάστε ξανά."));
     } finally {
       setDeletingAmka(null);
     }

@@ -12,6 +12,7 @@ import {
   markPrefetchDone,
 } from './podPrefetchStore';
 import { ensureDoctors } from './doctorCache';
+import { isNetworkError } from './networkError';
 
 // Κατεβάζει όλο το ιστορικό του ασθενή μόλις συνδεθεί, ώστε να μην περιμένει όταν πατήσει
 // κατηγορία. Πριν από αυτό, κάθε κατηγορία πλήρωνε τον δικό της χρόνο την πρώτη φορά:
@@ -34,10 +35,14 @@ export async function prefetchAllCategories(webId: string, accessToken: string):
     let files: string[];
     try {
       files = await listFolderFiles(folderUrl, accessToken);
-    } catch {
-      // Ο φάκελος δεν υπάρχει ακόμα - δεν έχει καταχωρηθεί τίποτα σε αυτή την κατηγορία.
-      // Το δημοσιεύουμε ως μηδέν, ώστε η αρχική οθόνη να δείξει νούμερο και να μην περιμένει.
-      setCount(webId, category, 0);
+    } catch (error) {
+      // Χωρίς σύνδεση δεν ξέρουμε αν η κατηγορία είναι πράγματι άδεια - δεν δημοσιεύουμε
+      // ψευδές μηδέν (θα έμενε "κολλημένο" στην αρχική οθόνη σαν επιβεβαιωμένο). Η κατηγορία
+      // μένει απλώς χωρίς νούμερο, και θα ξαναδοκιμαστεί στην επόμενη επίσκεψη της αρχικής.
+      if (!isNetworkError(error)) {
+        // Ο φάκελος δεν υπάρχει ακόμα - δεν έχει καταχωρηθεί τίποτα σε αυτή την κατηγορία.
+        setCount(webId, category, 0);
+      }
       continue;
     }
 

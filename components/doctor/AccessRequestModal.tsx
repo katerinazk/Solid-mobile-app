@@ -10,7 +10,8 @@ import { fetchAccessEntry } from '../../services/access';
 import { InvitePatientModal } from './InvitePatientModal';
 import { ACCESS_FULL, GRANTABLE_ACCESS_TYPES } from '../../constants/accessTypes';
 import { SelectField } from '../SelectField';
-import { askConfirm, showMessage } from '../../utils/appMessage';
+import { askConfirm, showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 
 interface Props {
   visible: boolean;
@@ -110,7 +111,7 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
 
       const { error } = await createAccessRequest(doctorAmka, patientAmka.trim(), accessType);
       if (error) {
-        showMessage("Σφάλμα: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα."));
         return;
       }
 

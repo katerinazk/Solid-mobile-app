@@ -17,7 +17,8 @@ import { fetchAccessEntry } from '../../../services/access';
 import { hasPendingAccessRequest, createAccessRequest } from '../../../services/accessRequests';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { Patient } from '../../../types/Patient';
-import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage } from '../../../utils/networkError';
 
 export default function DoctorHomeScreen() {
   const { loggedInDoctorAmka } = useAuth();
@@ -56,7 +57,7 @@ export default function DoctorHomeScreen() {
 
       const { error } = await createAccessRequest(loggedInDoctorAmka, patient.amka, nextType);
       if (error) {
-        showMessage("Σφάλμα: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα."));
         return;
       }
 

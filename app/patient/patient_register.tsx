@@ -8,7 +8,8 @@ import { ROUTES } from '../../constants/routes';
 import { TYPOGRAPHY, TOUCH, SPACING } from '../../constants/designSystem';
 import { useAuth } from '../../hooks/useAuth';
 import { registerPatient } from '../../services/patients';
-import { showMessage } from '../../utils/appMessage';
+import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 import { SelectField } from '../../components/SelectField';
 import { SEX_OPTIONS, BLOOD_TYPES } from '../../constants/medicalOptions';
 import { DateField } from '../../components/DateField';
@@ -43,7 +44,7 @@ export default function PatientRegisterScreen() {
       const { error } = await registerPatient(patientForm);
 
       if (error) {
-        showMessage("Σφάλμα αποθήκευσης: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα αποθήκευσης."));
         return;
       }
 

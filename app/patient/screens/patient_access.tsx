@@ -17,7 +17,8 @@ import { ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessT
 import { AccessCard } from '../../../components/AccessCard';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useRecordSearch } from '../../../utils/recordSearch';
-import { showMessage } from '../../../utils/appMessage';
+import { showMessage } from '../../../utils/appMessage';
+import { friendlyErrorMessage } from '../../../utils/networkError';
 
 // Οι επιλογές του φίλτρου. Η πρώτη είναι η "χωρίς φίλτρο", ώστε να υπάρχει δρόμος πίσω.
 const ALL_ACCESS = 'Όλες οι προσβάσεις';
@@ -35,7 +36,7 @@ interface AccessRequest {
 
 export default function PatientAccessScreen() {
   const { loggedInPatientAmka, accessToken, activePatientFolderUrl } = useAuth();
-  const { accessList, setAccessList, loading, refresh } = usePatientAccessList();
+  const { accessList, setAccessList, loading, error: accessListError, refresh } = usePatientAccessList();
   const {
     savingChange,
     savedTypeAmkas,
@@ -84,7 +85,7 @@ export default function PatientAccessScreen() {
       setLoadingRequests(true);
       const { data, error } = await fetchPendingAccessRequestsForPatient(loggedInPatientAmka);
       if (error) {
-        showMessage("Σφάλμα φόρτωσης αιτημάτων: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα φόρτωσης αιτημάτων."));
         return;
       }
       setRequests((data || []) as unknown as AccessRequest[]);
@@ -120,7 +121,7 @@ export default function PatientAccessScreen() {
 
       const { error } = await addAccess(loggedInPatientAmka, request.doctor_amka, request.access_type, !!request.doctors?.web_id);
       if (error) {
-        showMessage("Σφάλμα: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα."));
         return;
       }
 
@@ -238,6 +239,8 @@ export default function PatientAccessScreen() {
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
+          ) : accessListError ? (
+            <Text style={[styles.emptyText, { marginTop: 50, color: COLORS.danger }]}>{accessListError}</Text>
           ) : searching ? (
             <Text style={[styles.emptyText, { marginTop: 50 }]}>Δεν βρέθηκε γιατρός με αυτό το όνομα.</Text>
           ) : (

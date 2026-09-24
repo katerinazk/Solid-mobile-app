@@ -66,7 +66,11 @@ export default function DiagnosisFormScreen() {
       let doctorName = params.editDoctorName || '';
       let doctorAmka = params.editDoctorAmka || '';
       if (!isEditing) {
-        const { data: doctorData } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        const { data: doctorData, error: doctorError } = await fetchDoctorByAmka(loggedInDoctorAmka);
+        // Χωρίς αυτό, μια αποτυχημένη αναζήτηση (π.χ. λόγω σύνδεσης) θα αποθήκευε σιωπηλά τη
+        // διάγνωση με γενικό "Δρ." αντί να ενημερώσει τον χρήστη και να τον αφήσει να
+        // ξαναδοκιμάσει.
+        if (doctorError) throw doctorError;
         doctorName = doctorData ? `Δρ. ${doctorData.last_name}` : 'Δρ.';
         doctorAmka = loggedInDoctorAmka;
       }

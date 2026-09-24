@@ -10,6 +10,7 @@ import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { AccessRequestModal } from '../../../components/doctor/AccessRequestModal';
 import { searchPatients } from '../../../services/patients';
 import { fetchPendingAccessRequestsForDoctor } from '../../../services/accessRequests';
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 
 // Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
 // τα πάντα και το αποτέλεσμα δεν λέει τίποτα στον γιατρό.
@@ -51,6 +52,8 @@ export default function DoctorAddAccessScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  // Ξεχωρίζει "δεν βρέθηκε ασθενής" από "δεν μπόρεσα καν να ρωτήσω τη βάση".
+  const [searchError, setSearchError] = useState<any>(null);
 
   const trimmedQuery = searchQuery.trim();
   const isSearchActive = trimmedQuery.length >= MIN_SEARCH_LENGTH;
@@ -59,6 +62,7 @@ export default function DoctorAddAccessScreen() {
     if (!isSearchActive) {
       setResults([]);
       setSearching(false);
+      setSearchError(null);
       return;
     }
 
@@ -70,6 +74,7 @@ export default function DoctorAddAccessScreen() {
         const { data, error } = await searchPatients(trimmedQuery);
         if (canceled) return;
         setResults(error ? [] : ((data || []) as SearchResult[]));
+        setSearchError(error || null);
       } finally {
         if (!canceled) setSearching(false);
       }
@@ -158,7 +163,9 @@ export default function DoctorAddAccessScreen() {
           searching ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
           ) : isSearchActive ? (
-            <Text style={[styles.emptyText, { marginTop: 50 }]}>Δεν βρέθηκε ασθενής με αυτά τα στοιχεία.</Text>
+            <Text style={[styles.emptyText, { marginTop: 50 }]}>
+              {searchError && isNetworkError(searchError) ? NETWORK_ERROR_MESSAGE : 'Δεν βρέθηκε ασθενής με αυτά τα στοιχεία.'}
+            </Text>
           ) : null
         }
         renderItem={({ item }) => renderSearchResultCard(item)}

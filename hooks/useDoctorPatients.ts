@@ -3,6 +3,7 @@ import { Patient } from '../types/Patient';
 import { fetchPatientsForDoctor } from '../services/patients';
 import { useAuth } from './useAuth';
 import { compareGreekNames } from '../utils/recordSearch';
+import { friendlyErrorMessage } from '../utils/networkError';
 
 export function useDoctorPatients() {
   const { loggedInDoctorAmka } = useAuth();
@@ -25,7 +26,7 @@ export function useDoctorPatients() {
       )));
     } catch (err: any) {
       console.error("Σφάλμα:", err);
-      setError(err?.message || "Άγνωστο σφάλμα.");
+      setError(friendlyErrorMessage(err, "Άγνωστο σφάλμα."));
     } finally {
       setLoading(false);
     }

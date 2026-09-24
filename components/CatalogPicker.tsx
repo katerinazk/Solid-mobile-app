@@ -3,6 +3,7 @@ import { Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator,
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../constants/designSystem';
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from '../utils/networkError';
 
 interface Props<T> {
   // Το ερώτημα στη βάση. Το κρατάμε σε ref, οπότε μπορεί να γράφεται inline στη χρήση.
@@ -50,6 +51,9 @@ export function CatalogPicker<T>({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<T[]>([]);
   const [searching, setSearching] = useState(false);
+  // Ξεχωρίζει "δεν βρέθηκε τίποτα" από "δεν μπόρεσα καν να ρωτήσω" - χωρίς αυτό ένα σφάλμα
+  // δικτύου έδειχνε το ίδιο "δεν βρέθηκε αντίστοιχη καταχώρηση" σαν να το ξέραμε σίγουρα.
+  const [searchError, setSearchError] = useState<any>(null);
 
   // Η search ξαναφτιάχνεται σε κάθε render της οθόνης που μας χρησιμοποιεί. Χωρίς το ref,
   // το useEffect θα ξανάτρεχε ατέρμονα.
@@ -64,6 +68,7 @@ export function CatalogPicker<T>({
     if (trimmed.length < minQueryLength) {
       setResults([]);
       setSearching(false);
+      setSearchError(null);
       return;
     }
 
@@ -75,6 +80,7 @@ export function CatalogPicker<T>({
         const { data, error } = await searchRef.current(trimmed);
         if (canceled) return;
         setResults(error ? [] : data);
+        setSearchError(error || null);
       } finally {
         if (!canceled) setSearching(false);
       }
@@ -140,7 +146,9 @@ export function CatalogPicker<T>({
         ) : (
           <>
             {results.length === 0 ? (
-              <Text style={localStyles.emptyText}>{emptyText}</Text>
+              <Text style={localStyles.emptyText}>
+                {searchError && isNetworkError(searchError) ? NETWORK_ERROR_MESSAGE : emptyText}
+              </Text>
             ) : (
               <ScrollView
                 style={[localStyles.resultList, !!resultsMaxHeight && { maxHeight: resultsMaxHeight }]}

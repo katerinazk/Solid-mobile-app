@@ -24,7 +24,10 @@ export async function resolveRecordAuthor(
   loggedInPatientAmka: string,
 ): Promise<RecordAuthor> {
   if (role === 'patient') {
-    const { data } = await fetchPatientByAmka(loggedInPatientAmka);
+    const { data, error } = await fetchPatientByAmka(loggedInPatientAmka);
+    // Χωρίς αυτό, μια αποτυχημένη αναζήτηση (π.χ. λόγω σύνδεσης) θα έγραφε σιωπηλά την
+    // εγγραφή με άδειο όνομα αντί να ενημερώσει τον χρήστη και να τον αφήσει να ξαναδοκιμάσει.
+    if (error) throw error;
     // "κος/κα" αντί για "Δρ.": ο ασθενής δεν είναι θεράπων ιατρός του εαυτού του.
     const salutation = isFemale(data?.sex) ? 'κα' : 'κος';
     return {
@@ -33,7 +36,8 @@ export async function resolveRecordAuthor(
     };
   }
 
-  const { data } = await fetchDoctorByAmka(loggedInDoctorAmka);
+  const { data, error } = await fetchDoctorByAmka(loggedInDoctorAmka);
+  if (error) throw error;
   return {
     doctorName: data ? `Δρ. ${data.last_name} ${data.first_name} (${data.specialty})` : 'Δρ.',
     doctorAmka: loggedInDoctorAmka,

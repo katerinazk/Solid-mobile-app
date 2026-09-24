@@ -502,10 +502,11 @@ export async function syncPodAcl({
     body: aclContent,
   });
 
-  if (response.ok) {
-    console.log("✅ ACL ενημερώθηκε στο Pod!");
-  } else {
-    console.error("❌ ACL error:", response.status, await response.text());
+  // Χωρίς αυτό, μια αποτυχημένη εγγραφή ACL (π.χ. σφάλμα server, ή χαμένη σύνδεση ενώ
+  // περιμέναμε την απάντηση) περνούσε σιωπηλά ως επιτυχία: ο καλών δεν είχε κανέναν τρόπο να
+  // ξέρει ότι ο γιατρός δεν απέκτησε (ή δεν έχασε) πρόσβαση στο Pod όπως νόμιζε η εφαρμογή.
+  if (!response.ok) {
+    throw new Error(`Αποτυχία ενημέρωσης δικαιωμάτων στο Pod (${response.status}).`);
   }
 }
 

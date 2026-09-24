@@ -16,6 +16,7 @@ import { updatePodAcl } from '../../../services/solidPod';
 import { ACCESS_FULL, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessTypes';
 import { SelectField } from '../../../components/SelectField';
 import { showMessage } from '../../../utils/appMessage';
+import { isNetworkError, NETWORK_ERROR_MESSAGE, friendlyErrorMessage } from '../../../utils/networkError';
 
 // Ψάχνουμε μόνο από 3 χαρακτήρες και πάνω - με 1-2 χαρακτήρες η αναζήτηση ταιριάζει σχεδόν με
 // τα πάντα και το αποτέλεσμα δεν λέει τίποτα στον ασθενή.
@@ -45,6 +46,8 @@ export default function PatientAddAccessScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<DoctorSearchResult[]>([]);
+  // Ξεχωρίζει "δεν βρέθηκε γιατρός" από "δεν μπόρεσα καν να ρωτήσω τη βάση".
+  const [searchError, setSearchError] = useState<any>(null);
 
   const trimmedQuery = searchQuery.trim();
   const isSearchActive = trimmedQuery.length >= MIN_SEARCH_LENGTH;
@@ -53,6 +56,7 @@ export default function PatientAddAccessScreen() {
     if (!isSearchActive) {
       setResults([]);
       setSearching(false);
+      setSearchError(null);
       return;
     }
 
@@ -64,6 +68,7 @@ export default function PatientAddAccessScreen() {
         const { data, error } = await searchDoctors(trimmedQuery);
         if (canceled) return;
         setResults(error ? [] : ((data || []) as DoctorSearchResult[]));
+        setSearchError(error || null);
       } finally {
         if (!canceled) setSearching(false);
       }
@@ -138,7 +143,7 @@ export default function PatientAddAccessScreen() {
       const { error } = await addAccess(loggedInPatientAmka, newDoctorAmka, effectiveType, !!doctorData.web_id);
 
       if (error) {
-        showMessage("Σφάλμα: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα."));
         return;
       }
 
@@ -232,7 +237,9 @@ export default function PatientAddAccessScreen() {
           searching ? (
             <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />
           ) : isSearchActive ? (
-            <Text style={[styles.emptyText, { marginTop: 50 }]}>Δεν βρέθηκε γιατρός με αυτά τα στοιχεία.</Text>
+            <Text style={[styles.emptyText, { marginTop: 50 }]}>
+              {searchError && isNetworkError(searchError) ? NETWORK_ERROR_MESSAGE : 'Δεν βρέθηκε γιατρός με αυτά τα στοιχεία.'}
+            </Text>
           ) : null
         }
         renderItem={({ item }) => renderSearchResultCard(item)}

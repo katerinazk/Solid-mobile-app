@@ -8,7 +8,8 @@ import { TYPOGRAPHY, TOUCH, SPACING } from '../../constants/designSystem';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
 import { registerDoctor } from '../../services/doctors';
-import { showMessage } from '../../utils/appMessage';
+import { showMessage } from '../../utils/appMessage';
+import { friendlyErrorMessage } from '../../utils/networkError';
 import { SelectField } from '../../components/SelectField';
 import { SEX_OPTIONS } from '../../constants/medicalOptions';
 import { MEDICAL_SPECIALTIES } from '../../constants/specialties';
@@ -42,7 +43,7 @@ export default function DoctorRegisterScreen() {
       const { error } = await registerDoctor(doctorForm);
 
       if (error) {
-        showMessage("Σφάλμα αποθήκευσης: " + error.message);
+        showMessage(friendlyErrorMessage(error, "Σφάλμα αποθήκευσης."));
         return;
       }
 

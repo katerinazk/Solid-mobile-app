@@ -2,17 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchAccessListForPatient } from '../services/access';
 import { useAuth } from './useAuth';
 import { compareGreekNames } from '../utils/recordSearch';
+import { friendlyErrorMessage } from '../utils/networkError';
 
 export function usePatientAccessList() {
   const { loggedInPatientAmka } = useAuth();
   const [accessList, setAccessList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // Κρατάμε το σφάλμα ώστε η οθόνη να ξεχωρίζει το "απέτυχε η φόρτωση" από το "δεν έχετε
+  // δώσει πρόσβαση σε κανέναν" - πριν κατέληγαν και τα δύο στο ίδιο άδειο μήνυμα.
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await fetchAccessListForPatient(loggedInPatientAmka);
-      if (error) { console.error(error); return; }
+      setError(null);
+      const { data, error: fetchError } = await fetchAccessListForPatient(loggedInPatientAmka);
+      if (fetchError) {
+        console.error(fetchError);
+        setError(friendlyErrorMessage(fetchError, "Αποτυχία φόρτωσης προσβάσεων."));
+        return;
+      }
 
       // Αλφαβητικά κατά επίθετο, όπως και οι ασθενείς στην οθόνη του γιατρού. Η λίστα
       // ξαναδιαβάζεται από εδώ μετά από κάθε νέα πρόσβαση, οπότε μένει ταξινομημένη.
@@ -21,8 +30,9 @@ export function usePatientAccessList() {
         `${b.doctors?.last_name || ''} ${b.doctors?.first_name || ''}`,
       ));
       setAccessList(sorted);
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      console.error(err);
+      setError(friendlyErrorMessage(err, "Αποτυχία φόρτωσης προσβάσεων."));
     } finally {
       setLoading(false);
     }
@@ -32,5 +42,5 @@ export function usePatientAccessList() {
     refresh();
   }, [refresh]);
 
-  return { accessList, setAccessList, loading, setLoading, refresh };
+  return { accessList, setAccessList, loading, setLoading, error, refresh };
 }
