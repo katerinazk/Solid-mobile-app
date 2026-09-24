@@ -22,7 +22,7 @@ import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied } from '../../../services/solidPod';
+import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied, isPodTokenExpired } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
@@ -50,7 +50,7 @@ interface Allergy {
 export default function DoctorAllergiesScreen() {
   const { amka, firstName, lastName, webId, accessType } = useLocalSearchParams<{ amka: string; firstName: string; lastName: string; webId: string; accessType: string }>();
   const patientName = `${firstName} ${lastName}`;
-  const { accessToken, loggedInDoctorAmka } = useAuth();
+  const { accessToken, loggedInDoctorAmka, logout } = useAuth();
   const { ensureDoctorInfo, getDoctorInfo } = useDoctorNames();
   const folderUrl = webId ? getCategoryFolderUrl(webId, CATEGORY) : '';
   const { isReadOnly, checkAccess } = useDoctorAccessGuard(amka, accessType);
@@ -124,6 +124,13 @@ export default function DoctorAllergiesScreen() {
       // ο φύλακας, που βγάζει το σωστό μήνυμα και τον επιστρέφει στην αρχική του.
       if (isPodAccessDenied(error)) {
         checkAccess();
+        return;
+      }
+      // 401 από το Pod = έληξε το access token (όχι κατάργηση πρόσβασης) - η ανανέωση στο
+      // AuthContext προλαβαίνει το 99% των περιπτώσεων, αυτό είναι μόνο για την εξαίρεση.
+      if (isPodTokenExpired(error)) {
+        showMessage(error.message);
+        logout();
         return;
       }
       showMessage(friendlyErrorMessage(error, "Ο φάκελος είναι κλειδωμένος (Private) ή δεν υπάρχει."));

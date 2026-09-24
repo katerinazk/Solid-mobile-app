@@ -29,9 +29,8 @@ export function isSupportedWebId(webId: string): boolean {
   return webId.includes('profile/card#me');
 }
 
-// Το Pod απαντά 401/403 όταν ο συνδεδεμένος χρήστης δεν είναι (πια) μέσα στο ACL του φακέλου.
-// Το ξεχωρίζουμε από τα υπόλοιπα σφάλματα - "δεν υπάρχει ο φάκελος", πρόβλημα δικτύου κ.λπ. -
-// γιατί σημαίνει κάτι εντελώς διαφορετικό: ο ασθενής κατάργησε την πρόσβαση.
+// Το Pod απαντά 403 όταν ο συνδεδεμένος χρήστης είναι μεν έγκυρα ταυτοποιημένος, αλλά δεν
+// είναι (πια) μέσα στο ACL του φακέλου - ο ασθενής κατάργησε την πρόσβαση.
 export class PodAccessDeniedError extends Error {
   constructor() {
     super("Δεν έχετε πλέον πρόσβαση στον φάκελο αυτού του ασθενή.");
@@ -39,12 +38,29 @@ export class PodAccessDeniedError extends Error {
   }
 }
 
+// Το Pod απαντά 401 όταν το ίδιο το access token δεν είναι πλέον έγκυρο - συνήθως γιατί έληξε.
+// Εντελώς διαφορετικό από το 403: εδώ δεν ξέρουμε καν αν υπάρχει ακόμα πρόσβαση, απλώς αυτό
+// το token δεν αποδεικνύει πια ποιος είναι ο χρήστης. Κανονικά η ανανέωση του access token
+// (contexts/AuthContext.tsx) προλαβαίνει να το ανανεώσει πριν καν φτάσει εδώ - αυτό είναι το
+// δίχτυ ασφαλείας για όταν αποτύχει κι εκείνη (π.χ. έληξε κι αυτό το refresh token).
+export class PodTokenExpiredError extends Error {
+  constructor() {
+    super("Η σύνδεσή σας έληξε. Παρακαλώ συνδεθείτε ξανά.");
+    this.name = 'PodTokenExpiredError';
+  }
+}
+
 export function isPodAccessDenied(error: any): boolean {
   return error?.name === 'PodAccessDeniedError';
 }
 
+export function isPodTokenExpired(error: any): boolean {
+  return error?.name === 'PodTokenExpiredError';
+}
+
 function throwIfAccessDenied(status: number): void {
-  if (status === 401 || status === 403) throw new PodAccessDeniedError();
+  if (status === 401) throw new PodTokenExpiredError();
+  if (status === 403) throw new PodAccessDeniedError();
 }
 
 const MEDPOD_FOLDER_NAME = 'MedPod';
@@ -160,13 +176,14 @@ export async function listFolderFiles(rawFolderUrl: string, accessToken: string)
 }
 
 // Το μοτίβο "δοκίμασε, ξαναδοκίμασε, αλλιώς άδεια λίστα" που χρειάζονται όλες οι οθόνες
-// ιστορικού: ο φάκελος μπορεί να μην έχει δημιουργηθεί ακόμα. Εξαίρεση το 403 - εκεί το
-// σφάλμα περνάει προς τα πάνω, γιατί δεν σημαίνει "άδειος φάκελος" αλλά "χωρίς πρόσβαση".
+// ιστορικού: ο φάκελος μπορεί να μην έχει δημιουργηθεί ακόμα. Εξαίρεση το 401/403 - εκεί το
+// σφάλμα περνάει προς τα πάνω, γιατί δεν σημαίνει "άδειος φάκελος" αλλά "χωρίς πρόσβαση" ή
+// "έληξε η σύνδεση".
 export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: string): Promise<string[]> {
   try {
     return await listFolderFiles(folderUrl, accessToken);
   } catch (error) {
-    if (isPodAccessDenied(error)) throw error;
+    if (isPodAccessDenied(error) || isPodTokenExpired(error)) throw error;
   }
 
   try {
@@ -174,7 +191,7 @@ export async function listFolderFilesOrEmpty(folderUrl: string, accessToken: str
     await new Promise((resolve) => setTimeout(resolve, 800));
     return await listFolderFiles(folderUrl, accessToken);
   } catch (error) {
-    if (isPodAccessDenied(error)) throw error;
+    if (isPodAccessDenied(error) || isPodTokenExpired(error)) throw error;
     // Χωρίς σύνδεση δεν ξέρουμε αν ο φάκελος είναι πράγματι άδειος - δεν πρέπει να δείξουμε
     // "καμία εγγραφή" σε ιατρικό ιστορικό σαν να το ξέραμε σίγουρα. Το σφάλμα περνάει προς τα
     // πάνω, ώστε η οθόνη να δείξει μήνυμα σύνδεσης αντί για άδεια λίστα.

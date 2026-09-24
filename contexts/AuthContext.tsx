@@ -26,6 +26,18 @@ const SOLID_PROVIDER_URL = 'https://datapod.igrant.io';
 // ανοιχτό ιατρικό ιστορικό να μην μένει προσβάσιμο σε όποιον πάρει στα χέρια του τη συσκευή.
 const IDLE_LOGOUT_MS = 5 * 60 * 1000;
 
+// Πόσο νωρίτερα από την πραγματική λήξη του access token ζητάμε ανανέωση - περιθώριο ώστε το
+// αίτημα προλαβαίνει να ολοκληρωθεί πριν το παλιό token γίνει άκυρο, ακόμα και σε αργή σύνδεση.
+const TOKEN_REFRESH_MARGIN_MS = 60 * 1000;
+
+// Διαβάζει το payload ενός JWT χωρίς επαλήθευση υπογραφής - χρησιμοποιείται μόνο για να
+// διαβάσουμε πληροφορίες (webid, ημερομηνία λήξης) από token που μας έδωσε ήδη ο ίδιος ο
+// server μέσα από HTTPS σύνδεση, όχι για να εμπιστευτούμε άγνωστο token.
+function decodeJwtPayload(token: string): any {
+  const parts = token.split('.');
+  return JSON.parse(atob(parts[1]));
+}
+
 // Το όνομα με το οποίο συστήνεται η εφαρμογή στον Solid provider.
 const APP_NAME = 'MedPod';
 
@@ -173,10 +185,122 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         forceRepaint((n) => n + 1);
+        // Ασφαλιστική δικλείδα: το setTimeout της ανανέωσης μπορεί να καθυστερήσει ή να μην
+        // προλάβει να τρέξει όσο η εφαρμογή ήταν στο παρασκήνιο (το λειτουργικό περιορίζει τους
+        // background timers). Στην επιστροφή ελέγχουμε αμέσως αν χρειάζεται ανανέωση, αντί να
+        // περιμένουμε το επόμενο πραγματικό αίτημα προς το Pod να αποτύχει πρώτα.
+        refreshIfNeeded();
       }
     });
     return () => sub.remove();
   }, []);
+
+  // --- ΑΝΑΝΕΩΣΗ ACCESS TOKEN ΜΕ REFRESH TOKEN ---
+  // Το access token του Solid Pod λήγει μετά από κάποιο διάστημα (φυσιολογικό για OAuth/OIDC).
+  // Χωρίς ανανέωση, μια απλή παρατεταμένη χρήση (π.χ. γιατρός που δουλεύει μισή ώρα με ανοιχτή
+  // την εφαρμογή) θα οδηγούσε σε 401 από το Pod - που η εφαρμογή, αν δεν διακρίνει σωστά,
+  // μπορεί να το μπερδέψει με 403 (πραγματική κατάργηση πρόσβασης από τον ασθενή). Με ενεργή
+  // ανανέωση, ο χρήστης δεν χρειάζεται καν να το καταλάβει.
+  const refreshTokenRef = useRef('');
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRefreshing = useRef(false);
+
+  const clearRefreshTimer = () => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+  };
+
+  // true όταν το τρέχον access token έχει λήξει ή λήγει πολύ σύντομα.
+  const isAccessTokenStale = (): boolean => {
+    if (!accessToken) return false;
+    try {
+      const exp = decodeJwtPayload(accessToken).exp;
+      if (!exp) return false;
+      return exp * 1000 - Date.now() <= TOKEN_REFRESH_MARGIN_MS;
+    } catch {
+      return false;
+    }
+  };
+
+  // Πραγματική ανταλλαγή του refresh token για νέο access token. Το isRefreshing αποτρέπει δύο
+  // ταυτόχρονες ανανεώσεις (π.χ. από το AppState listener ΚΑΙ το χρονόμετρο σχεδόν ταυτόχρονα) -
+  // πολλοί servers άκυρώνουν το παλιό refresh token μόλις εκδοθεί καινούργιο, οπότε μια δεύτερη,
+  // παράλληλη χρήση του ίδιου (ήδη "καμένου") refresh token θα απέτυχε άδικα.
+  const performTokenRefresh = async (): Promise<boolean> => {
+    if (isRefreshing.current) return true;
+    if (!refreshTokenRef.current || !discoveryDocument?.tokenEndpoint || !storedClientId.current) return false;
+
+    isRefreshing.current = true;
+    try {
+      const tokenEndpoint = discoveryDocument.tokenEndpoint;
+      const dpopForRefresh = await createDpopToken('POST', tokenEndpoint);
+
+      const tokenResponse = await fetch(tokenEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'DPoP': dpopForRefresh,
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: storedClientId.current,
+          refresh_token: refreshTokenRef.current,
+        }).toString(),
+      });
+
+      if (!tokenResponse.ok) return false;
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenData.access_token) return false;
+
+      // Πολλοί servers εκδίδουν ΚΑΙ νέο refresh token σε κάθε ανανέωση, ακυρώνοντας το παλιό -
+      // αν δεν το κρατήσουμε, η επόμενη ανανέωση θα απέτυχε παρόλο που ο χρήστης δεν έκανε τίποτα.
+      if (tokenData.refresh_token) refreshTokenRef.current = tokenData.refresh_token;
+      if (tokenData.id_token) setIdToken(tokenData.id_token);
+      setAccessToken(tokenData.access_token);
+      return true;
+    } catch (error) {
+      // Συνήθως πρόβλημα δικτύου τη στιγμή της ανανέωσης - δεν ενοχλούμε τον χρήστη εδώ, θα
+      // ξαναδοκιμάσει στην επόμενη ευκαιρία (επόμενο timer, ή επιστροφή από παρασκήνιο). Αν
+      // τελικά λήξει πραγματικά το token, το επόμενο αίτημα προς το Pod θα το δείξει καθαρά.
+      console.error("Αποτυχία ανανέωσης access token:", error);
+      return false;
+    } finally {
+      isRefreshing.current = false;
+    }
+  };
+
+  const refreshIfNeeded = () => {
+    if (isAccessTokenStale()) performTokenRefresh();
+  };
+
+  // Προγραμματίζει την επόμενη ανανέωση λίγο πριν τη λήξη του δοσμένου token. Καλείται ξανά
+  // αυτόματα από το useEffect του accessToken μόλις αλλάξει - είτε γιατί μόλις συνδεθήκαμε είτε
+  // γιατί μόλις ανανεώθηκε - οπότε ο μηχανισμός συνεχίζει μόνος του όσο διαρκεί η συνεδρία.
+  const scheduleTokenRefresh = (token: string) => {
+    clearRefreshTimer();
+    let exp: number | undefined;
+    try {
+      exp = decodeJwtPayload(token).exp;
+    } catch {
+      return;
+    }
+    if (!exp) return;
+
+    const delay = Math.max(0, exp * 1000 - Date.now() - TOKEN_REFRESH_MARGIN_MS);
+    refreshTimerRef.current = setTimeout(performTokenRefresh, delay);
+  };
+
+  useEffect(() => {
+    if (!accessToken) {
+      clearRefreshTimer();
+      return;
+    }
+    scheduleTokenRefresh(accessToken);
+    return clearRefreshTimer;
+  }, [accessToken]);
 
   // Με γέφυρα (ή στο Android, που περνάει πάντα από το incognito WebView - βλ. πιο κάτω), η
   // επιστροφή δεν έχει το σχήμα που περιμένει ο SDK για να την αναγνωρίσει από μόνος του,
@@ -361,9 +485,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (tokenData.access_token) {
           setAccessToken(tokenData.access_token);
           if (tokenData.id_token) setIdToken(tokenData.id_token);
+          // Χωρίς αυτό δεν θα υπήρχε τρόπος να ανανεωθεί το access token αργότερα - ο χρήστης
+          // θα έβλεπε σφάλμα λήξης σύνδεσης μετά από κάθε παρατεταμένη χρήση.
+          if (tokenData.refresh_token) refreshTokenRef.current = tokenData.refresh_token;
 
-          const tokenParts = tokenData.access_token.split('.');
-          const tokenPayload = JSON.parse(atob(tokenParts[1]));
+          const tokenPayload = decodeJwtPayload(tokenData.access_token);
           const webId = tokenPayload.webid || tokenPayload.sub || '';
 
           // Ο πάροχος απάντησε κανονικά, αλλά το Pod του έχει άλλη δομή από αυτή που ξέρει
@@ -636,6 +762,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
     setRole(null);
     setAccessToken('');
+    refreshTokenRef.current = '';
     setLoggedInPatientAmka('');
     setLoggedInDoctorAmka('');
     setActivePatientFolderUrl('');
