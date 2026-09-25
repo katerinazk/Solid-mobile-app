@@ -15,7 +15,8 @@ import { prefetchAllCategories } from '../utils/podPrefetch';
 import { clearPodPrefetch } from '../utils/podPrefetchStore';
 import { clearDoctorCache } from '../utils/doctorCache';
 import { clearNewNotificationMarks } from '../services/notifications';
-import { isSupportedWebId } from '../services/solidPod';
+import { stagePodMigration, clearPodMigration, takePodMigration, copyHistoryBetweenPods } from '../services/podMigration';
+import { isSupportedWebId, getOwnerWebId } from '../services/solidPod';
 import { askConfirm, showMessage } from '../utils/appMessage';
 import { friendlyErrorMessage } from '../utils/networkError';
 
@@ -30,6 +31,19 @@ const IDLE_LOGOUT_MS = 30 * 60 * 1000;
 // Πόσο νωρίτερα από την πραγματική λήξη του access token ζητάμε ανανέωση - περιθώριο ώστε το
 // αίτημα προλαβαίνει να ολοκληρωθεί πριν το παλιό token γίνει άκυρο, ακόμα και σε αργή σύνδεση.
 const TOKEN_REFRESH_MARGIN_MS = 60 * 1000;
+
+// Για τη μεταφορά ιστορικού σε άλλο Pod: το token του παλιού Pod πρέπει να ισχύει τουλάχιστον τόση
+// ώρα, όσο κρατά η σύνδεση στο νέο. Αλλιώς ανανεώνεται πριν την αποσύνδεση.
+const MIGRATION_MIN_TOKEN_LIFETIME_MS = 10 * 60 * 1000;
+
+function expiresWithin(token: string, ms: number): boolean {
+  try {
+    const exp = decodeJwtPayload(token).exp;
+    return !exp || exp * 1000 - Date.now() <= ms;
+  } catch {
+    return true;
+  }
+}
 
 // Διαβάζει το payload ενός JWT χωρίς επαλήθευση υπογραφής - χρησιμοποιείται μόνο για να
 // διαβάσουμε πληροφορίες (webid, ημερομηνία λήξης) από token που μας έδωσε ήδη ο ίδιος ο
@@ -203,6 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // μπορεί να το μπερδέψει με 403 (πραγματική κατάργηση πρόσβασης από τον ασθενή). Με ενεργή
   // ανανέωση, ο χρήστης δεν χρειάζεται καν να το καταλάβει.
   const refreshTokenRef = useRef('');
+  // Το πιο πρόσφατο access token, διαθέσιμο αμέσως μετά από ανανέωση (το state ενημερώνεται αργότερα).
+  const latestAccessTokenRef = useRef('');
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRefreshing = useRef(false);
 
@@ -260,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // αν δεν το κρατήσουμε, η επόμενη ανανέωση θα απέτυχε παρόλο που ο χρήστης δεν έκανε τίποτα.
       if (tokenData.refresh_token) refreshTokenRef.current = tokenData.refresh_token;
       if (tokenData.id_token) setIdToken(tokenData.id_token);
+      latestAccessTokenRef.current = tokenData.access_token;
       setAccessToken(tokenData.access_token);
       return true;
     } catch (error) {
@@ -484,6 +501,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const tokenData = await tokenResponse.json();
 
         if (tokenData.access_token) {
+          latestAccessTokenRef.current = tokenData.access_token;
           setAccessToken(tokenData.access_token);
           if (tokenData.id_token) setIdToken(tokenData.id_token);
           // Χωρίς αυτό δεν θα υπήρχε τρόπος να ανανεωθεί το access token αργότερα - ο χρήστης
@@ -509,6 +527,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (role === 'patient') {
             const verified = await handlePatientLoginVerification(webId);
             if (verified) {
+              // Ο ασθενής άλλαξε Pod και ζήτησε να μεταφερθεί το ιστορικό του: αντιγράφεται τώρα,
+              // πριν ανοίξει η εφαρμογή, ώστε να το βρει ήδη στο νέο του Pod.
+              const pendingMigration = takePodMigration(loggedInPatientAmka);
+              if (pendingMigration && pendingMigration.oldWebId !== webId) {
+                try {
+                  const migration = await copyHistoryBetweenPods(
+                    pendingMigration.oldWebId,
+                    pendingMigration.oldAccessToken,
+                    webId,
+                    tokenData.access_token,
+                  );
+                  showMessage(
+                    migration.failed === 0
+                      ? `Το ιατρικό σας ιστορικό μεταφέρθηκε στο νέο Pod (${migration.copied} εγγραφές).`
+                      : `Μεταφέρθηκαν ${migration.copied} εγγραφές, αλλά ${migration.failed} δεν μεταφέρθηκαν. Παραμένουν στο παλιό σας Pod.`
+                  );
+                } catch (error) {
+                  console.error('Αποτυχία μεταφοράς ιστορικού:', error);
+                  showMessage('Δεν ήταν δυνατή η μεταφορά του ιστορικού. Παραμένει στο παλιό σας Pod.');
+                }
+              }
+
               // Το "loading" ΔΕΝ σβήνει εδώ. Το router.replace δεν αλλάζει οθόνη ακαριαία -
               // αν σβήσει τώρα, προλαβαίνει ένα ενδιάμεσο render όπου η φόρμα σύνδεσης
               // ξαναφαίνεται για μια στιγμή πριν προλάβει να μπει η επόμενη οθόνη. Μένει
@@ -757,6 +797,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPodPrefetch();
     clearDoctorCache();
     clearNewNotificationMarks();
+    clearPodMigration();
+    latestAccessTokenRef.current = '';
     setIsLoggedIn(false);
     // Έμεινε αναμμένο από την επιτυχή σύνδεση (βλ. σχόλιο στο getRealAccessToken) ώστε να
     // μην ξαναφανεί η φόρμα σύνδεσης λίγο πριν μπούμε στην εφαρμογή. Σβήνει τώρα, γιατί
@@ -811,7 +853,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * εκεί και πέρα η εφαρμογή απορρίπτει κάθε άλλο Pod για το ίδιο ΑΜΚΑ. Σβήνοντας το web_id,
    * η επόμενη σύνδεση δέχεται ό,τι Pod δηλώσει ο χρήστης και το κρατά ως το νέο του.
    */
-  const switchPod = async () => {
+  const switchPod = async (copyHistory = false) => {
+    // Το token του παλιού Pod κρατιέται στη μνήμη μέχρι να συνδεθεί ο ασθενής στο νέο, οπότε
+    // πρέπει να ισχύει ακόμα τότε: αν λήγει σύντομα, ανανεώνεται πριν αποσυνδεθεί.
+    const oldWebId = getOwnerWebId(activePatientFolderUrl);
+    let oldToken = accessToken;
+    if (copyHistory && role === 'patient') {
+      if (expiresWithin(oldToken, MIGRATION_MIN_TOKEN_LIFETIME_MS) && (await performTokenRefresh())) {
+        oldToken = latestAccessTokenRef.current;
+      }
+    }
+    const amkaToMigrate = loggedInPatientAmka;
+
     const { error } = role === 'patient'
       ? await clearPatientWebId(loggedInPatientAmka)
       : await clearDoctorWebId(loggedInDoctorAmka);
@@ -830,11 +883,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     logout();
+    // Μετά το logout, που σβήνει κάθε εκκρεμή μεταφορά: το ιστορικό θα αντιγραφεί μόλις ο ίδιος
+    // ασθενής συνδεθεί στο νέο Pod.
+    if (copyHistory && role === 'patient' && oldWebId && oldToken) {
+      stagePodMigration(amkaToMigrate, oldWebId, oldToken);
+    }
   };
 
   const confirmSwitchPod = async () => {
     const consequence = role === 'patient'
-      ? 'Οι καταχωρήσεις που έχετε σήμερα μένουν στο παλιό Pod και δεν μεταφέρονται. Οι γιατροί που σας έχουν πρόσβαση θα την ξαναποκτήσουν μόλις συνδεθείτε στο νέο.'
+      ? 'Οι γιατροί που σας έχουν πρόσβαση θα την ξαναποκτήσουν μόλις συνδεθείτε στο νέο.'
       : 'Οι ασθενείς σας θα σας ξαναεμφανιστούν καθώς ο καθένας τους μπαίνει στην εφαρμογή και ενημερώνεται ο φάκελός του.';
 
     const confirmed = await askConfirm({
@@ -844,7 +902,21 @@ ${consequence}`,
       confirmText: 'Συνέχεια',
       cancelText: 'Ακύρωση',
     });
-    if (confirmed) switchPod();
+    if (!confirmed) return;
+
+    // Μόνο ο ασθενής έχει ιστορικό στο Pod του. Η απάντηση δεν αλλάζει ποιο Pod μένει
+    // συνδεδεμένο με το ΑΜΚΑ: πάντα το τελευταίο στο οποίο θα συνδεθεί.
+    if (role === 'patient') {
+      const copyHistory = await askConfirm({
+        message: 'Θέλετε να μεταφερθεί το ιατρικό σας ιστορικό στο νέο Pod;\n\nΑν πατήσετε "Όχι", το ιστορικό μένει μόνο στο παλιό Pod και το νέο ξεκινά χωρίς εγγραφές.',
+        confirmText: 'Ναι',
+        cancelText: 'Όχι',
+      });
+      switchPod(copyHistory);
+      return;
+    }
+
+    switchPod();
   };
 
   const confirmLogout = async () => {
