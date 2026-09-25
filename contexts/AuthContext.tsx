@@ -3,7 +3,7 @@ import { AppState, View, Platform, Modal, SafeAreaView, TouchableOpacity, Text, 
 import { WebView } from 'react-native-webview';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { supabase } from '../services/supabase';
 import { createDpopToken } from '../utils/dpop';
 import { ROUTES } from '../constants/routes';
@@ -36,6 +36,20 @@ const TOKEN_REFRESH_MARGIN_MS = 60 * 1000;
 // ώρα, όσο κρατά η σύνδεση στο νέο. Αλλιώς ανανεώνεται πριν την αποσύνδεση.
 const MIGRATION_MIN_TOKEN_LIFETIME_MS = 10 * 60 * 1000;
 
+// Οι οθόνες που ανοίγουν μόνο με σύνδεση. Οι υπόλοιπες (επιλογή ρόλου, φόρμες σύνδεσης και
+// εγγραφής, επιστροφή από τον πάροχο) είναι ελεύθερες.
+function requiresLogin(pathname: string): boolean {
+  return (
+    pathname.startsWith('/patient/screens') ||
+    pathname.startsWith('/patient/istoriko') ||
+    pathname.startsWith('/doctor/screens') ||
+    pathname.startsWith('/doctor/patient_screens') ||
+    pathname.startsWith('/forms') ||
+    pathname === '/record_detail' ||
+    pathname === '/notifications'
+  );
+}
+
 function expiresWithin(token: string, ms: number): boolean {
   try {
     const exp = decodeJwtPayload(token).exp;
@@ -60,7 +74,7 @@ const APP_NAME = 'MedPod';
  * Η σελίδα-γέφυρα που δηλώνεται ως redirect_uri στον Solid provider.
  *
  * Ο node-solid-server γράφει στην οθόνη συγκατάθεσης την ΠΡΟΕΛΕΥΣΗ αυτής της διεύθυνσης -
- * όχι το client_name που του στέλνουμε. Ένα σχήμα εφαρμογής (solidmedicalapp://) δεν έχει
+ * όχι το client_name που του στέλνουμε. Ένα σχήμα εφαρμογής (com.anonymous.medicalapp://) δεν έχει
  * προέλευση, γι' αυτό ο ασθενής διαβάζει "null wants to access your Data Pod". Με μια
  * διεύθυνση https σε host που λέγεται medpod, διαβάζει το όνομα της εφαρμογής.
  *
@@ -75,7 +89,7 @@ const APP_NAME = 'MedPod';
 const AUTH_BRIDGE_URL = '';
 
 // Το πρόθεμα κάθε συνδέσμου που ανοίγει την εφαρμογή - το ίδιο "scheme" που δηλώνει το app.json.
-const APP_LINK_PREFIX = 'solidmedicalapp://';
+const APP_LINK_PREFIX = 'com.anonymous.medicalapp://';
 
 export interface AuthContextValue {
   role: Role | null;
@@ -97,6 +111,16 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Δίχτυ ασφαλείας: αν για οποιονδήποτε λόγο (π.χ. κλείσιμο του παραθύρου σύνδεσης, αποτυχία
+  // στη μέση της σύνδεσης) μείνει ανοιχτή οθόνη ιατρικού περιεχομένου χωρίς συνδεδεμένο
+  // χρήστη, γυρνάμε στην αρχική οθόνη επιλογής ρόλου αντί να δείχνουμε άδεια, "ορφανή" οθόνη.
+  const currentPath = usePathname();
+  useEffect(() => {
+    if (!isLoggedIn && requiresLogin(currentPath)) {
+      router.replace(ROUTES.LOGIN);
+    }
+  }, [isLoggedIn, currentPath]);
   const [loading, _setLoading] = useState(false);
   // Γνωστό ζήτημα Android/RN: η επιφάνεια σχεδίασης μερικές φορές δεν ξαναζωγραφίζεται μόνη
   // της μετά την επιστροφή από παρασκήνιο (system browser) - η οθόνη μένει στο τελευταίο καρέ
@@ -119,24 +143,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isDcrRunning = useRef(false);
   const [discoveryDocument, setDiscoveryDocument] = useState<any>(null);
   const [accessToken, setAccessToken] = useState('');
-  const [idToken, setIdToken] = useState('');
 
   // Το "auth-redirect" ΔΕΝ είναι διακοσμητικό: χωρίς μονοπάτι, η επιστροφή γίνεται στη ρίζα
-  // (solidmedicalapp://), και επειδή αυτό ταιριάζει και σε OIDC redirect ΚΑΙ σε route του
+  // (com.anonymous.medicalapp://), και επειδή αυτό ταιριάζει και σε OIDC redirect ΚΑΙ σε route του
   // expo-router, ο router προσπαθεί ΠΑΡΑΛΛΗΛΑ να την ερμηνεύσει ως πλοήγηση και πηγαίνει
   // στιγμιαία στην αρχική οθόνη (ρόλος/σύνδεση) - ανεξάρτητα από το "loading" μας, μιας και
   // είναι θέμα routing, όχι state. Με ξεχωριστό μονοπάτι που αντιστοιχεί σε πραγματική οθόνη
   // (βλ. app/auth-redirect.tsx) ο router πάει εκεί αντί στην αρχική, και δείχνει την ίδια
   // οθόνη φόρτωσης - χωρίς να πειράζει καθόλου την ανταλλαγή του κωδικού, που γίνεται από
   // ξεχωριστό listener του SDK και δεν εξαρτάται από το πού πλοηγεί ο router.
-  const appRedirectUri = AuthSession.makeRedirectUri({ scheme: 'solidmedicalapp', path: 'auth-redirect' });
+  const appRedirectUri = AuthSession.makeRedirectUri({ scheme: 'com.anonymous.medicalapp', path: 'auth-redirect' });
 
   // Η διεύθυνση που δηλώνεται στον provider - και που διαβάζει ο χρήστης στην οθόνη
   // συγκατάθεσης. Με γέφυρα είναι η σελίδα μας, αλλιώς το ίδιο το σχήμα της εφαρμογής.
   const redirectUri = AUTH_BRIDGE_URL || appRedirectUri;
 
   // Και η διεύθυνση που μας φέρνει πίσω. Με γέφυρα κρατάμε σκέτο το πρόθεμα του σχήματος:
-  // η σελίδα προωθεί σε solidmedicalapp://auth?..., και η αναγνώριση της επιστροφής γίνεται
+  // η σελίδα προωθεί σε com.anonymous.medicalapp://auth?..., και η αναγνώριση της επιστροφής γίνεται
   // με απλή σύγκριση προθέματος - ένα '/' παραπάνω ή λιγότερο θα άφηνε τη σύνδεση να κρέμεται.
   const appReturnUri = AUTH_BRIDGE_URL ? APP_LINK_PREFIX : appRedirectUri;
 
@@ -275,7 +298,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Πολλοί servers εκδίδουν ΚΑΙ νέο refresh token σε κάθε ανανέωση, ακυρώνοντας το παλιό -
       // αν δεν το κρατήσουμε, η επόμενη ανανέωση θα απέτυχε παρόλο που ο χρήστης δεν έκανε τίποτα.
       if (tokenData.refresh_token) refreshTokenRef.current = tokenData.refresh_token;
-      if (tokenData.id_token) setIdToken(tokenData.id_token);
       latestAccessTokenRef.current = tokenData.access_token;
       setAccessToken(tokenData.access_token);
       return true;
@@ -503,7 +525,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (tokenData.access_token) {
           latestAccessTokenRef.current = tokenData.access_token;
           setAccessToken(tokenData.access_token);
-          if (tokenData.id_token) setIdToken(tokenData.id_token);
           // Χωρίς αυτό δεν θα υπήρχε τρόπος να ανανεωθεί το access token αργότερα - ο χρήστης
           // θα έβλεπε σφάλμα λήξης σύνδεσης μετά από κάθε παρατεταμένη χρήση.
           if (tokenData.refresh_token) refreshTokenRef.current = tokenData.refresh_token;
@@ -714,18 +735,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const discovery = await discoveryRes.json();
 
-      // Logout από τυχόν ενεργή session πριν το νέο login (καθαρισμός browser session).
-      // Ο server απαιτεί id_token_hint - χωρίς αυτό απαντάει με σφάλμα αντί να κάνει
-      // redirect, οπότε το επιχειρούμε μόνο όταν έχουμε πραγματικά id_token σε μνήμη
-      // (δηλ. μέσα στην ίδια εκτέλεση της εφαρμογής, μετά από προηγούμενο login).
-      if (discovery.end_session_endpoint && idToken) {
-        try {
-          const logoutUrl = `${discovery.end_session_endpoint}?id_token_hint=${encodeURIComponent(idToken)}&post_logout_redirect_uri=${encodeURIComponent(redirectUri)}`;
-          await WebBrowser.openAuthSessionAsync(logoutUrl, appReturnUri);
-        } catch (e) {
-          // Αγνοούμε αποτυχία logout, συνεχίζουμε κανονικά
-        }
-      }
+      // Δεν τερματίζουμε την παλιά συνεδρία στον πάροχο πριν το νέο login: η σύνδεση γίνεται
+      // πάντα σε ιδιωτικό (incognito) παράθυρο χωρίς cookies από προηγούμενο χρήστη, οπότε δεν
+      // υπάρχει τίποτα να καθαρίσει. Το βήμα άνοιγε επιπλέον μια σελίδα του παρόχου πριν τη φόρμα
+      // σύνδεσης και, με id_token άλλου παρόχου, έδειχνε σελίδα σφάλματος.
 
       // Μετατρέπουμε τα πεδία από snake_case (Solid) σε camelCase (Expo)
       const expoDiscovery = {
@@ -749,8 +762,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // δείχνει αντ' αυτού την προέλευση του redirect URI - βλ. σχόλιο στο redirectUri.
           client_name: APP_NAME,
           redirect_uris: [redirectUri],
-          // Χωρίς αυτό, ο server απορρίπτει το post_logout_redirect_uri στο RP-Initiated
-          post_logout_redirect_uris: [redirectUri],
           application_type: 'native',
           grant_types: ['authorization_code', 'refresh_token'],
           response_types: ['code'],
@@ -759,6 +770,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!registrationRes.ok) {
+        // Ο πάροχος εξηγεί συνήθως στο σώμα της απάντησης τι απέρριψε - μένει στο log για διάγνωση.
+        const registrationBody = await registrationRes.text().catch(() => '');
+        console.error('Απάντηση παρόχου στο DCR:', registrationBody.substring(0, 300));
         throw new Error(`Αποτυχία εγγραφής (DCR). Status: ${registrationRes.status}`);
       }
 
@@ -957,7 +971,7 @@ ${consequence}`,
 
       {/* Android: η σύνδεση στο Pod ανοίγει εδώ, σε incognito WebView - βλ. σχόλιο στο
           webViewAuthUrl. onShouldStartLoadWithRequest πιάνει την επιστροφή ΠΡΙΝ προσπαθήσει
-          το ίδιο το WebView να "φορτώσει" το solidmedicalapp:// (θα απέτυχε, δεν είναι σελίδα). */}
+          το ίδιο το WebView να "φορτώσει" το com.anonymous.medicalapp:// (θα απέτυχε, δεν είναι σελίδα). */}
       <Modal visible={!!webViewAuthUrl} animationType="slide" onRequestClose={handleWebViewClose}>
         <SafeAreaView style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 12, borderBottomWidth: 1, borderBottomColor: '#eee' }}>

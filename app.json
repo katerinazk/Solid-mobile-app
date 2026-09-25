@@ -3,7 +3,7 @@
     "name": "medical-app",
     "slug": "medical-app",
     "version": "1.0.0",
-    "scheme": "solidmedicalapp",
+    "scheme": "com.anonymous.medicalapp",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

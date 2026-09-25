@@ -9,6 +9,19 @@ import { NotificationLink } from '../services/notifications';
 import { showMessage } from '../utils/appMessage';
 
 /**
+ * Η διεύθυνση μιας εγγραφής στο ΤΡΕΧΟΝ Pod του ασθενή. Η ειδοποίηση κρατά τη διεύθυνση που είχε
+ * η εγγραφή όταν στάλθηκε - αν ο ασθενής άλλαξε Pod και μετέφερε το ιστορικό του, η εγγραφή
+ * μένει με το ίδιο όνομα αρχείου αλλά σε νέο Pod. Κρατάμε λοιπόν μόνο το τμήμα από το
+ * "public/" και μετά (MedPod/κατηγορία/αρχείο) και το βάζουμε πάνω στο τρέχον Pod.
+ */
+function rebaseRecordUrl(recordUrl: string, currentFolderUrl: string): string {
+  const marker = '/public/';
+  const index = recordUrl.indexOf(marker);
+  if (index < 0 || !currentFolderUrl) return recordUrl;
+  return currentFolderUrl + recordUrl.slice(index + marker.length);
+}
+
+/**
  * Πού πηγαίνει ο χρήστης όταν πατήσει μια ειδοποίηση: στα αιτήματα πρόσβασης, σε μια εγγραφή
  * του ιστορικού του (ασθενής) ή στις κατηγορίες ιστορικού ενός ασθενή του (γιατρός).
  */
@@ -27,7 +40,7 @@ export function useNotificationNavigation() {
       if (link.type === 'record' && role === 'patient') {
         router.push({
           pathname: ROUTES.RECORD_DETAIL,
-          params: { url: link.url, category: link.category, webId: getOwnerWebId(activePatientFolderUrl) },
+          params: { url: rebaseRecordUrl(link.url, activePatientFolderUrl), category: link.category, webId: getOwnerWebId(activePatientFolderUrl) },
         });
         return;
       }
