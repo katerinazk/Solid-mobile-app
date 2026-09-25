@@ -21,6 +21,7 @@ import { RecordLinkPicker } from '../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { saveRecordEdit } from '../../services/recordRevisions';
+import { notifyRecordChange } from '../../services/notifications';
 import { showMessage } from '../../utils/appMessage';
 import { friendlyErrorMessage } from '../../utils/networkError';
 
@@ -215,6 +216,11 @@ export default function HospitalizationFormScreen() {
         await saveRecordEdit(fileUrl, accessToken, record, editor);
       } else {
         await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+      }
+
+      // Ο ασθενής ενημερώνεται όταν γιατρός προσθέτει ή τροποποιεί εγγραφή στον φάκελό του.
+      if (role === 'doctor') {
+        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Νοσηλείες', isEditing ? 'edited' : 'added', record.title);
       }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.

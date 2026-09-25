@@ -62,6 +62,35 @@ export async function notifyAccessRequested(patientAmka: string, doctorAmka: str
   }
 }
 
+// --- Αλλαγές στον φάκελο του ασθενή από γιατρό, ειδοποίηση προς τον ασθενή ---
+
+export type RecordChange = 'added' | 'edited' | 'retracted' | 'restored';
+
+// Το ρήμα κάθε αλλαγής, με το ουσιαστικό της κατηγορίας στη σωστή πτώση και γένος.
+const RECORD_CHANGE_TEXT: Record<string, Record<RecordChange, string>> = {
+  'Διαγνώσεις': { added: 'πρόσθεσε νέα διάγνωση', edited: 'τροποποίησε τη διάγνωση', retracted: 'ανακάλεσε τη διάγνωση', restored: 'αναίρεσε την ανάκληση της διάγνωσης' },
+  'Εξετάσεις': { added: 'πρόσθεσε νέα εξέταση', edited: 'τροποποίησε την εξέταση', retracted: 'ανακάλεσε την εξέταση', restored: 'αναίρεσε την ανάκληση της εξέτασης' },
+  'Φάρμακα': { added: 'πρόσθεσε νέο φάρμακο', edited: 'τροποποίησε το φάρμακο', retracted: 'ανακάλεσε το φάρμακο', restored: 'αναίρεσε την ανάκληση του φαρμάκου' },
+  'Αλλεργίες': { added: 'πρόσθεσε νέα αλλεργία', edited: 'τροποποίησε την αλλεργία', retracted: 'ανακάλεσε την αλλεργία', restored: 'αναίρεσε την ανάκληση της αλλεργίας' },
+  'Νοσηλείες': { added: 'πρόσθεσε νέα νοσηλεία', edited: 'τροποποίησε τη νοσηλεία', retracted: 'ανακάλεσε τη νοσηλεία', restored: 'αναίρεσε την ανάκληση της νοσηλείας' },
+  'Εμβολιασμοί': { added: 'πρόσθεσε νέο εμβολιασμό', edited: 'τροποποίησε τον εμβολιασμό', retracted: 'ανακάλεσε τον εμβολιασμό', restored: 'αναίρεσε την ανάκληση του εμβολιασμού' },
+};
+
+// Ειδοποιεί τον ασθενή ότι ο γιατρός άλλαξε κάτι στον φάκελό του. Όταν ο γιατρός και ο ασθενής
+// είναι το ίδιο πρόσωπο (ίδιο ΑΜΚΑ, βλ. σύνδεση με δύο ρόλους) δεν υπάρχει τίποτα να μάθει.
+export async function notifyRecordChange(patientAmka: string, doctorAmka: string, category: string, change: RecordChange, title?: string) {
+  if (!patientAmka || patientAmka === doctorAmka) return;
+  const verb = RECORD_CHANGE_TEXT[category]?.[change];
+  if (!verb) return;
+  try {
+    const subject = await doctorSubject(doctorAmka);
+    const detail = title ? `: ${title}` : '';
+    await createNotification('patient', patientAmka, `${subject} ${verb}${detail}.`);
+  } catch {
+    // Βλ. σχόλιο στο createNotification.
+  }
+}
+
 // --- Ενέργειες ασθενή, ειδοποίηση προς τον γιατρό ---
 
 export async function notifyAccessGranted(doctorAmka: string, patientAmka: string, accessType: string) {

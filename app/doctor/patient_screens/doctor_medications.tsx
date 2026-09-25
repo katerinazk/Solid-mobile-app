@@ -14,6 +14,7 @@ import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
 import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
+import { notifyRecordChange } from '../../../services/notifications';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -257,6 +258,7 @@ export default function DoctorMedicationsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateMedications((prev) => prev.map((m) => (m.url === item.url ? { ...m, retraction } : m)));
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Φάρμακα', 'retracted', item.title);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
@@ -278,6 +280,7 @@ export default function DoctorMedicationsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       await undoRetraction(item.url, accessToken, author);
       updateMedications((prev) => prev.map((m) => (m.url === item.url ? { ...m, retraction: undefined } : m)));
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Φάρμακα', 'restored', item.title);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
     }

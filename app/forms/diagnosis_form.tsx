@@ -11,6 +11,7 @@ import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../compo
 import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { saveRecordEdit } from '../../services/recordRevisions';
+import { notifyRecordChange } from '../../services/notifications';
 import { RecordLinkPicker } from '../../components/RecordLinkPicker';
 import { LinkedRecord, parseLinkedRecords, filterExistingLinks } from '../../services/historyRecords';
 import { showMessage } from '../../utils/appMessage';
@@ -115,6 +116,11 @@ export default function DiagnosisFormScreen() {
         await saveRecordEdit(fileUrl, accessToken, record, editor);
       } else {
         await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+      }
+
+      // Ο ασθενής ενημερώνεται όταν γιατρός προσθέτει ή τροποποιεί εγγραφή στον φάκελό του.
+      if (role === 'doctor') {
+        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Διαγνώσεις', isEditing ? 'edited' : 'added', record.title);
       }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.

@@ -7,6 +7,7 @@ import { useDoctorAccessGuard } from '../../hooks/useDoctorAccessGuard';
 import { saveFileContent, getCategoryFolderUrl, newRecordFileName } from '../../services/solidPod';
 import { resolveRecordAuthor } from '../../utils/recordAuthor';
 import { saveRecordEdit } from '../../services/recordRevisions';
+import { notifyRecordChange } from '../../services/notifications';
 import { MedicalCodePicker } from '../../components/MedicalCodePicker';
 import { RecordFormScreen, formStyles, PICKER_RESULTS_HEIGHT } from '../../components/RecordFormScreen';
 import { MedicalCode, codeFromRecord } from '../../services/medicalCodes';
@@ -95,6 +96,11 @@ export default function VaccinationFormScreen() {
         await saveRecordEdit(fileUrl, accessToken, record, editor);
       } else {
         await saveFileContent(fileUrl, accessToken, JSON.stringify(record));
+      }
+
+      // Ο ασθενής ενημερώνεται όταν γιατρός προσθέτει ή τροποποιεί εγγραφή στον φάκελό του.
+      if (role === 'doctor') {
+        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Εμβολιασμοί', isEditing ? 'edited' : 'added', record.title);
       }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.

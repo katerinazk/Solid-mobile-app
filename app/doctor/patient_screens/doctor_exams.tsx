@@ -15,6 +15,7 @@ import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
 import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
+import { notifyRecordChange } from '../../../services/notifications';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -361,6 +362,7 @@ export default function DoctorExamsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction } : e)));
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εξετάσεις', 'retracted', item.title);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
@@ -382,6 +384,7 @@ export default function DoctorExamsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       await undoRetraction(item.url, accessToken, author);
       updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction: undefined } : e)));
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εξετάσεις', 'restored', item.title);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
     }
