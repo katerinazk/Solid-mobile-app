@@ -17,6 +17,7 @@ import {
   DEFAULT_SOLID_PROVIDER_URL,
   solidProviderLabelFromUrl,
   solidProviderUrlFromLabel,
+  providerMismatchMessage,
 } from '../../constants/solidProviders';
 
 export default function DoctorLoginScreen() {
@@ -52,6 +53,13 @@ export default function DoctorLoginScreen() {
           pathname: ROUTES.DOCTOR_REGISTER,
           params: { amka: doctorAmka.trim(), solidProvider: solidProvider.trim(), fromLoginAttempt: 'true' },
         });
+        return;
+      }
+
+      // Το ΑΜΚΑ ανήκει σε συγκεκριμένο Pod: δεν αφήνουμε να ανοίξει ο browser για άλλον πάροχο.
+      const mismatch = providerMismatchMessage(data.web_id, solidProvider.trim());
+      if (mismatch) {
+        showMessage(mismatch);
         return;
       }
 
