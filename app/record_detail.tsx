@@ -92,7 +92,7 @@ export default function RecordDetailScreen() {
   // ακόμα, με την αιτία της και με το πότε και από ποιον αναιρέθηκε.
   const timeline = useMemo(() => {
     type Event =
-      | { kind: 'edit'; at: string; byName: string; order: number; changes: { label: string; from: string; to: string }[] }
+      | { kind: 'edit'; at: string; byName: string; order: number; before: any; after: any }
       | { kind: 'retracted'; at: string; byName: string; order: number; reason: string }
       | { kind: 'restored'; at: string; byName: string; order: number };
 
@@ -102,7 +102,7 @@ export default function RecordDetailScreen() {
 
     revisions.forEach((revision, index) => {
       const after = index + 1 < revisions.length ? revisions[index + 1].record : record;
-      events.push({ kind: 'edit', at: revision.at, byName: revision.byName, order: 0, changes: changedFields(revision.record || {}, after || {}) });
+      events.push({ kind: 'edit', at: revision.at, byName: revision.byName, order: 0, before: revision.record || {}, after: after || {} });
     });
     log.forEach((entry) => {
       events.push({ kind: 'retracted', at: entry.at, byName: entry.byName, order: 1, reason: entry.reason });
@@ -327,13 +327,14 @@ export default function RecordDetailScreen() {
                       {formatDate(event.at)}{event.byName ? `  ·  ${event.byName}` : ''}
                     </Text>
                     {event.kind === 'edit' ? (
-                      event.changes.length === 0 ? (
+                      changedFields(event.before, event.after).length === 0 ? (
                         <Text style={doctorStyles.diagnosisCardDetail}>Καμία ορατή αλλαγή πεδίου.</Text>
                       ) : (
-                        event.changes.map((change) => (
+                        changedFields(event.before, event.after).map((change) => (
                           <Text key={change.label} style={doctorStyles.diagnosisCardDetail}>
-                            <Text style={doctorStyles.diagnosisCardLabel}>{change.label}: </Text>
-                            {change.from} → {change.to}
+                            <Text style={doctorStyles.diagnosisCardLabel}>{change.label}: </Text>{change.from}
+                            {'\n'}
+                            <Text style={doctorStyles.diagnosisCardLabel}>Τροποποιήθηκε σε: </Text>{change.to}
                           </Text>
                         ))
                       )
