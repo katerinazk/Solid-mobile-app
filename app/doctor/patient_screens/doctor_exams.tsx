@@ -14,7 +14,7 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -27,7 +27,7 @@ import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied, isPodTokenExpired } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
@@ -55,16 +55,18 @@ interface Exam {
 }
 
 
-function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onRetract, onOpen }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onRetract: (item: Exam) => void; onOpen: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, loggedInDoctorAmka, isReadOnly, onEdit, onRetract, onUndo, onOpen }: { item: Exam; doctorDisplayName: string; loggedInDoctorAmka: string; isReadOnly: boolean; onEdit: (item: Exam) => void; onRetract: (item: Exam) => void; onUndo: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (
     // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
     <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         <RecordCardActions
-          visible={!isReadOnly && item.doctorAmka === loggedInDoctorAmka && !item.retraction}
+          visible={!isReadOnly && item.doctorAmka === loggedInDoctorAmka}
+          retracted={!!item.retraction}
           onEdit={() => onEdit(item)}
           onRetract={() => onRetract(item)}
+          onUndo={() => onUndo(item)}
         />
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
@@ -364,6 +366,27 @@ export default function DoctorExamsScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractExam = async (item: Exam) => {
+    if (!(await checkAccess())) return;
+
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      await undoRetraction(item.url, accessToken, author);
+      updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction: undefined } : e)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
       <StatusBar barStyle="dark-content" />
@@ -463,7 +486,7 @@ export default function DoctorExamsScreen() {
             section.kind === 'year' ? (
               <CompletedExamCard item={item} onOpen={openDetail} />
             ) : (
-              <PendingExamCard item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onRetract={handleRetractExam} onOpen={openDetail} />
+              <PendingExamCard item={item} doctorDisplayName={displayDoctorName(item)} loggedInDoctorAmka={loggedInDoctorAmka} isReadOnly={isReadOnly} onEdit={openForm} onRetract={handleRetractExam} onUndo={handleUndoRetractExam} onOpen={openDetail} />
             )
           )}
         />

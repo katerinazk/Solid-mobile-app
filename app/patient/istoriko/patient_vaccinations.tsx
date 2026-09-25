@@ -16,9 +16,9 @@ import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
 import { RecordCardActions } from '../../../components/RecordCardActions';
-import { retractRecord } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
@@ -203,6 +203,25 @@ export default function PatientVaccinationsScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractVaccination = async (item: Vaccination) => {
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      await undoRetraction(item.url, accessToken, author);
+      updateVaccinations((prev) => prev.map((v) => (v.url === item.url ? { ...v, retraction: undefined } : v)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   const openDetail = (item: { url: string }) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
   };
@@ -224,8 +243,10 @@ export default function PatientVaccinationsScreen() {
         {/* Ο ασθενής ανακαλεί μόνο ό,τι καταχώρησε ο ίδιος: εγγραφή γιατρού δεν την
             αγγίζει, αλλιώς ο φάκελος παύει να είναι αξιόπιστος για τον επόμενο γιατρό. */}
         <RecordCardActions
-          visible={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+          visible={item.doctorAmka === loggedInPatientAmka}
+          retracted={!!item.retraction}
           onRetract={() => handleRetractVaccination(item)}
+          onUndo={() => handleUndoRetractVaccination(item)}
         />
       </View>
 

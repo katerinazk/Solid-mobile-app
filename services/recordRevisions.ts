@@ -7,7 +7,7 @@
 // θέλουμε να σβήσουμε τη δουλειά του γράφοντας πάνω σε παλιά εικόνα.
 
 import { fetchFileContentFresh, saveFileContent } from './solidPod';
-import { RecordStamp, Retraction, withExistingHistory, withRetraction, withRevision } from '../utils/recordRevision';
+import { RecordStamp, Retraction, withExistingHistory, withRetraction, withRevision, withoutRetraction } from '../utils/recordRevision';
 import { todayIsoDate } from '../utils/podRecords';
 import { RecordAuthor } from '../utils/recordAuthor';
 
@@ -49,6 +49,16 @@ export async function saveRecordCompletion(
 ): Promise<void> {
   const existing = await readRecord(url, accessToken);
   await saveFileContent(url, accessToken, JSON.stringify(withExistingHistory(existing, nextRecord)));
+}
+
+/** Αναιρεί την ανάκληση: η εγγραφή ξαναγίνεται ενεργή, με ίχνος της ανάκλησης που προηγήθηκε. */
+export async function undoRetraction(
+  url: string,
+  accessToken: string,
+  author: RecordAuthor,
+): Promise<void> {
+  const existing = await readRecord(url, accessToken);
+  await saveFileContent(url, accessToken, JSON.stringify(withoutRetraction(existing, stampOf(author))));
 }
 
 /** Σημαίνει την εγγραφή ως ανακληθείσα. Το περιεχόμενό της μένει ακέραιο. */

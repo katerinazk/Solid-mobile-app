@@ -15,13 +15,26 @@ const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
  * Το "visible" το κρίνει η οθόνη, επειδή ο κανόνας αλλάζει ανά περίπτωση - πάντα όμως
  * περιλαμβάνει ότι ενεργεί ο ΣΥΝΤΑΚΤΗΣ της εγγραφής και ότι δεν έχει ήδη ανακληθεί.
  */
-export function RecordCardActions({ visible, onEdit, onRetract }: {
+export function RecordCardActions({ visible, retracted, onEdit, onRetract, onUndo }: {
   visible: boolean;
+  /** Η εγγραφή είναι ήδη ανακληθείσα: δείχνουμε μόνο την αναίρεση, αν υπάρχει. */
+  retracted?: boolean;
   /** Παραλείπεται στις κατηγορίες που δεν επιτρέπουν διόρθωση. */
   onEdit?: () => void;
   onRetract: () => void;
+  /** Αναίρεση της ανάκλησης - το ίδιο πρόσωπο που μπορεί να ανακαλέσει μπορεί και να αναιρέσει. */
+  onUndo?: () => void;
 }) {
   if (!visible) return null;
+
+  if (retracted) {
+    if (!onUndo) return null;
+    return (
+      <TouchableOpacity onPress={onUndo} hitSlop={HIT_SLOP} accessibilityRole="button" accessibilityLabel="Αναίρεση ανάκλησης">
+        <Ionicons name="arrow-undo-outline" size={22} color={COLORS.primary} />
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <View style={{ flexDirection: 'row' }}>

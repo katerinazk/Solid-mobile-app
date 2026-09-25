@@ -12,7 +12,7 @@ import { groupByYearRetractedLast } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
@@ -25,7 +25,7 @@ import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
 import { useDoctorNames, formatDoctorLastNameOnly } from '../../../hooks/useDoctorNames';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
@@ -215,6 +215,27 @@ export default function DoctorDiagnoseisScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractDiagnosis = async (item: Diagnosis) => {
+    if (!(await checkAccess())) return;
+
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      await undoRetraction(item.url, accessToken, author);
+      updateDiagnoses((prev) => prev.map((d) => (d.url === item.url ? { ...d, retraction: undefined } : d)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
   const openDetail = (item: { url: string }) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Διαγνώσεις', webId, amka, firstName, lastName } });
@@ -306,9 +327,11 @@ export default function DoctorDiagnoseisScreen() {
               <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
               {/* TODO: αφαίρεση fallback - προσωρινό ξέσκαρτισμα παλιών εγγραφών χωρίς doctorAmka */}
               <RecordCardActions
-                visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka) && !item.retraction}
+                visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka || !item.doctorAmka)}
+                retracted={!!item.retraction}
                 onEdit={() => openForm(item)}
                 onRetract={() => handleRetractDiagnosis(item)}
+                onUndo={() => handleUndoRetractDiagnosis(item)}
               />
             </View>
             <Text style={doctorStyles.diagnosisCardDetail}>

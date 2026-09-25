@@ -15,7 +15,7 @@ import { groupByYearRetractedLast } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
@@ -23,7 +23,7 @@ import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
@@ -195,6 +195,25 @@ export default function PatientAllergiesScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractAllergy = async (item: Allergy) => {
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      await undoRetraction(item.url, accessToken, author);
+      updateAllergies((prev) => prev.map((a) => (a.url === item.url ? { ...a, retraction: undefined } : a)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους πάτημα.
   const openDetail = (item: { url: string }) => {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Αλλεργίες', webId } });
@@ -266,9 +285,11 @@ export default function PatientAllergiesScreen() {
             <View style={doctorStyles.diagnosisCardHeader}>
               <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
               <RecordCardActions
-                visible={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                visible={item.doctorAmka === loggedInPatientAmka}
+                retracted={!!item.retraction}
                 onEdit={() => openEditForm(item)}
                 onRetract={() => handleRetractAllergy(item)}
+                onUndo={() => handleUndoRetractAllergy(item)}
               />
             </View>
 

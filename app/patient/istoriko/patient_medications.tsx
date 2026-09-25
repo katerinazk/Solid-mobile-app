@@ -14,7 +14,7 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord, saveRecordCompletion } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction, saveRecordCompletion } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -65,18 +65,19 @@ function isPending(item: Medication): boolean {
 
 // Η κάρτα φαρμάκου που έχει ήδη ξεκινήσει, ίδια και για την τρέχουσα και για την προηγούμενη
 // αγωγή: η μόνη διαφορά των δύο ενοτήτων είναι αν η αγωγή τελείωσε, όχι το τι δείχνει η κάρτα.
-function MedicationCard({ item, doctorDisplayName, canRetract, onOpen, onRetract }: {
+function MedicationCard({ item, doctorDisplayName, canRetract, onOpen, onRetract, onUndo }: {
   item: Medication;
   doctorDisplayName: string;
   canRetract: boolean;
   onOpen: (item: Medication) => void;
   onRetract: (item: Medication) => void;
+  onUndo: (item: Medication) => void;
 }) {
   return (
     <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-        <RecordCardActions visible={canRetract} onRetract={() => onRetract(item)} />
+        <RecordCardActions visible={canRetract} retracted={!!item.retraction} onRetract={() => onRetract(item)} onUndo={() => onUndo(item)} />
       </View>
       {!!item.route && (
         <Text style={doctorStyles.diagnosisCardDetail}>
@@ -102,13 +103,14 @@ function MedicationCard({ item, doctorDisplayName, canRetract, onOpen, onRetract
 
 // Το φάρμακο που συνταγογραφήθηκε αλλά δεν έχει πατηθεί ακόμα "Έναρξη". Δεν έχει ημερομηνία
 // έναρξης να δείξει, και κρατά τα δύο κουμπιά ενέργειας.
-function PendingMedicationCard({ item, doctorDisplayName, canRetract, onOpen, onStart, onRetract }: {
+function PendingMedicationCard({ item, doctorDisplayName, canRetract, onOpen, onStart, onRetract, onUndo }: {
   item: Medication;
   doctorDisplayName: string;
   onOpen: (item: Medication) => void;
   onStart: (item: Medication) => void;
   canRetract: boolean;
   onRetract: (item: Medication) => void;
+  onUndo: (item: Medication) => void;
 }) {
   return (
     <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
@@ -144,9 +146,9 @@ function PendingMedicationCard({ item, doctorDisplayName, canRetract, onOpen, on
         {canRetract && (
           <TouchableOpacity
             style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
-            onPress={() => onRetract(item)}
+            onPress={() => (item.retraction ? onUndo(item) : onRetract(item))}
           >
-            <Text style={doctorStyles.diagnosisSortButtonText}>Ανάκληση</Text>
+            <Text style={doctorStyles.diagnosisSortButtonText}>{item.retraction ? 'Αναίρεση ανάκλησης' : 'Ανάκληση'}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -341,6 +343,25 @@ export default function PatientMedicationsScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractMedication = async (item: Medication) => {
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      await undoRetraction(item.url, accessToken, author);
+      updateMedications((prev) => prev.map((m) => (m.url === item.url ? { ...m, retraction: undefined } : m)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   const { activeMedications, previousMedications } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -494,17 +515,19 @@ export default function PatientMedicationsScreen() {
                 item={item}
                 doctorDisplayName={displayDoctorName(item)}
                 onOpen={openDetail}
-                canRetract={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                canRetract={item.doctorAmka === loggedInPatientAmka}
                 onStart={handleStartMedication}
                 onRetract={handleRetractMedication}
+                onUndo={handleUndoRetractMedication}
               />
             ) : (
               <MedicationCard
                 item={item}
                 doctorDisplayName={displayDoctorName(item)}
-                canRetract={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                canRetract={item.doctorAmka === loggedInPatientAmka}
                 onOpen={openDetail}
                 onRetract={handleRetractMedication}
+                onUndo={handleUndoRetractMedication}
               />
             )
           )}

@@ -111,7 +111,7 @@ function stableStringify(value: any): string {
 }
 
 export function withRevision(existing: any, next: any, stamp: RecordStamp): any {
-  const { revisions, retracted, ...previous } = existing || {};
+  const { revisions, retracted, retractionLog, ...previous } = existing || {};
 
   // Η φόρμα επεξεργασίας μπορεί να αποθηκευτεί χωρίς καμία πραγματική αλλαγή στα δεδομένα -
   // π.χ. ανοίγει κάποιος τη φόρμα και πατάει απευθείας "Αποθήκευση". Χωρίς αυτόν τον έλεγχο θα
@@ -126,6 +126,8 @@ export function withRevision(existing: any, next: any, stamp: RecordStamp): any 
     // "Έναρξη" σε φάρμακο, το ανέβασμα αποτελέσματος σε εξέταση - χτίζουν το αντικείμενο από
     // την αρχή, οπότε χωρίς αυτό θα ξε-ανακαλούσαν σιωπηλά μια αποσυρμένη εγγραφή.
     ...(retracted ? { retracted } : {}),
+    // Το αρχείο των ανακλήσεων που έχουν αναιρεθεί επιβιώνει κι αυτό της διόρθωσης.
+    ...(Array.isArray(retractionLog) ? { retractionLog } : {}),
     ...next,
     revisions: [...(Array.isArray(revisions) ? revisions : []), { ...stamp, kind: REVISION_EDIT, record: previous }],
   };
@@ -145,8 +147,27 @@ export function withRevision(existing: any, next: any, stamp: RecordStamp): any 
 export function withExistingHistory(existing: any, next: any): any {
   return {
     ...(existing?.retracted ? { retracted: existing.retracted } : {}),
+    ...(Array.isArray(existing?.retractionLog) ? { retractionLog: existing.retractionLog } : {}),
     ...(Array.isArray(existing?.revisions) ? { revisions: existing.revisions } : {}),
     ...next,
+  };
+}
+
+/**
+ * Η εγγραφή όπως θα γραφτεί όταν αναιρείται η ανάκλησή της: η εγγραφή ξαναγίνεται ενεργή.
+ *
+ * Ούτε αυτό σβήνει κάτι. Η ανάκληση που αναιρέθηκε μεταφέρεται στο "retractionLog", μαζί με το
+ * ποιος και πότε την αναίρεσε, ώστε να μένει ίχνος ότι η εγγραφή είχε αποσυρθεί κάποτε.
+ */
+export function withoutRetraction(existing: any, stamp: RecordStamp): any {
+  const { retracted, retractionLog, ...rest } = existing || {};
+  if (!retracted) return existing;
+  return {
+    ...rest,
+    retractionLog: [
+      ...(Array.isArray(retractionLog) ? retractionLog : []),
+      { ...retracted, restoredAt: stamp.at, restoredBy: stamp.by, restoredByName: stamp.byName },
+    ],
   };
 }
 

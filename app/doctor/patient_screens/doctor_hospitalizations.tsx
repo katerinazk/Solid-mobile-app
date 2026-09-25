@@ -13,7 +13,7 @@ import { groupByYearRetractedLast } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
@@ -26,7 +26,7 @@ import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
@@ -215,6 +215,27 @@ export default function DoctorHospitalizationsScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractHospitalization = async (item: Hospitalization) => {
+    if (!(await checkAccess())) return;
+
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      await undoRetraction(item.url, accessToken, author);
+      updateHospitalizations((prev) => prev.map((h) => (h.url === item.url ? { ...h, retraction: undefined } : h)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   const handleOpenAttachment = async (item: Hospitalization, fileName: string) => {
     try {
       setDownloadingAttachment(fileName);
@@ -296,9 +317,11 @@ export default function DoctorHospitalizationsScreen() {
             <View style={doctorStyles.diagnosisCardHeader}>
               <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
               <RecordCardActions
-                visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka) && !item.retraction}
+                visible={!isReadOnly && (item.doctorAmka === loggedInDoctorAmka)}
+                retracted={!!item.retraction}
                 onEdit={() => openForm(item)}
                 onRetract={() => handleRetractHospitalization(item)}
+                onUndo={() => handleUndoRetractHospitalization(item)}
               />
             </View>
 

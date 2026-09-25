@@ -18,7 +18,7 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord, saveRecordCompletion } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction, saveRecordCompletion } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -27,7 +27,7 @@ import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
@@ -56,13 +56,13 @@ interface Exam {
 }
 
 
-function PendingExamCard({ item, doctorDisplayName, uploading, canRetract, onUpload, onRetract, onOpen }: { item: Exam; doctorDisplayName: string; uploading: boolean; canRetract: boolean; onUpload: (item: Exam) => void; onRetract: (item: Exam) => void; onOpen: (item: Exam) => void }) {
+function PendingExamCard({ item, doctorDisplayName, uploading, canRetract, onUpload, onRetract, onUndo, onOpen }: { item: Exam; doctorDisplayName: string; uploading: boolean; canRetract: boolean; onUpload: (item: Exam) => void; onRetract: (item: Exam) => void; onUndo: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (
     // Η κάρτα ανοίγει την αναλυτική προβολή. Τα κουμπιά μέσα της κρατούν το δικό τους πάτημα.
     <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-        <RecordCardActions visible={canRetract} onRetract={() => onRetract(item)} />
+        <RecordCardActions visible={canRetract} retracted={!!item.retraction} onRetract={() => onRetract(item)} onUndo={() => onUndo(item)} />
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
@@ -310,6 +310,25 @@ export default function PatientExamsScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractExam = async (item: Exam) => {
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
+      await undoRetraction(item.url, accessToken, author);
+      updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction: undefined } : e)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   // Η αναζήτηση εμφανίζεται μόνο όταν η λίστα ξεπερνά το όριο εγγραφών - το ίδιο όριο
   // με τις υπόλοιπες οθόνες ιστορικού.
   const { query: searchQuery, setQuery: setSearchQuery, searchVisible } = useSearchField(exams.length);
@@ -507,8 +526,9 @@ export default function PatientExamsScreen() {
                 doctorDisplayName={displayDoctorName(item)}
                 uploading={uploadingFor === item.url}
                 onUpload={handleUploadResult}
-                canRetract={item.doctorAmka === loggedInPatientAmka && !item.retraction}
+                canRetract={item.doctorAmka === loggedInPatientAmka}
                 onRetract={handleRetractExam}
+                onUndo={handleUndoRetractExam}
                 onOpen={openDetail}
               />
             )

@@ -13,7 +13,7 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -26,7 +26,7 @@ import { formatDate } from '../../../utils/age';
 import { formatDuration, medicationEndDate } from '../../../utils/duration';
 import { LinkedRecord, readLinks } from '../../../services/historyRecords';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
@@ -58,7 +58,7 @@ interface Medication {
   parentName?: string;
 }
 
-function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit, onEdit, onRetract, onOpen }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; allowEdit: boolean; onEdit: (item: Medication) => void; onRetract: (item: Medication) => void; onOpen: (item: Medication) => void }) {
+function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit, onEdit, onRetract, onUndo, onOpen }: { item: Medication; doctorDisplayName: string; loggedInDoctorAmka: string; allowEdit: boolean; onEdit: (item: Medication) => void; onRetract: (item: Medication) => void; onUndo: (item: Medication) => void; onOpen: (item: Medication) => void }) {
   return (
     // Η κάρτα ανοίγει την αναλυτική προβολή. Τα εικονίδια μέσα της κρατούν το δικό τους
     // πάτημα, οπότε δεν ανοίγουν κατά λάθος την προβολή.
@@ -66,9 +66,11 @@ function MedicationCard({ item, doctorDisplayName, loggedInDoctorAmka, allowEdit
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
         <RecordCardActions
-          visible={allowEdit && item.doctorAmka === loggedInDoctorAmka && !item.retraction}
+          visible={allowEdit && item.doctorAmka === loggedInDoctorAmka}
+          retracted={!!item.retraction}
           onEdit={() => onEdit(item)}
           onRetract={() => onRetract(item)}
+          onUndo={() => onUndo(item)}
         />
       </View>
       {!!item.route && (
@@ -260,6 +262,27 @@ export default function DoctorMedicationsScreen() {
     }
   };
 
+  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
+  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
+  const handleUndoRetractMedication = async (item: Medication) => {
+    if (!(await checkAccess())) return;
+
+    const confirmed = await askConfirm({
+      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
+      confirmText: 'Αναίρεση',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
+      await undoRetraction(item.url, accessToken, author);
+      updateMedications((prev) => prev.map((m) => (m.url === item.url ? { ...m, retraction: undefined } : m)));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+    }
+  };
+
   const { activeMedications, previousMedications } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -413,6 +436,7 @@ export default function DoctorMedicationsScreen() {
               allowEdit={section.kind === 'active' && !isReadOnly}
               onEdit={openForm}
               onRetract={handleRetractMedication}
+              onUndo={handleUndoRetractMedication}
               onOpen={openDetail}
             />
           )}
