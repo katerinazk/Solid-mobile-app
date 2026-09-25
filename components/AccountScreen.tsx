@@ -57,34 +57,36 @@ export function AccountScreen({
   onCancelEditing: () => void;
   onSave: () => void;
 }) {
-  const { role, confirmLogout, confirmSwitchPod, isSwitchingPod, switchPodWithHistory } = useAuth();
+  const { role, confirmLogout, isSwitchingPod, switchPodWithHistory } = useAuth();
   const [isProviderPickerOpen, setIsProviderPickerOpen] = useState(false);
 
-  // Ο ασθενής ρωτιέται πρώτα αν θέλει να μεταφερθεί το ιστορικό του. Με "Ναι" διαλέγει τον νέο
-  // πάροχο και συνδέεται σε αυτόν χωρίς να φύγει από το παλιό Pod. Με "Όχι" ακολουθεί η
-  // συνηθισμένη αλλαγή Pod (αποσύνδεση και σύνδεση από την αρχή, χωρίς μεταφορά).
+  // Ο ασθενής ρωτιέται αν θέλει να μεταφερθεί το ιστορικό του. Και στις δύο περιπτώσεις (όπως και ο
+  // γιατρός) διαλέγει τον νέο πάροχο και συνδέεται σε αυτόν χωρίς να φύγει από το παλιό Pod.
+  const [copyHistory, setCopyHistory] = useState(false);
+
   const handleSwitchPod = async () => {
-    if (role !== 'patient') {
-      confirmSwitchPod();
-      return;
-    }
-
-    const copyHistory = await askConfirm({
-      message: 'Θέλετε να μεταφερθεί το ιατρικό σας ιστορικό στο νέο Pod;\n\nΑν πατήσετε "Όχι", το ιστορικό μένει μόνο στο παλιό Pod και το νέο ξεκινά χωρίς εγγραφές.',
-      confirmText: 'Ναι',
-      cancelText: 'Όχι',
-    });
-
-    if (copyHistory) {
-      setIsProviderPickerOpen(true);
+    if (role === 'patient') {
+      const wantsCopy = await askConfirm({
+        message: 'Θέλετε να μεταφερθεί το ιατρικό σας ιστορικό στο νέο Pod;\n\nΑν πατήσετε "Όχι", το ιστορικό μένει μόνο στο παλιό Pod και το νέο ξεκινά χωρίς εγγραφές.',
+        confirmText: 'Ναι',
+        cancelText: 'Όχι',
+      });
+      setCopyHistory(wantsCopy);
     } else {
-      confirmSwitchPod();
+      const confirmed = await askConfirm({
+        message: 'Θα συνδεθείτε σε νέο Pod. Οι ασθενείς σας θα σας ξαναεμφανιστούν καθώς ο καθένας τους μπαίνει στην εφαρμογή και ενημερώνεται ο φάκελός του.',
+        confirmText: 'Συνέχεια',
+        cancelText: 'Ακύρωση',
+      });
+      if (!confirmed) return;
+      setCopyHistory(false);
     }
+    setIsProviderPickerOpen(true);
   };
 
   const handlePickProvider = (providerUrl: string) => {
     setIsProviderPickerOpen(false);
-    switchPodWithHistory(providerUrl);
+    switchPodWithHistory(providerUrl, copyHistory);
   };
 
   return (
@@ -241,7 +243,7 @@ export function AccountScreen({
       {isSwitchingPod && (
         <View style={localStyles.busyOverlay}>
           <ActivityIndicator size="large" color={COLORS.white} />
-          <Text style={localStyles.busyText}>Μεταφορά του ιστορικού στο νέο Pod…</Text>
+          <Text style={localStyles.busyText}>Σύνδεση στο νέο Pod…</Text>
         </View>
       )}
     </SafeAreaView>
