@@ -1046,6 +1046,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (isPatient) {
         await resetAclSyncForPatient(ownAmka);
+
+        // Δεύτερο πέρασμα: ένας γιατρός μπορεί να πρόλαβε να γράψει στο παλιό Pod μετά την πρώτη
+        // αντιγραφή. Ό,τι υπάρχει εκεί και λείπει από το νέο αντιγράφεται τώρα. Το ΑΜΚΑ έχει ήδη
+        // αλλάξει, οπότε δεν υπάρχει γυρισμός: ό,τι δεν αντιγραφεί μένει στο παλιό Pod και ο
+        // ασθενής ενημερώνεται.
+        if (copyHistory) {
+          try {
+            let lateOldToken = latestAccessTokenRef.current || accessToken;
+            if (expiresWithin(lateOldToken, MIGRATION_MIN_TOKEN_LIFETIME_MS) && (await performTokenRefresh())) {
+              lateOldToken = latestAccessTokenRef.current;
+            }
+            const late = await copyHistoryBetweenPods(oldWebId, lateOldToken, linked.webId, linked.accessToken);
+            if (late.copied > 0) {
+              successMessage += ` Μεταφέρθηκαν και ${late.copied} εγγραφές που προστέθηκαν στο μεταξύ.`;
+            }
+            if (late.failed > 0) {
+              successMessage += ` ${late.failed} εγγραφές που προστέθηκαν στο μεταξύ έμειναν μόνο στο παλιό Pod.`;
+            }
+          } catch (lateError) {
+            console.error('Αποτυχία τελικού ελέγχου για νέες εγγραφές:', lateError);
+            successMessage += ' Δεν ήταν δυνατός ο τελικός έλεγχος για εγγραφές που προστέθηκαν στο μεταξύ.';
+          }
+        }
       } else {
         await resetAclSyncForDoctor(ownAmka);
       }

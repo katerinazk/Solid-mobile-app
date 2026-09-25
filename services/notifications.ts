@@ -1,4 +1,6 @@
 import { supabase } from './supabase';
+import { getPublicFolderUrl } from './solidPod';
+import { showMessage } from '../utils/appMessage';
 import { ACCESS_FULL, ACCESS_READ_ONLY, ACCESS_NONE } from '../constants/accessTypes';
 import { isFemale } from '../constants/medicalOptions';
 
@@ -90,8 +92,25 @@ const RECORD_CHANGE_TEXT: Record<string, Record<RecordChange, string>> = {
 // της εγγραφής (π.χ. το όνομα της διάγνωσης): είναι ιατρική πληροφορία και ζει μόνο στο Pod,
 // ενώ οι ειδοποιήσεις αποθηκεύονται στη Supabase. Ο ασθενής τη βλέπει ανοίγοντας την εγγραφή. Όταν ο γιατρός και ο ασθενής
 // είναι το ίδιο πρόσωπο (ίδιο ΑΜΚΑ, βλ. σύνδεση με δύο ρόλους) δεν υπάρχει τίποτα να μάθει.
+// Ελέγχει, αμέσως μετά από κάθε εγγραφή γιατρού, ότι η εγγραφή γράφτηκε στο Pod που έχει ΤΩΡΑ ο
+// ασθενής. Αν ο ασθενής άλλαξε Pod όσο αποθηκευόταν, η εγγραφή έμεινε στο παλιό και ο ίδιος δεν
+// θα τη δει στο νέο - ο γιατρός ενημερώνεται για να την ξαναγράψει.
+async function warnIfWrittenToOldPod(patientAmka: string, url: string) {
+  try {
+    const { data } = await supabase.from('patients').select('web_id').eq('amka', patientAmka).maybeSingle();
+    if (!data?.web_id) return;
+    if (url.startsWith(getPublicFolderUrl(data.web_id))) return;
+
+    const subject = await patientSubject(patientAmka);
+    showMessage(`${subject} άλλαξε Pod όσο αποθηκευόταν η εγγραφή. Η εγγραφή γράφτηκε στο παλιό του Pod και μπορεί να μην εμφανιστεί στον ασθενή. Δοκιμάστε να κάνετε ξανά την εγγραφή σε λίγο.`);
+  } catch {
+    // Ο έλεγχος είναι πρόσθετος: αν αποτύχει, η εγγραφή έχει ήδη γίνει κανονικά.
+  }
+}
+
 export async function notifyRecordChange(patientAmka: string, doctorAmka: string, category: string, change: RecordChange, url?: string) {
   if (!patientAmka || patientAmka === doctorAmka) return;
+  if (url) await warnIfWrittenToOldPod(patientAmka, url);
   const verb = RECORD_CHANGE_TEXT[category]?.[change];
   if (!verb) return;
   try {
