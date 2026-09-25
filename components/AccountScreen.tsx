@@ -1,5 +1,5 @@
-import React from 'react';
-import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { Text, View, TouchableOpacity, TextInput, SafeAreaView, StatusBar, ActivityIndicator, ScrollView, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { doctorStyles } from '../constants/doctorStyles';
@@ -9,6 +9,8 @@ import { SPACING, TYPOGRAPHY, TOUCH } from '../constants/designSystem';
 import { useAuth } from '../hooks/useAuth';
 import { SelectField } from './SelectField';
 import { DateField } from './DateField';
+import { SOLID_PROVIDERS } from '../constants/solidProviders';
+import { askConfirm } from '../utils/appMessage';
 
 /**
  * Ένα στοιχείο του λογαριασμού.
@@ -55,7 +57,35 @@ export function AccountScreen({
   onCancelEditing: () => void;
   onSave: () => void;
 }) {
-  const { confirmLogout, confirmSwitchPod } = useAuth();
+  const { role, confirmLogout, confirmSwitchPod, isSwitchingPod, switchPodWithHistory } = useAuth();
+  const [isProviderPickerOpen, setIsProviderPickerOpen] = useState(false);
+
+  // Ο ασθενής ρωτιέται πρώτα αν θέλει να μεταφερθεί το ιστορικό του. Με "Ναι" διαλέγει τον νέο
+  // πάροχο και συνδέεται σε αυτόν χωρίς να φύγει από το παλιό Pod. Με "Όχι" ακολουθεί η
+  // συνηθισμένη αλλαγή Pod (αποσύνδεση και σύνδεση από την αρχή, χωρίς μεταφορά).
+  const handleSwitchPod = async () => {
+    if (role !== 'patient') {
+      confirmSwitchPod();
+      return;
+    }
+
+    const copyHistory = await askConfirm({
+      message: 'Θέλετε να μεταφερθεί το ιατρικό σας ιστορικό στο νέο Pod;\n\nΑν πατήσετε "Όχι", το ιστορικό μένει μόνο στο παλιό Pod και το νέο ξεκινά χωρίς εγγραφές.',
+      confirmText: 'Ναι',
+      cancelText: 'Όχι',
+    });
+
+    if (copyHistory) {
+      setIsProviderPickerOpen(true);
+    } else {
+      confirmSwitchPod();
+    }
+  };
+
+  const handlePickProvider = (providerUrl: string) => {
+    setIsProviderPickerOpen(false);
+    switchPodWithHistory(providerUrl);
+  };
 
   return (
     <SafeAreaView style={[doctorStyles.container, { backgroundColor: COLORS.light }]}>
@@ -169,7 +199,7 @@ export function AccountScreen({
             // ποιος είσαι, μετά μπορείς να φύγεις. Στην επεξεργασία δεν εμφανίζονται - εκεί η
             // μόνη ενέργεια είναι η αποθήκευση.
             <View style={{ marginTop: SPACING.sectionGap }}>
-              <TouchableOpacity style={localStyles.secondaryButton} onPress={confirmSwitchPod}>
+              <TouchableOpacity style={localStyles.secondaryButton} onPress={handleSwitchPod}>
                 <Ionicons name="swap-horizontal-outline" size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
                 <Text style={localStyles.secondaryButtonText}>Σύνδεση με άλλο Pod</Text>
               </TouchableOpacity>
@@ -185,11 +215,44 @@ export function AccountScreen({
           )}
         </ScrollView>
       )}
+
+      {/* Επιλογή του νέου παρόχου, όταν ο ασθενής θέλει να μεταφερθεί το ιστορικό του. */}
+      <Modal animationType="slide" transparent={true} visible={isProviderPickerOpen} onRequestClose={() => setIsProviderPickerOpen(false)}>
+        <View style={styles.addmodalOverlay}>
+          <View style={styles.addmodalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+              <Text style={[styles.addmodalTitle, { marginBottom: 0, flex: 1 }]}>Νέος πάροχος Pod</Text>
+              <TouchableOpacity onPress={() => setIsProviderPickerOpen(false)} hitSlop={{ top: 13, bottom: 13, left: 13, right: 13 }}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 360 }}>
+              {SOLID_PROVIDERS.map((provider) => (
+                <TouchableOpacity key={provider.url} style={localStyles.providerOption} onPress={() => handlePickProvider(provider.url)}>
+                  <Text style={localStyles.providerOptionText}>{provider.name} ({provider.region})</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Όσο γίνεται η σύνδεση στο νέο Pod και η αντιγραφή, η οθόνη δεν πατιέται. */}
+      {isSwitchingPod && (
+        <View style={localStyles.busyOverlay}>
+          <ActivityIndicator size="large" color={COLORS.white} />
+          <Text style={localStyles.busyText}>Μεταφορά του ιστορικού στο νέο Pod…</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const localStyles = StyleSheet.create({
+  providerOption: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.medium, borderRadius: 15, padding: 14, marginBottom: SPACING.groupGap },
+  providerOptionText: { fontSize: TYPOGRAPHY.bodyText, color: COLORS.text, fontWeight: '600' },
+  busyOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(48,70,116,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  busyText: { color: COLORS.white, fontSize: TYPOGRAPHY.bodyText, fontWeight: 'bold', marginTop: 14, textAlign: 'center' },
   // Στη δεξιά άκρη της κεφαλίδας, εκεί όπου ήταν και το εικονίδιο του προφίλ πριν ενωθούν
   // οι δύο οθόνες.
   // Χωρίς "top": το εικονίδιο του μολυβιού είναι μικρότερο από το βελάκι επιστροφής και

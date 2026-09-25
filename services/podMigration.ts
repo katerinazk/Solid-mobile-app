@@ -13,46 +13,9 @@ import {
 
 // Μεταφορά του ιατρικού ιστορικού ενός ασθενή από το παλιό Pod του στο νέο, όταν αλλάζει Pod.
 //
-// Η μεταφορά χρειάζεται πρόσβαση και στα δύο Pod, αλλά ο ασθενής συνδέεται σε ένα κάθε φορά.
-// Γι' αυτό, τη στιγμή που επιλέγει "Σύνδεση με άλλο Pod" και απαντά "Ναι", κρατάμε ΜΟΝΟ στη
-// μνήμη (ποτέ στη συσκευή) το token του παλιού Pod. Μόλις συνδεθεί στο νέο, το ιστορικό
-// αντιγράφεται απευθείας από το ένα Pod στο άλλο. Το παλιό Pod δεν αγγίζεται: η εφαρμογή δεν
-// σβήνει ποτέ τίποτα, οπότε οι εγγραφές μένουν και εκεί.
-
-// Πόση ώρα ισχύει η μεταφορά που περιμένει τη σύνδεση στο νέο Pod. Μετά, το token του παλιού
-// Pod δεν κρατιέται άλλο στη μνήμη.
-const STAGED_MIGRATION_MAX_AGE_MS = 15 * 60 * 1000;
-
-interface StagedMigration {
-  patientAmka: string;
-  oldWebId: string;
-  oldAccessToken: string;
-  stagedAt: number;
-}
-
-let staged: StagedMigration | null = null;
-
-export function stagePodMigration(patientAmka: string, oldWebId: string, oldAccessToken: string) {
-  staged = { patientAmka, oldWebId, oldAccessToken, stagedAt: Date.now() };
-}
-
-export function clearPodMigration() {
-  staged = null;
-}
-
-/**
- * Παραλαβή της μεταφοράς που περιμένει, για τον ασθενή που μόλις συνδέθηκε. Ό,τι κι αν βγει,
- * η μεταφορά σβήνεται από τη μνήμη: ή γίνεται τώρα, ή ανήκει σε άλλον/έχει λήξει και δεν
- * πρέπει να μείνει.
- */
-export function takePodMigration(patientAmka: string): StagedMigration | null {
-  const pending = staged;
-  staged = null;
-  if (!pending) return null;
-  if (pending.patientAmka !== patientAmka) return null;
-  if (Date.now() - pending.stagedAt > STAGED_MIGRATION_MAX_AGE_MS) return null;
-  return pending;
-}
+// Ο ασθενής συνδέεται στο νέο Pod ΧΩΡΙΣ να αποσυνδεθεί από το παλιό, οπότε η εφαρμογή έχει για
+// λίγο στη μνήμη και τα δύο tokens και αντιγράφει απευθείας από το ένα Pod στο άλλο. Το παλιό
+// Pod δεν αγγίζεται: η εφαρμογή δεν σβήνει ποτέ τίποτα, οπότε οι εγγραφές μένουν και εκεί.
 
 const MIME_BY_EXTENSION: Record<string, string> = {
   pdf: 'application/pdf',

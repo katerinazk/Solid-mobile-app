@@ -15,7 +15,7 @@ import { prefetchAllCategories } from '../utils/podPrefetch';
 import { clearPodPrefetch } from '../utils/podPrefetchStore';
 import { clearDoctorCache } from '../utils/doctorCache';
 import { clearNewNotificationMarks } from '../services/notifications';
-import { stagePodMigration, clearPodMigration, takePodMigration, copyHistoryBetweenPods } from '../services/podMigration';
+import { copyHistoryBetweenPods } from '../services/podMigration';
 import { isSupportedWebId, getOwnerWebId } from '../services/solidPod';
 import { askConfirm, showMessage } from '../utils/appMessage';
 import { friendlyErrorMessage } from '../utils/networkError';
@@ -104,6 +104,8 @@ export interface AuthContextValue {
   logout: () => void;
   confirmLogout: () => void;
   confirmSwitchPod: () => void;
+  isSwitchingPod: boolean;
+  switchPodWithHistory: (providerUrl: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -178,6 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     discoveryDocument
   );
+
+  // Αλλαγή Pod με μεταφορά ιστορικού σε εξέλιξη (για την ένδειξη αναμονής στην οθόνη λογαριασμού).
+  const [isSwitchingPod, setIsSwitchingPod] = useState(false);
 
   const isBrowserOpen = useRef(false);
   const expectingResponse = useRef(false);
@@ -548,31 +553,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (role === 'patient') {
             const verified = await handlePatientLoginVerification(webId);
             if (verified) {
-              // Ο ασθενής άλλαξε Pod και ζήτησε να μεταφερθεί το ιστορικό του: αντιγράφεται τώρα,
-              // πριν ανοίξει η εφαρμογή, ώστε να το βρει ήδη στο νέο του Pod.
-              const pendingMigration = takePodMigration(loggedInPatientAmka);
-              if (pendingMigration && pendingMigration.oldWebId !== webId) {
-                try {
-                  const migration = await copyHistoryBetweenPods(
-                    pendingMigration.oldWebId,
-                    pendingMigration.oldAccessToken,
-                    webId,
-                    tokenData.access_token,
-                  );
-                  const alreadyThere = migration.alreadyThere > 0
-                    ? ` Άλλες ${migration.alreadyThere} υπήρχαν ήδη στο νέο Pod και έμειναν όπως ήταν.`
-                    : '';
-                  showMessage(
-                    migration.failed === 0
-                      ? `Το ιατρικό σας ιστορικό μεταφέρθηκε στο νέο Pod (${migration.copied} εγγραφές).${alreadyThere}`
-                      : `Μεταφέρθηκαν ${migration.copied} εγγραφές, αλλά ${migration.failed} δεν μεταφέρθηκαν. Παραμένουν στο παλιό σας Pod.${alreadyThere}`
-                  );
-                } catch (error) {
-                  console.error('Αποτυχία μεταφοράς ιστορικού:', error);
-                  showMessage('Δεν ήταν δυνατή η μεταφορά του ιστορικού. Παραμένει στο παλιό σας Pod.');
-                }
-              }
-
               // Το "loading" ΔΕΝ σβήνει εδώ. Το router.replace δεν αλλάζει οθόνη ακαριαία -
               // αν σβήσει τώρα, προλαβαίνει ένα ενδιάμεσο render όπου η φόρμα σύνδεσης
               // ξαναφαίνεται για μια στιγμή πριν προλάβει να μπει η επόμενη οθόνη. Μένει
@@ -717,6 +697,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [dynamicClientId, request]);
 
+  /**
+   * Δεύτερη σύνδεση σε άλλο Pod, ΧΩΡΙΣ να αγγίξει την τρέχουσα συνεδρία: δεν γράφει τίποτα στο
+   * state της σύνδεσης (token, ρόλος, φάκελος). Επιστρέφει τα στοιχεία του νέου Pod, ή null αν ο
+   * χρήστης έκλεισε το παράθυρο. Ίδια βήματα με την κανονική σύνδεση: εγγραφή στον πάροχο,
+   * σελίδα σύνδεσης σε ιδιωτικό παράθυρο, ανταλλαγή κωδικού με token (PKCE + DPoP).
+   */
+  const linkSecondPod = async (providerUrl: string): Promise<{ webId: string; accessToken: string; refreshToken: string; clientId: string; discovery: any } | null> => {
+    const discoveryRes = await fetch(`${providerUrl.replace(/\/$/, '')}/.well-known/openid-configuration`);
+    if (!discoveryRes.ok) throw new Error(`Ο server απάντησε με κωδικό ${discoveryRes.status}.`);
+    const discovery = await discoveryRes.json();
+
+    const registrationRes = await fetch(discovery.registration_endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_name: APP_NAME,
+        redirect_uris: [redirectUri],
+        application_type: 'native',
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+      }),
+    });
+    if (!registrationRes.ok) throw new Error(`Αποτυχία εγγραφής (DCR). Status: ${registrationRes.status}`);
+    const { client_id: clientId } = await registrationRes.json();
+    if (!clientId) throw new Error('Ο Provider δεν υποστηρίζει Dynamic Registration.');
+
+    const authRequest = new AuthSession.AuthRequest({
+      clientId,
+      scopes: ['openid', 'profile', 'offline_access', 'webid'],
+      redirectUri,
+      extraParams: { prompt: 'login', max_age: '0' },
+    });
+    const authUrl = await authRequest.makeAuthUrlAsync({ authorizationEndpoint: discovery.authorization_endpoint });
+
+    let returnUrl: string | null;
+    if (Platform.OS === 'android') {
+      returnUrl = await new Promise<string | null>((resolve) => {
+        webViewReturnResolver.current = resolve;
+        setWebViewAuthUrl(authUrl);
+      });
+      setWebViewAuthUrl(null);
+    } else {
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, appReturnUri, { preferEphemeralSession: true });
+      returnUrl = result.type === 'success' ? result.url : null;
+    }
+    if (!returnUrl) return null;
+
+    const params: Record<string, string> = {};
+    new URLSearchParams(returnUrl.split('?')[1] || '').forEach((value, key) => { params[key] = value; });
+    if (params.state !== authRequest.state) throw new Error('Η απάντηση της σύνδεσης δεν αντιστοιχεί στο αίτημα.');
+    if (!params.code) return null;
+
+    const dpop = await createDpopToken('POST', discovery.token_endpoint);
+    const tokenResponse = await fetch(discovery.token_endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'DPoP': dpop },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        code: params.code,
+        redirect_uri: redirectUri,
+        code_verifier: authRequest.codeVerifier || '',
+      }).toString(),
+    });
+    const tokenData = await tokenResponse.json();
+    if (!tokenData.access_token) throw new Error('Αποτυχία λήψης token από το νέο Pod.');
+
+    const payload = decodeJwtPayload(tokenData.access_token);
+    return {
+      webId: payload.webid || payload.sub || '',
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || '',
+      clientId,
+      discovery,
+    };
+  };
+
   const runDynamicLogin = async (providerUrl: string) => {
     if (isDcrRunning.current) return;
     isDcrRunning.current = true;
@@ -814,7 +872,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPodPrefetch();
     clearDoctorCache();
     clearNewNotificationMarks();
-    clearPodMigration();
     latestAccessTokenRef.current = '';
     setIsLoggedIn(false);
     // Έμεινε αναμμένο από την επιτυχή σύνδεση (βλ. σχόλιο στο getRealAccessToken) ώστε να
@@ -870,18 +927,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * εκεί και πέρα η εφαρμογή απορρίπτει κάθε άλλο Pod για το ίδιο ΑΜΚΑ. Σβήνοντας το web_id,
    * η επόμενη σύνδεση δέχεται ό,τι Pod δηλώσει ο χρήστης και το κρατά ως το νέο του.
    */
-  const switchPod = async (copyHistory = false) => {
-    // Το token του παλιού Pod κρατιέται στη μνήμη μέχρι να συνδεθεί ο ασθενής στο νέο, οπότε
-    // πρέπει να ισχύει ακόμα τότε: αν λήγει σύντομα, ανανεώνεται πριν αποσυνδεθεί.
-    const oldWebId = getOwnerWebId(activePatientFolderUrl);
-    let oldToken = accessToken;
-    if (copyHistory && role === 'patient') {
-      if (expiresWithin(oldToken, MIGRATION_MIN_TOKEN_LIFETIME_MS) && (await performTokenRefresh())) {
-        oldToken = latestAccessTokenRef.current;
-      }
-    }
-    const amkaToMigrate = loggedInPatientAmka;
-
+  const switchPod = async () => {
     const { error } = role === 'patient'
       ? await clearPatientWebId(loggedInPatientAmka)
       : await clearDoctorWebId(loggedInDoctorAmka);
@@ -900,16 +946,104 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     logout();
-    // Μετά το logout, που σβήνει κάθε εκκρεμή μεταφορά: το ιστορικό θα αντιγραφεί μόλις ο ίδιος
-    // ασθενής συνδεθεί στο νέο Pod.
-    if (copyHistory && role === 'patient' && oldWebId && oldToken) {
-      stagePodMigration(amkaToMigrate, oldWebId, oldToken);
+  };
+
+  // Ο ασθενής αλλάζει Pod ΚΑΙ μεταφέρει το ιστορικό του, χωρίς να φύγει πρώτα από το παλιό:
+  //   1. συνδέεται στο νέο Pod (δεύτερη σύνδεση πάνω από την τρέχουσα)
+  //   2. ελέγχεται ότι το νέο Pod δεν ανήκει σε άλλον
+  //   3. αντιγράφονται οι εγγραφές που λείπουν από το νέο Pod
+  //   4. ΜΟΝΟ τότε αλλάζει η αντιστοίχιση του ΑΜΚΑ και γίνεται αποσύνδεση
+  // Αν οτιδήποτε αποτύχει πριν το 4, ο ασθενής μένει συνδεδεμένος στο παλιό Pod και δεν αλλάζει τίποτα.
+  const switchPodWithHistory = async (providerUrl: string) => {
+    if (role !== 'patient' || isSwitchingPod) return;
+    setIsSwitchingPod(true);
+    try {
+      const linked = await linkSecondPod(providerUrl);
+      if (!linked) return;
+
+      if (!isSupportedWebId(linked.webId)) {
+        showMessage('Ο λογαριασμός αυτού του παρόχου δεν έχει τη δομή Pod που υποστηρίζει η εφαρμογή. Δοκιμάστε κάποιον από τους υπόλοιπους παρόχους της λίστας.');
+        return;
+      }
+
+      const oldWebId = getOwnerWebId(activePatientFolderUrl);
+      if (linked.webId === oldWebId) {
+        showMessage('Αυτό είναι το Pod στο οποίο είστε ήδη συνδεδεμένοι.');
+        return;
+      }
+
+      // Ένα Pod ανήκει σε ένα πρόσωπο: ούτε άλλος ασθενής ούτε γιατρός με διαφορετικό ΑΜΚΑ.
+      const { data: takenByPatient } = await supabase.from('patients').select('amka').eq('web_id', linked.webId).maybeSingle();
+      const { data: takenByDoctor } = await supabase.from('doctors').select('amka').eq('web_id', linked.webId).maybeSingle();
+      if ((takenByPatient && takenByPatient.amka !== loggedInPatientAmka) || (takenByDoctor && takenByDoctor.amka !== loggedInPatientAmka)) {
+        showMessage('Αυτό το Pod χρησιμοποιείται ήδη από άλλον χρήστη. Συνδεθείτε με δικό σας Pod.');
+        return;
+      }
+
+      // Το token του παλιού Pod μπορεί να έχει μείνει κοντά στη λήξη όσο ο ασθενής έκανε τη σύνδεση.
+      let oldToken = accessToken;
+      if (expiresWithin(oldToken, MIGRATION_MIN_TOKEN_LIFETIME_MS) && (await performTokenRefresh())) {
+        oldToken = latestAccessTokenRef.current;
+      }
+
+      const migration = await copyHistoryBetweenPods(oldWebId, oldToken, linked.webId, linked.accessToken);
+      const alreadyThere = migration.alreadyThere > 0
+        ? ` Άλλες ${migration.alreadyThere} υπήρχαν ήδη στο νέο Pod και έμειναν όπως ήταν.`
+        : '';
+
+      if (migration.failed > 0) {
+        const proceed = await askConfirm({
+          message: `Μεταφέρθηκαν ${migration.copied} εγγραφές, αλλά ${migration.failed} δεν μεταφέρθηκαν.${alreadyThere}\n\nΤο παλιό Pod δεν έχει αλλάξει. Θέλετε να αλλάξετε Pod παρόλα αυτά;`,
+          confirmText: 'Ναι',
+          cancelText: 'Όχι',
+        });
+        if (!proceed) return;
+      }
+
+      // Το νέο Pod γίνεται το Pod του ΑΜΚΑ - το τελευταίο στο οποίο συνδέθηκε.
+      const { error } = await supabase.from('patients').update({ web_id: linked.webId }).eq('amka', loggedInPatientAmka);
+      if (error) {
+        showMessage('Δεν ήταν δυνατή η αλλαγή του Pod. Το παλιό Pod παραμένει ενεργό.');
+        return;
+      }
+      await resetAclSyncForPatient(loggedInPatientAmka);
+
+      // Η συνεδρία περνά στο νέο Pod χωρίς νέα σύνδεση: τα στοιχεία του νέου Pod (token, refresh
+      // token, πάροχος) αντικαθιστούν τα παλιά, και μόνο στη μνήμη όπως πάντα. Τα παλιά
+      // δεδομένα καθαρίζονται, ώστε καμία οθόνη να μη δείξει εγγραφές του παλιού Pod.
+      clearRecordCache();
+      clearPodPrefetch();
+      storedClientId.current = linked.clientId;
+      setDynamicClientId(linked.clientId);
+      setDiscoveryDocument({
+        authorizationEndpoint: linked.discovery.authorization_endpoint,
+        tokenEndpoint: linked.discovery.token_endpoint,
+        revocationEndpoint: linked.discovery.revocation_endpoint,
+        userInfoEndpoint: linked.discovery.userinfo_endpoint,
+      });
+      refreshTokenRef.current = linked.refreshToken;
+      latestAccessTokenRef.current = linked.accessToken;
+      setActivePatientFolderUrl(linked.webId.replace('profile/card#me', 'public/'));
+      setAccessToken(linked.accessToken);
+
+      showMessage(
+        migration.failed === 0
+          ? `Το ιατρικό σας ιστορικό μεταφέρθηκε στο νέο Pod (${migration.copied} εγγραφές).${alreadyThere} Είστε πλέον συνδεδεμένοι στο νέο σας Pod.`
+          : `Το Pod άλλαξε. Είστε πλέον συνδεδεμένοι στο νέο σας Pod.`
+      );
+      router.replace(ROUTES.PATIENT_HOME);
+      prefetchAllCategories(linked.webId, linked.accessToken).catch(() => {});
+    } catch (error) {
+      console.error('Αποτυχία αλλαγής Pod με μεταφορά ιστορικού:', error);
+      showMessage('Δεν ήταν δυνατή η αλλαγή Pod. Το παλιό Pod παραμένει ενεργό και δεν άλλαξε τίποτα.');
+    } finally {
+      setIsSwitchingPod(false);
     }
   };
 
   const confirmSwitchPod = async () => {
     const consequence = role === 'patient'
-      ? 'Οι γιατροί που σας έχουν πρόσβαση θα την ξαναποκτήσουν μόλις συνδεθείτε στο νέο.'
+      ? 'Οι καταχωρήσεις που έχετε σήμερα μένουν στο παλιό Pod και δεν μεταφέρονται στο νέο. Οι γιατροί που σας έχουν πρόσβαση θα την ξαναποκτήσουν μόλις συνδεθείτε στο νέο.'
       : 'Οι ασθενείς σας θα σας ξαναεμφανιστούν καθώς ο καθένας τους μπαίνει στην εφαρμογή και ενημερώνεται ο φάκελός του.';
 
     const confirmed = await askConfirm({
@@ -919,21 +1053,7 @@ ${consequence}`,
       confirmText: 'Συνέχεια',
       cancelText: 'Ακύρωση',
     });
-    if (!confirmed) return;
-
-    // Μόνο ο ασθενής έχει ιστορικό στο Pod του. Η απάντηση δεν αλλάζει ποιο Pod μένει
-    // συνδεδεμένο με το ΑΜΚΑ: πάντα το τελευταίο στο οποίο θα συνδεθεί.
-    if (role === 'patient') {
-      const copyHistory = await askConfirm({
-        message: 'Θέλετε να μεταφερθεί το ιατρικό σας ιστορικό στο νέο Pod;\n\nΑν πατήσετε "Όχι", το ιστορικό μένει μόνο στο παλιό Pod και το νέο ξεκινά χωρίς εγγραφές.',
-        confirmText: 'Ναι',
-        cancelText: 'Όχι',
-      });
-      switchPod(copyHistory);
-      return;
-    }
-
-    switchPod();
+    if (confirmed) switchPod();
   };
 
   const confirmLogout = async () => {
@@ -960,6 +1080,8 @@ ${consequence}`,
         logout,
         confirmLogout,
         confirmSwitchPod,
+        isSwitchingPod,
+        switchPodWithHistory,
       }}
     >
       {/* onStartShouldSetResponderCapture: ενημερώνεται σε ΚΑΘΕ άγγιγμα σε ΟΛΗ την εφαρμογή
