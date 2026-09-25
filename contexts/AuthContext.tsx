@@ -538,10 +538,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     webId,
                     tokenData.access_token,
                   );
+                  const alreadyThere = migration.alreadyThere > 0
+                    ? ` Άλλες ${migration.alreadyThere} υπήρχαν ήδη στο νέο Pod και έμειναν όπως ήταν.`
+                    : '';
                   showMessage(
                     migration.failed === 0
-                      ? `Το ιατρικό σας ιστορικό μεταφέρθηκε στο νέο Pod (${migration.copied} εγγραφές).`
-                      : `Μεταφέρθηκαν ${migration.copied} εγγραφές, αλλά ${migration.failed} δεν μεταφέρθηκαν. Παραμένουν στο παλιό σας Pod.`
+                      ? `Το ιατρικό σας ιστορικό μεταφέρθηκε στο νέο Pod (${migration.copied} εγγραφές).${alreadyThere}`
+                      : `Μεταφέρθηκαν ${migration.copied} εγγραφές, αλλά ${migration.failed} δεν μεταφέρθηκαν. Παραμένουν στο παλιό σας Pod.${alreadyThere}`
                   );
                 } catch (error) {
                   console.error('Αποτυχία μεταφοράς ιστορικού:', error);

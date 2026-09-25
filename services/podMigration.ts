@@ -74,6 +74,8 @@ function lastSegment(url: string): string {
 
 export interface MigrationResult {
   copied: number;
+  /** Υπήρχαν ήδη στο νέο Pod (ίδιο όνομα αρχείου) και δεν αγγίχτηκαν. */
+  alreadyThere: number;
   failed: number;
 }
 
@@ -83,6 +85,10 @@ export interface MigrationResult {
  * Κάθε αρχείο κρατά το ίδιο όνομα, οπότε οι συνδέσεις μεταξύ εγγραφών και τα συνημμένα
  * βρίσκουν τον δρόμο τους. Οι διευθύνσεις του παλιού Pod μέσα στις εγγραφές (π.χ. οι
  * σύνδεσμοι προς άλλες εγγραφές) ξαναγράφονται ώστε να δείχνουν στο νέο.
+ *
+ * Αν το νέο Pod έχει ήδη κάποιες από τις εγγραφές (π.χ. από προηγούμενη χρήση ή μεταφορά που
+ * διακόπηκε), αντιγράφονται μόνο όσες λείπουν: μια εγγραφή που υπάρχει δεν ξαναγράφεται ποτέ,
+ * ώστε να μη χαθεί τίποτα που έχει διορθωθεί ή προστεθεί εκεί στο μεταξύ.
  *
  * Ένα αρχείο που αποτυγχάνει δεν σταματά τα υπόλοιπα - μετριέται και αναφέρεται στο τέλος.
  * Τα συνημμένα περνούν για λίγο από την προσωρινή μνήμη της εφαρμογής και σβήνονται αμέσως
@@ -96,7 +102,7 @@ export async function copyHistoryBetweenPods(
 ): Promise<MigrationResult> {
   const oldBase = getPublicFolderUrl(oldWebId);
   const newBase = getPublicFolderUrl(newWebId);
-  const result: MigrationResult = { copied: 0, failed: 0 };
+  const result: MigrationResult = { copied: 0, alreadyThere: 0, failed: 0 };
 
   for (const category of HISTORY_CATEGORIES) {
     const oldFolder = getCategoryFolderUrl(oldWebId, category);
@@ -111,15 +117,31 @@ export async function copyHistoryBetweenPods(
       continue;
     }
 
+    // Ό,τι υπάρχει ήδη στον αντίστοιχο φάκελο του νέου Pod. Αν η ανάγνωση αποτύχει, δεν ξέρουμε
+    // τι υπάρχει - καλύτερα να σταματήσουμε την κατηγορία παρά να γράψουμε πάνω σε υπάρχοντα.
+    let existingNames: Set<string>;
+    try {
+      const existing = await listFolderFilesOrEmpty(newFolder, newAccessToken);
+      existingNames = new Set(existing.map(lastSegment));
+    } catch {
+      result.failed += files.filter((url) => url.endsWith('.json')).length;
+      continue;
+    }
+
     for (const oldUrl of files.filter((url) => url.endsWith('.json'))) {
       try {
         const name = lastSegment(oldUrl);
+        if (existingNames.has(name)) {
+          result.alreadyThere += 1;
+          continue;
+        }
         const newUrl = `${newFolder}${name}`;
 
+        // Πρώτα τα συνημμένα, μετά η εγγραφή: αν η μεταφορά διακοπεί στη μέση, η εγγραφή δεν θα
+        // υπάρχει ακόμα στο νέο Pod και θα αντιγραφεί ολόκληρη την επόμενη φορά.
+        await copyAttachments(oldUrl, newUrl, oldAccessToken, newAccessToken);
         const text = await fetchFileContentFresh(oldUrl, oldAccessToken);
         await saveFileContent(newUrl, newAccessToken, text.split(oldBase).join(newBase));
-
-        await copyAttachments(oldUrl, newUrl, oldAccessToken, newAccessToken);
         result.copied += 1;
       } catch (error) {
         console.error('Αποτυχία μεταφοράς εγγραφής:', error);
