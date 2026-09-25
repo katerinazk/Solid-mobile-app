@@ -362,7 +362,7 @@ export default function DoctorExamsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction } : e)));
-      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εξετάσεις', 'retracted', item.title, item.url);
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εξετάσεις', 'retracted', item.url);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
@@ -384,7 +384,7 @@ export default function DoctorExamsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       await undoRetraction(item.url, accessToken, author);
       updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction: undefined } : e)));
-      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εξετάσεις', 'restored', item.title, item.url);
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εξετάσεις', 'restored', item.url);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
     }

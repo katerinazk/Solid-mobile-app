@@ -160,7 +160,7 @@ export default function MedicationFormScreen() {
 
       // Ο ασθενής ενημερώνεται όταν γιατρός προσθέτει ή τροποποιεί εγγραφή στον φάκελό του.
       if (role === 'doctor') {
-        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Φάρμακα', isEditing ? 'edited' : 'added', record.title, fileUrl);
+        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Φάρμακα', isEditing ? 'edited' : 'added', fileUrl);
       }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.

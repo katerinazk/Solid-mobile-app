@@ -86,16 +86,17 @@ const RECORD_CHANGE_TEXT: Record<string, Record<RecordChange, string>> = {
   'Εμβολιασμοί': { added: 'πρόσθεσε νέο εμβολιασμό', edited: 'τροποποίησε τον εμβολιασμό', retracted: 'ανακάλεσε τον εμβολιασμό', restored: 'αναίρεσε την ανάκληση του εμβολιασμού' },
 };
 
-// Ειδοποιεί τον ασθενή ότι ο γιατρός άλλαξε κάτι στον φάκελό του. Όταν ο γιατρός και ο ασθενής
+// Ειδοποιεί τον ασθενή ότι ο γιατρός άλλαξε κάτι στον φάκελό του. Το κείμενο ΔΕΝ περιέχει τον τίτλο
+// της εγγραφής (π.χ. το όνομα της διάγνωσης): είναι ιατρική πληροφορία και ζει μόνο στο Pod,
+// ενώ οι ειδοποιήσεις αποθηκεύονται στη Supabase. Ο ασθενής τη βλέπει ανοίγοντας την εγγραφή. Όταν ο γιατρός και ο ασθενής
 // είναι το ίδιο πρόσωπο (ίδιο ΑΜΚΑ, βλ. σύνδεση με δύο ρόλους) δεν υπάρχει τίποτα να μάθει.
-export async function notifyRecordChange(patientAmka: string, doctorAmka: string, category: string, change: RecordChange, title?: string, url?: string) {
+export async function notifyRecordChange(patientAmka: string, doctorAmka: string, category: string, change: RecordChange, url?: string) {
   if (!patientAmka || patientAmka === doctorAmka) return;
   const verb = RECORD_CHANGE_TEXT[category]?.[change];
   if (!verb) return;
   try {
     const subject = await doctorSubject(doctorAmka);
-    const detail = title ? `: ${title}` : '';
-    await createNotification('patient', patientAmka, `${subject} ${verb}${detail}.`, url ? { type: 'record', category, url } : undefined);
+    await createNotification('patient', patientAmka, `${subject} ${verb}.`, url ? { type: 'record', category, url } : undefined);
   } catch {
     // Βλ. σχόλιο στο createNotification.
   }

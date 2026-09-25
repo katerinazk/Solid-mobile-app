@@ -174,7 +174,7 @@ export default function ExamFormScreen() {
 
       // Ο ασθενής ενημερώνεται όταν γιατρός προσθέτει ή τροποποιεί εγγραφή στον φάκελό του.
       if (role === 'doctor') {
-        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Εξετάσεις', isEditing ? 'edited' : 'added', record.title, fileUrl);
+        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Εξετάσεις', isEditing ? 'edited' : 'added', fileUrl);
       }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
