@@ -9,7 +9,7 @@ import { createDpopToken } from '../utils/dpop';
 import { ROUTES } from '../constants/routes';
 import { clearPatientWebId } from '../services/patients';
 import { clearDoctorWebId } from '../services/doctors';
-import { resetAclSyncForPatient, resetAclSyncForDoctor } from '../services/access';
+import { resetAclSyncForPatient, resetAclSyncForDoctor, markAccessAclSynced } from '../services/access';
 import { clearRecordCache } from '../utils/recordCache';
 import { prefetchAllCategories } from '../utils/podPrefetch';
 import { clearPodPrefetch } from '../utils/podPrefetchStore';
@@ -967,8 +967,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // αλλαγή δεν ολοκληρωθεί, γυρνάμε στην οθόνη από την οποία ξεκίνησε ο χρήστης.
     const startPath = currentPath;
     let switched = false;
+    // Οι γιατροί που έχουν τώρα πρόσβαση: κλειδώνονται από την πρώτη στιγμή και ξεκλειδώνονται ξανά
+    // αν η αλλαγή δεν ολοκληρωθεί.
+    let lockedDoctors: string[] = [];
     setIsSwitchingPod(true);
     try {
+      if (isPatient) {
+        // Από τη στιγμή που ο ασθενής ξεκινά την αλλαγή, οι γιατροί βγαίνουν από τον φάκελό του και
+        // δεν μπορούν να γράψουν τίποτα (ο φύλακας ελέγχει το acl_synced πριν από κάθε εγγραφή και
+        // ανά 15 δευτερόλεπτα). Έτσι καμία εγγραφή δεν προλαβαίνει να πάει στο παλιό Pod ενώ
+        // αντιγράφεται στο νέο.
+        const { data: syncedRows } = await supabase
+          .from('access')
+          .select('doctor_amka')
+          .eq('patient_amka', ownAmka)
+          .eq('acl_synced', true);
+        lockedDoctors = (syncedRows || []).map((row: { doctor_amka: string }) => row.doctor_amka);
+        await resetAclSyncForPatient(ownAmka);
+      }
+
       const linked = await linkSecondPod(providerUrl);
       if (!linked) return;
 
@@ -1061,7 +1078,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       showMessage('Δεν ήταν δυνατή η αλλαγή Pod. Το παλιό Pod παραμένει ενεργό και δεν άλλαξε τίποτα.');
     } finally {
       setIsSwitchingPod(false);
-      if (!switched) router.replace(startPath as any);
+      if (!switched) {
+        // Η αλλαγή δεν έγινε: ο ασθενής μένει στο παλιό Pod, οπότε οι γιατροί ξαναποκτούν πρόσβαση.
+        try {
+          await markAccessAclSynced(ownAmka, lockedDoctors);
+        } catch (restoreError) {
+          console.error('Αποτυχία επαναφοράς πρόσβασης γιατρών:', restoreError);
+        }
+        router.replace(startPath as any);
+      }
     }
   };
 

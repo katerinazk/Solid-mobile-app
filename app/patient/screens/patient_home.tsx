@@ -73,18 +73,20 @@ export default function PatientHomeScreen() {
   const [patient, setPatient] = useState<{ first_name: string; last_name: string; sex: string | null } | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const { accessList } = usePatientAccessList();
-  const aclSynced = useRef(false);
+  // Ο φάκελος για τον οποίο έγινε ήδη ο συγχρονισμός. Αν ο ασθενής αλλάξει Pod χωρίς να
+  // αποσυνδεθεί, ο φάκελος αλλάζει και ο συγχρονισμός πρέπει να ξανατρέξει για το νέο Pod.
+  const aclSyncedFolder = useRef('');
 
   // Ο ασθενής μπορεί να έχει δώσει πρόσβαση σε γιατρό που δεν είχε ακόμα WebID (δεν είχε κάνει
   // ποτέ Solid login), οπότε ο γιατρός δεν είχε μπει στο ACL του Pod. Μόνο ο ασθενής μπορεί να
   // γράψει σε αυτό, γι' αυτό το ξαναγράφουμε μία φορά σε κάθε είσοδό του: όποιος γιατρός έχει
   // αποκτήσει WebID στο μεταξύ μπαίνει τώρα, χωρίς να χρειαστεί να κάνει ο ασθενής τίποτα.
   useEffect(() => {
-    if (aclSynced.current) return;
     if (!activePatientFolderUrl || !accessToken) return;
+    if (aclSyncedFolder.current === activePatientFolderUrl) return;
     if (!accessList.some((a) => a.doctors?.web_id && grantsPodAccess(a.access_type))) return;
 
-    aclSynced.current = true;
+    aclSyncedFolder.current = activePatientFolderUrl;
     (async () => {
       try {
         await syncPodAcl({ activePatientFolderUrl, accessToken, accessList });

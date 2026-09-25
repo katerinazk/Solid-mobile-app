@@ -15,6 +15,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useDoctorPatients } from '../../../hooks/useDoctorPatients';
 import { fetchDoctorByAmka } from '../../../services/doctors';
 import { fetchAccessEntry } from '../../../services/access';
+import { accessUnavailableMessage } from '../../../services/accessMessages';
 import { hasPendingAccessRequest, createAccessRequest } from '../../../services/accessRequests';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { Patient } from '../../../types/Patient';
@@ -104,11 +105,13 @@ export default function DoctorHomeScreen() {
         return;
       }
 
-      if (!entry || !entry.acl_synced) {
-        showMessage("Ο ασθενής κατάργησε την πρόσβασή σας. Δοκιμάστε ξανά αργότερα.");
+      const unavailable = await accessUnavailableMessage(entry, patient.amka);
+      if (unavailable) {
+        showMessage(unavailable);
         refresh();
         return;
       }
+      if (!entry) return;
 
       if (entry.access_type !== patient.accessType) {
         showMessage(`Ο ασθενής άλλαξε τον τύπο πρόσβασης σε "${entry.access_type}". Δοκιμάστε ξανά.`);

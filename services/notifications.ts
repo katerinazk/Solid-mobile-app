@@ -43,7 +43,7 @@ async function doctorSubject(doctorAmka: string): Promise<string> {
   return `${isFemale(data.sex) ? 'Η' : 'Ο'} ${data.first_name} ${data.last_name}${specialty}`;
 }
 
-async function patientSubject(patientAmka: string): Promise<string> {
+export async function patientSubject(patientAmka: string): Promise<string> {
   const { data } = await supabase.from('patients').select('first_name, last_name, sex').eq('amka', patientAmka).maybeSingle();
   if (!data) return 'Ένας χρήστης';
   return `${isFemale(data.sex) ? 'Η' : 'Ο'} ${data.first_name} ${data.last_name}`;

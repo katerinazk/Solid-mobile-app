@@ -1,7 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ROUTES } from '../constants/routes';
 import { fetchAccessEntry } from '../services/access';
+import { fetchPatientByAmka } from '../services/patients';
+import { accessUnavailableMessage } from '../services/accessMessages';
+import { patientSubject } from '../services/notifications';
 import { ACCESS_READ_ONLY } from '../constants/accessTypes';
 import { useAuth } from './useAuth';
 import { showMessage } from '../utils/appMessage';
@@ -16,6 +19,8 @@ const POLL_INTERVAL_MS = 15000;
 // κάθε εγγραφή (checkAccess), ώστε να μη γράφεται τίποτα με δικαίωμα που δεν ισχύει πια.
 export function useDoctorAccessGuard(patientAmka: string, initialAccessType: string) {
   const { role, loggedInDoctorAmka } = useAuth();
+  // Το Pod του ασθενή όπως ήταν όταν άνοιξε η οθόνη (όλες οι οθόνες του φακέλου το παίρνουν ως webId).
+  const { webId: openedWebId } = useLocalSearchParams<{ webId?: string }>();
 
   // Τις ίδιες φόρμες τις χρησιμοποιεί και ο ασθενής για τον εαυτό του. Εκεί δεν υπάρχει
   // καταχώρηση πρόσβασης να ελεγχθεί - ο φάκελος είναι δικός του - και ο έλεγχος θα τον
@@ -36,11 +41,25 @@ export function useDoctorAccessGuard(patientAmka: string, initialAccessType: str
     // Σε δικτυακό σφάλμα δεν πετάμε έξω τον γιατρό: δεν ξέρουμε ότι έχασε την πρόσβαση.
     if (error) return true;
 
-    if (!data || !data.acl_synced) {
+    const unavailable = await accessUnavailableMessage(data, patientAmka);
+    if (unavailable) {
       kickedOut.current = true;
-      showMessage("Ο ασθενής κατάργησε την πρόσβασή σας στον φάκελό του.");
+      showMessage(unavailable);
       router.replace(ROUTES.DOCTOR_HOME);
       return false;
+    }
+    if (!data) return false;
+
+    // Ο ασθενής μπορεί να άλλαξε Pod και η πρόσβαση να έχει ήδη ξαναγραφτεί στο νέο. Η οθόνη όμως
+    // δείχνει ακόμα το παλιό, και μια εγγραφή θα πήγαινε εκεί - όπου ο ασθενής δεν κοιτάζει πια.
+    if (openedWebId) {
+      const { data: patient, error: patientError } = await fetchPatientByAmka(patientAmka);
+      if (!patientError && patient?.web_id && patient.web_id !== openedWebId) {
+        kickedOut.current = true;
+        showMessage(`${await patientSubject(patientAmka)} αλλάζει Pod αυτή τη στιγμή. Δοκιμάστε ξανά αργότερα.`);
+        router.replace(ROUTES.DOCTOR_HOME);
+        return false;
+      }
     }
 
     if (data.access_type !== accessTypeRef.current) {
@@ -51,7 +70,7 @@ export function useDoctorAccessGuard(patientAmka: string, initialAccessType: str
     }
 
     return true;
-  }, [patientAmka, loggedInDoctorAmka]);
+  }, [patientAmka, loggedInDoctorAmka, openedWebId]);
 
   useFocusEffect(
     useCallback(() => {

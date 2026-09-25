@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { ROUTES } from '../constants/routes';
 import { useAuth } from './useAuth';
 import { fetchAccessEntry } from '../services/access';
+import { accessUnavailableMessage } from '../services/accessMessages';
 import { fetchPatientByAmka } from '../services/patients';
 import { getOwnerWebId } from '../services/solidPod';
 import { ACCESS_NONE } from '../constants/accessTypes';
@@ -53,10 +54,12 @@ export function useNotificationNavigation() {
           showMessage('Δεν ήταν δυνατός ο έλεγχος της πρόσβασης. Δοκιμάστε ξανά.');
           return;
         }
-        if (!entry || !entry.acl_synced || entry.access_type === ACCESS_NONE) {
-          showMessage('Δεν έχετε πλέον πρόσβαση στον φάκελο αυτού του ασθενή.');
+        const unavailable = await accessUnavailableMessage(entry, link.patientAmka);
+        if (unavailable) {
+          showMessage(unavailable);
           return;
         }
+        if (!entry) return;
 
         const { data: patient } = await fetchPatientByAmka(link.patientAmka);
         if (!patient?.web_id) {
