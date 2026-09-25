@@ -13,7 +13,7 @@ import { fetchFileContent, downloadAttachment, uploadAttachment } from '../servi
 import { saveRecordCompletion } from '../services/recordRevisions';
 import { openLocalFile } from '../utils/openLocalFile';
 import { isCompleteRecord, createdDateFromUrl } from '../utils/podRecords';
-import { parseRetraction, parseRevisions } from '../utils/recordRevision';
+import { parseRetraction, parseRetractionLog, parseRevisions } from '../utils/recordRevision';
 import { RetractedNote } from '../components/RetractedNote';
 import { fetchRelatedRecords, HistoryRecordSummary, CATEGORY_SINGULAR } from '../services/historyRecords';
 import { CodedCardTitle } from '../components/CodedCardTitle';
@@ -86,6 +86,38 @@ export default function RecordDetailScreen() {
   }, [related]);
 
   const revisions = useMemo(() => parseRevisions(record), [record]);
+
+  // Το ιστορικό αλλαγών ενώνει όλα όσα έγιναν στην εγγραφή, με χρονολογική σειρά: τις
+  // διορθώσεις, τις ανακλήσεις και τις αναιρέσεις τους. Μια ανάκληση που αναιρέθηκε φαίνεται
+  // ακόμα, με την αιτία της και με το πότε και από ποιον αναιρέθηκε.
+  const timeline = useMemo(() => {
+    type Event =
+      | { kind: 'edit'; at: string; byName: string; order: number; changes: { label: string; from: string; to: string }[] }
+      | { kind: 'retracted'; at: string; byName: string; order: number; reason: string }
+      | { kind: 'restored'; at: string; byName: string; order: number };
+
+    const log = parseRetractionLog(record);
+    const events: Event[] = [];
+    if (revisions.length === 0 && log.length === 0) return events;
+
+    revisions.forEach((revision, index) => {
+      const after = index + 1 < revisions.length ? revisions[index + 1].record : record;
+      events.push({ kind: 'edit', at: revision.at, byName: revision.byName, order: 0, changes: changedFields(revision.record || {}, after || {}) });
+    });
+    log.forEach((entry) => {
+      events.push({ kind: 'retracted', at: entry.at, byName: entry.byName, order: 1, reason: entry.reason });
+      events.push({ kind: 'restored', at: entry.restoredAt, byName: entry.restoredByName, order: 2 });
+    });
+    const active = parseRetraction(record);
+    if (active) events.push({ kind: 'retracted', at: active.at, byName: active.byName, order: 1, reason: active.reason });
+
+    // Οι ημερομηνίες έχουν μόνο ημέρα, όχι ώρα: μέσα στην ίδια μέρα κρατάμε τη λογική σειρά
+    // (διόρθωση, ανάκληση, αναίρεση) και τη σειρά που γράφτηκαν.
+    return events
+      .map((event, position) => ({ event, position }))
+      .sort((a, b) => a.event.at.localeCompare(b.event.at) || a.event.order - b.event.order || a.position - b.position)
+      .map(({ event }) => event);
+  }, [record, revisions]);
 
   const handleOpenResult = async () => {
     if (!record?.resultFile) return;
@@ -273,7 +305,7 @@ export default function RecordDetailScreen() {
 
           {/* Το ιστορικό αλλαγών: κάθε φορά που κάποιος άλλαξε την εγγραφή, με τη μορφή που
               είχε πριν. Χωρίς αυτό η επεξεργασία θα έσβηνε αθόρυβα ό,τι έγραψε ο προηγούμενος. */}
-          {revisions.length > 0 && (
+          {timeline.length > 0 && (
             <View style={{ marginTop: SPACING.sectionGap }}>
               <Text style={localStyles.sectionTitle}>Ιστορικό Αλλαγών</Text>
 
@@ -281,33 +313,45 @@ export default function RecordDetailScreen() {
                   ξεχωρίζει οπτικά από τις γύρω ενότητες αντί να μοιάζει με σκέτο κείμενο.
                   Δείχνει τα πεδία που πράγματι άλλαξαν σε αυτή την τροποποίηση - η μορφή "μετά"
                   είναι η επόμενη τροποποίηση αν υπάρχει, αλλιώς η σημερινή εγγραφή. */}
-              {revisions.map((revision, index) => {
-                const after = index + 1 < revisions.length ? revisions[index + 1].record : record;
-                const changes = changedFields(revision.record || {}, after || {});
-
-                return (
-                  <View key={`${revision.at}-${index}`} style={[localStyles.revisionCard, index > 0 && { marginTop: 10 }]}>
-                    <View style={localStyles.revisionIconBadge}>
-                      <Ionicons name="create-outline" size={16} color={COLORS.white} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={localStyles.revisionDate}>
-                        {formatDate(revision.at)}{revision.byName ? `  ·  ${revision.byName}` : ''}
-                      </Text>
-                      {changes.length === 0 ? (
+              {timeline.map((event, index) => (
+                <View key={`${event.kind}-${event.at}-${index}`} style={[localStyles.revisionCard, index > 0 && { marginTop: 10 }]}>
+                  <View style={[localStyles.revisionIconBadge, event.kind === 'retracted' && { backgroundColor: COLORS.danger }]}>
+                    <Ionicons
+                      name={event.kind === 'edit' ? 'create-outline' : event.kind === 'retracted' ? 'close-circle-outline' : 'arrow-undo-outline'}
+                      size={16}
+                      color={COLORS.white}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={localStyles.revisionDate}>
+                      {formatDate(event.at)}{event.byName ? `  ·  ${event.byName}` : ''}
+                    </Text>
+                    {event.kind === 'edit' ? (
+                      event.changes.length === 0 ? (
                         <Text style={doctorStyles.diagnosisCardDetail}>Καμία ορατή αλλαγή πεδίου.</Text>
                       ) : (
-                        changes.map((change) => (
+                        event.changes.map((change) => (
                           <Text key={change.label} style={doctorStyles.diagnosisCardDetail}>
                             <Text style={doctorStyles.diagnosisCardLabel}>{change.label}: </Text>
                             {change.from} → {change.to}
                           </Text>
                         ))
-                      )}
-                    </View>
+                      )
+                    ) : event.kind === 'retracted' ? (
+                      <>
+                        <Text style={[doctorStyles.diagnosisCardDetail, { fontWeight: 'bold', color: COLORS.danger }]}>Ανακλήθηκε</Text>
+                        {!!event.reason && (
+                          <Text style={doctorStyles.diagnosisCardDetail}>
+                            <Text style={doctorStyles.diagnosisCardLabel}>Αιτία: </Text>{event.reason}
+                          </Text>
+                        )}
+                      </>
+                    ) : (
+                      <Text style={[doctorStyles.diagnosisCardDetail, { fontWeight: 'bold' }]}>Αναιρέθηκε η ανάκληση</Text>
+                    )}
                   </View>
-                );
-              })}
+                </View>
+              ))}
             </View>
           )}
 

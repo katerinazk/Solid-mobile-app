@@ -38,8 +38,30 @@ export interface RecordRevision extends RecordStamp {
   record: any;
 }
 
+/** Μια ανάκληση που αναιρέθηκε αργότερα: τα στοιχεία της ανάκλησης και όποιος την αναίρεσε. */
+export interface RetractionLogEntry extends Retraction {
+  restoredAt: string;
+  restoredBy: string;
+  restoredByName: string;
+}
+
 export function isRetracted(record: any): boolean {
   return !!record?.retracted?.at;
+}
+
+export function parseRetractionLog(record: any): RetractionLogEntry[] {
+  const stored: any[] = Array.isArray(record?.retractionLog) ? record.retractionLog : [];
+  return stored
+    .filter((entry) => entry?.at && entry?.restoredAt)
+    .map((entry) => ({
+      at: String(entry.at),
+      by: String(entry.by || ''),
+      byName: String(entry.byName || ''),
+      reason: String(entry.reason || ''),
+      restoredAt: String(entry.restoredAt),
+      restoredBy: String(entry.restoredBy || ''),
+      restoredByName: String(entry.restoredByName || ''),
+    }));
 }
 
 export function parseRetraction(record: any): Retraction | undefined {
