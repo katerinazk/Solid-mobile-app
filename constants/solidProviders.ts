@@ -61,30 +61,30 @@ export function solidProviderLabelFromUrl(url: string): string {
   return found ? solidProviderLabel(found) : '';
 }
 
-// Ο πάροχος στον οποίο ανήκει ένα WebID, ή null αν δεν ανήκει σε κανέναν της λίστας. Ο host του
-// WebID είναι είτε ο ίδιος με του παρόχου (solidweb.me/όνομα/...) είτε υποτομέας του
-// (όνομα.solidcommunity.net). Στους παρόχους με πρόθεμα "pods." ο υποτομέας είναι του βασικού.
-export function solidProviderForWebId(webId: string): SolidProvider | null {
-  let host: string;
+// Ανήκει το WebID σε αυτόν τον πάροχο; Ο host του WebID είναι είτε ο ίδιος με του παρόχου
+// (solidweb.me/όνομα/...) είτε υποτομέας του (όνομα.solidcommunity.net). Στους παρόχους με
+// πρόθεμα "pods." ο υποτομέας είναι του βασικού.
+export function webIdBelongsToProvider(webId: string, providerUrl: string): boolean {
   try {
-    host = new URL(webId).hostname;
+    const host = new URL(webId).hostname;
+    const providerHost = new URL(providerUrl).hostname;
+    return [providerHost, providerHost.replace(/^pods\./, '')].some((base) => host === base || host.endsWith('.' + base));
   } catch {
-    return null;
+    return false;
   }
-  return (
-    SOLID_PROVIDERS.find((provider) => {
-      const providerHost = new URL(provider.url).hostname;
-      const bases = [providerHost, providerHost.replace(/^pods\./, '')];
-      return bases.some((base) => host === base || host.endsWith('.' + base));
-    }) || null
-  );
+}
+
+// Ο πάροχος της λίστας στον οποίο ανήκει ένα WebID, ή null αν δεν ανήκει σε κανέναν.
+export function solidProviderForWebId(webId: string): SolidProvider | null {
+  return SOLID_PROVIDERS.find((provider) => webIdBelongsToProvider(webId, provider.url)) || null;
 }
 
 // Αν το ΑΜΚΑ είναι ήδη δεμένο με Pod και ο χρήστης διάλεξε άλλον πάροχο, επιστρέφει το μήνυμα
-// που τον εμποδίζει. Αλλιώς null (και όταν το Pod δεν αντιστοιχεί σε πάροχο της λίστας).
+// που τον εμποδίζει. Αλλιώς null (και όταν το Pod δεν αντιστοιχεί σε πάροχο της λίστας - τότε
+// αποφασίζει ο έλεγχος μετά τη σύνδεση).
 export function providerMismatchMessage(boundWebId: string | null | undefined, chosenProviderUrl: string): string | null {
   if (!boundWebId) return null;
   const bound = solidProviderForWebId(boundWebId);
-  if (!bound || bound.url === chosenProviderUrl) return null;
+  if (!bound || webIdBelongsToProvider(boundWebId, chosenProviderUrl)) return null;
   return `Το ΑΜΚΑ σας είναι συνδεδεμένο με τον πάροχο ${solidProviderLabel(bound)}. Επιλέξτε τον ίδιο πάροχο, ή αλλάξτε Pod από τον Λογαριασμό σας μετά τη σύνδεση.`;
 }
