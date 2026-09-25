@@ -8,9 +8,9 @@ import { fetchPatientByAmka } from '../../services/patients';
 import { hasPendingAccessRequest, createAccessRequest } from '../../services/accessRequests';
 import { fetchAccessEntry } from '../../services/access';
 import { InvitePatientModal } from './InvitePatientModal';
-import { ACCESS_FULL, GRANTABLE_ACCESS_TYPES } from '../../constants/accessTypes';
+import { ACCESS_FULL, ACCESS_NONE, GRANTABLE_ACCESS_TYPES } from '../../constants/accessTypes';
 import { SelectField } from '../SelectField';
-import { askConfirm, showMessage } from '../../utils/appMessage';
+import { askConfirm, showMessage } from '../../utils/appMessage';
 import { friendlyErrorMessage } from '../../utils/networkError';
 
 interface Props {
@@ -74,7 +74,10 @@ export function AccessRequestModal({ visible, doctorAmka, initialAmka, hasAccess
 
       // Η βάση είναι η αυθεντία - η λίστα της οθόνης μπορεί να έχει παλιώσει. Αν το ερώτημα
       // αποτύχει, πέφτουμε πίσω σε αυτήν για να μη σταλεί αίτημα σε ασθενή που ήδη μας έχει.
-      const { data: existingAccess, error: accessError } = await fetchAccessEntry(patientAmka.trim(), doctorAmka);
+      const { data: storedAccess, error: accessError } = await fetchAccessEntry(patientAmka.trim(), doctorAmka);
+      // Το "Καμία Πρόσβαση" κρατά την εγγραφή στη βάση αλλά ο γιατρός δεν έχει πρόσβαση: το
+      // αίτημα πρέπει να επιτρέπεται, όπως και σε ασθενή που δεν του έχει δώσει ποτέ τίποτα.
+      const existingAccess = storedAccess && storedAccess.access_type !== ACCESS_NONE ? storedAccess : null;
 
       if (accessError && hasAccessTo(patientAmka.trim())) {
         showMessage("Έχετε ήδη πρόσβαση σε αυτόν τον ασθενή.");

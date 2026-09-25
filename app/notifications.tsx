@@ -7,6 +7,7 @@ import { sharedStyles } from '../constants/sharedStyles';
 import { doctorStyles } from '../constants/doctorStyles';
 import { SPACING } from '../constants/designSystem';
 import { useAuth } from '../hooks/useAuth';
+import { useNotificationNavigation } from '../hooks/useNotificationNavigation';
 import { NotificationCard } from '../components/NotificationsList';
 import { NotificationRecord, fetchNotifications, markNotificationsAsSeen } from '../services/notifications';
 
@@ -18,6 +19,7 @@ const PAGE_SIZE = 10;
 export default function NotificationsScreen() {
   const { role, loggedInPatientAmka, loggedInDoctorAmka } = useAuth();
   const amka = role === 'patient' ? loggedInPatientAmka : loggedInDoctorAmka;
+  const openNotification = useNotificationNavigation();
 
   const [items, setItems] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,7 @@ export default function NotificationsScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <NotificationCard item={item} />}
+          renderItem={({ item }) => <NotificationCard item={item} onPress={item.link ? () => openNotification(item.link!) : undefined} />}
           contentContainerStyle={{ paddingHorizontal: SPACING.sideMargin, paddingBottom: SPACING.bottomMargin }}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.4}

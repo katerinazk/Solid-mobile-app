@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Text, View, FlatList, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, ActivityIndicator, Modal, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { COLORS } from '../../../constants/colors';
 import { sharedStyles as styles } from '../../../constants/sharedStyles';
 import { TYPOGRAPHY, SPACING, TOUCH } from '../../../constants/designSystem';
@@ -95,6 +95,13 @@ export default function PatientAccessScreen() {
       setLoadingRequests(false);
     }
   };
+
+  // Από ειδοποίηση "ο γιατρός ζήτησε πρόσβαση": ανοίγει κατευθείαν το παράθυρο αιτημάτων. Η
+  // παράμετρος αλλάζει σε κάθε πάτημα, οπότε δουλεύει κι όταν η οθόνη είναι ήδη ανοιχτή.
+  const { openRequests } = useLocalSearchParams<{ openRequests?: string }>();
+  useEffect(() => {
+    if (openRequests) openRequestsModal();
+  }, [openRequests]);
 
   const handleAcceptRequest = async (request: AccessRequest) => {
     // Η λίστα φορτώθηκε όταν άνοιξε το παράθυρο - το αίτημα μπορεί να έληξε στο μεταξύ.

@@ -211,7 +211,7 @@ export default function DoctorHospitalizationsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateHospitalizations((prev) => prev.map((h) => (h.url === item.url ? { ...h, retraction } : h)));
-      await notifyRecordChange(amka, loggedInDoctorAmka, 'Νοσηλείες', 'retracted', item.title);
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Νοσηλείες', 'retracted', item.title, item.url);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
@@ -233,7 +233,7 @@ export default function DoctorHospitalizationsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       await undoRetraction(item.url, accessToken, author);
       updateHospitalizations((prev) => prev.map((h) => (h.url === item.url ? { ...h, retraction: undefined } : h)));
-      await notifyRecordChange(amka, loggedInDoctorAmka, 'Νοσηλείες', 'restored', item.title);
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Νοσηλείες', 'restored', item.title, item.url);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
     }

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { sharedStyles } from '../constants/sharedStyles';
 import { ROUTES } from '../constants/routes';
 import { SPACING, TYPOGRAPHY, TOUCH } from '../constants/designSystem';
 import { usePodAutoRefresh } from '../hooks/usePodAutoRefresh';
+import { useNotificationNavigation } from '../hooks/useNotificationNavigation';
 import {
   NotificationRecord,
   NotificationRole,
@@ -37,16 +39,25 @@ function timeAgo(createdAt: string): string {
 
 // Η κάρτα μιας ειδοποίησης - κοινή για την αρχική και για την οθόνη με όλες τις ειδοποιήσεις.
 // Πάνω σειρά: η κουκκίδα "νέο" αριστερά, ο χρόνος δεξιά. Το κείμενο από κάτω, έντονο μόνο στις νέες.
-export function NotificationCard({ item }: { item: NotificationRecord }) {
+// Όταν η ειδοποίηση έχει προορισμό (onPress), πατιέται και δείχνει βελάκι δίπλα στον χρόνο.
+export function NotificationCard({ item, onPress }: { item: NotificationRecord; onPress?: () => void }) {
   const isNew = isNewNotification(item.id);
-  return (
-    <View style={localStyles.card}>
+  const content = (
+    <>
       <View style={localStyles.topRow}>
         {isNew && <View style={localStyles.dot} />}
         <Text style={localStyles.time}>{timeAgo(item.created_at)}</Text>
+        {!!onPress && <Ionicons name="chevron-forward" size={16} color={COLORS.primary} style={{ marginLeft: 4 }} />}
       </View>
       <Text style={[localStyles.message, isNew && localStyles.messageNew]}>{item.message}</Text>
-    </View>
+    </>
+  );
+
+  if (!onPress) return <View style={localStyles.card}>{content}</View>;
+  return (
+    <TouchableOpacity activeOpacity={0.8} style={localStyles.card} onPress={onPress}>
+      {content}
+    </TouchableOpacity>
   );
 }
 
@@ -55,6 +66,7 @@ export function NotificationCard({ item }: { item: NotificationRecord }) {
 // μετά από 30 μέρες. Ανανεώνονται όπως οι λίστες ιστορικού (εστίαση οθόνης + κάθε 15 δευτερόλεπτα).
 export function NotificationsList({ role, amka }: Props) {
   const [items, setItems] = useState<NotificationRecord[]>([]);
+  const openNotification = useNotificationNavigation();
   // Αν η αρχική έφερε ολόκληρη τη σελίδα της, μπορεί να υπάρχουν κι άλλες στη βάση.
   const [maybeMore, setMaybeMore] = useState(false);
 
@@ -91,7 +103,7 @@ export function NotificationsList({ role, amka }: Props) {
   return (
     <View>
       {shown.map((item) => (
-        <NotificationCard key={item.id} item={item} />
+        <NotificationCard key={item.id} item={item} onPress={item.link ? () => openNotification(item.link!) : undefined} />
       ))}
       {hasMore && (
         <TouchableOpacity style={localStyles.moreButton} onPress={() => router.push(ROUTES.NOTIFICATIONS)}>

@@ -120,7 +120,7 @@ export default function DiagnosisFormScreen() {
 
       // Ο ασθενής ενημερώνεται όταν γιατρός προσθέτει ή τροποποιεί εγγραφή στον φάκελό του.
       if (role === 'doctor') {
-        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Διαγνώσεις', isEditing ? 'edited' : 'added', record.title);
+        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Διαγνώσεις', isEditing ? 'edited' : 'added', record.title, fileUrl);
       }
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.

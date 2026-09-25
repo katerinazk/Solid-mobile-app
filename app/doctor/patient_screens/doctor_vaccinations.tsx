@@ -221,7 +221,7 @@ export default function DoctorVaccinationsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       const retraction = await retractRecord(item.url, accessToken, author, reason);
       updateVaccinations((prev) => prev.map((v) => (v.url === item.url ? { ...v, retraction } : v)));
-      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εμβολιασμοί', 'retracted', item.title);
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εμβολιασμοί', 'retracted', item.title, item.url);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
     }
@@ -243,7 +243,7 @@ export default function DoctorVaccinationsScreen() {
       const author = await resolveRecordAuthor('doctor', loggedInDoctorAmka, '');
       await undoRetraction(item.url, accessToken, author);
       updateVaccinations((prev) => prev.map((v) => (v.url === item.url ? { ...v, retraction: undefined } : v)));
-      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εμβολιασμοί', 'restored', item.title);
+      await notifyRecordChange(amka, loggedInDoctorAmka, 'Εμβολιασμοί', 'restored', item.title, item.url);
     } catch (error: any) {
       showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
     }
