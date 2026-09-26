@@ -173,9 +173,10 @@ export default function ExamFormScreen() {
       }
 
       // Ο ασθενής ενημερώνεται όταν γιατρός προσθέτει ή τροποποιεί εγγραφή στον φάκελό του.
-      if (role === 'doctor') {
-        await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Εξετάσεις', isEditing ? 'edited' : 'added', fileUrl);
-      }
+      // Μήνυμα επιτυχίας σε κάθε αποθήκευση, εκτός αν ο γιατρός έχει ήδη ενημερωθεί ότι η εγγραφή
+      // πήγε στο παλιό Pod του ασθενή.
+      const writtenToCurrentPod = role === 'doctor' ? await notifyRecordChange(params.amka, loggedInDoctorAmka, 'Εξετάσεις', isEditing ? 'edited' : 'added', fileUrl) : true;
+      if (writtenToCurrentPod) showMessage('Η εγγραφή αποθηκεύτηκε επιτυχώς.');
 
       // Η λίστα ξαναδιαβάζει τον φάκελο μόλις επιστρέψει σε αυτήν η εστίαση.
       router.back();

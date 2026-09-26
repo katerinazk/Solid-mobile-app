@@ -94,31 +94,37 @@ const RECORD_CHANGE_TEXT: Record<string, Record<RecordChange, string>> = {
 // είναι το ίδιο πρόσωπο (ίδιο ΑΜΚΑ, βλ. σύνδεση με δύο ρόλους) δεν υπάρχει τίποτα να μάθει.
 // Ελέγχει, αμέσως μετά από κάθε εγγραφή γιατρού, ότι η εγγραφή γράφτηκε στο Pod που έχει ΤΩΡΑ ο
 // ασθενής. Αν ο ασθενής άλλαξε Pod όσο αποθηκευόταν, η εγγραφή έμεινε στο παλιό και ο ίδιος δεν
-// θα τη δει στο νέο - ο γιατρός ενημερώνεται για να την ξαναγράψει.
-async function warnIfWrittenToOldPod(patientAmka: string, url: string) {
+// θα τη δει στο νέο - ο γιατρός ενημερώνεται για να την ξαναγράψει. Επιστρέφει true όταν εμφάνισε
+// αυτό το μήνυμα.
+async function warnIfWrittenToOldPod(patientAmka: string, url: string): Promise<boolean> {
   try {
     const { data } = await supabase.from('patients').select('web_id').eq('amka', patientAmka).maybeSingle();
-    if (!data?.web_id) return;
-    if (url.startsWith(getPublicFolderUrl(data.web_id))) return;
+    if (!data?.web_id) return false;
+    if (url.startsWith(getPublicFolderUrl(data.web_id))) return false;
 
     const subject = await patientSubject(patientAmka);
     showMessage(`${subject} άλλαξε Pod όσο αποθηκευόταν η εγγραφή. Η εγγραφή γράφτηκε στο παλιό του Pod και μπορεί να μην εμφανιστεί στον ασθενή. Δοκιμάστε να κάνετε ξανά την εγγραφή σε λίγο.`);
+    return true;
   } catch {
     // Ο έλεγχος είναι πρόσθετος: αν αποτύχει, η εγγραφή έχει ήδη γίνει κανονικά.
+    return false;
   }
 }
 
-export async function notifyRecordChange(patientAmka: string, doctorAmka: string, category: string, change: RecordChange, url?: string) {
-  if (!patientAmka || patientAmka === doctorAmka) return;
-  if (url) await warnIfWrittenToOldPod(patientAmka, url);
+// Επιστρέφει true όταν η εγγραφή γράφτηκε στο τρέχον Pod του ασθενή (δηλαδή όταν δεν εμφανίστηκε
+// προειδοποίηση), ώστε η φόρμα να δείξει μήνυμα επιτυχίας μόνο τότε.
+export async function notifyRecordChange(patientAmka: string, doctorAmka: string, category: string, change: RecordChange, url?: string): Promise<boolean> {
+  if (!patientAmka || patientAmka === doctorAmka) return true;
+  const wroteToOldPod = url ? await warnIfWrittenToOldPod(patientAmka, url) : false;
   const verb = RECORD_CHANGE_TEXT[category]?.[change];
-  if (!verb) return;
+  if (!verb) return !wroteToOldPod;
   try {
     const subject = await doctorSubject(doctorAmka);
     await createNotification('patient', patientAmka, `${subject} ${verb}.`, url ? { type: 'record', category, url } : undefined);
   } catch {
     // Βλ. σχόλιο στο createNotification.
   }
+  return !wroteToOldPod;
 }
 
 // --- Ενέργειες ασθενή, ειδοποίηση προς τον γιατρό ---
