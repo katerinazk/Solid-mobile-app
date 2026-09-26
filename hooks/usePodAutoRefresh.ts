@@ -6,6 +6,9 @@ import { useFocusEffect } from 'expo-router';
 // που χρησιμοποιεί και ο έλεγχος πρόσβασης του γιατρού.
 const POLL_INTERVAL_MS = 15000;
 
+// Πόση ώρα περιμένουμε μία ανανέωση πριν τη θεωρήσουμε κολλημένη και επιτρέψουμε την επόμενη.
+const RELOAD_TIMEOUT_MS = 20000;
+
 /**
  * Κρατά μια λίστα ιστορικού ενημερωμένη με ό,τι αλλάζει στο Pod του ασθενή, από όποιον κι αν
  * γίνεται η αλλαγή - τον ίδιο τον ασθενή σε άλλη οθόνη, ή γιατρό που καταχωρεί ταυτόχρονα.
@@ -36,9 +39,18 @@ export function usePodAutoRefresh(reload: (silent?: boolean) => Promise<unknown>
   const runReload = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
+    // Ένα αίτημα δικτύου στο κινητό δεν έχει χρονικό όριο: αν ένα κολλήσει, η ανανέωση δεν
+    // τελείωνε ποτέ, το inFlight έμενε αναμμένο και όλες οι επόμενες ανανεώσεις παραλείπονταν
+    // σιωπηλά - η λίστα πάγωνε μέχρι να ξανανοίξει η οθόνη. Μετά το όριο ελευθερώνουμε το
+    // σήμα και η επόμενη αφορμή ξαναδοκιμάζει.
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await reloadRef.current(true);
+      await Promise.race([
+        reloadRef.current(true),
+        new Promise<void>((resolve) => { timer = setTimeout(resolve, RELOAD_TIMEOUT_MS); }),
+      ]);
     } finally {
+      if (timer) clearTimeout(timer);
       inFlight.current = false;
     }
   }, []);

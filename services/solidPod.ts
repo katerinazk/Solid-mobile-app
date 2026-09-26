@@ -125,6 +125,8 @@ export async function listFolderFiles(rawFolderUrl: string, accessToken: string)
       'Authorization': `DPoP ${accessToken}`,
       'DPoP': dpopToken,
       'Accept': 'text/turtle',
+      // Ένας φάκελος αλλάζει με κάθε νέα εγγραφή: δεν πρέπει να απαντηθεί από παλιό αντίγραφο.
+      'Cache-Control': 'no-cache',
     },
   });
 
@@ -227,6 +229,7 @@ export async function fetchFileContentFresh(rawUrl: string, accessToken: string)
     headers: {
       'Authorization': `DPoP ${accessToken}`,
       'DPoP': dpopToken,
+      'Cache-Control': 'no-cache',
     },
   });
 

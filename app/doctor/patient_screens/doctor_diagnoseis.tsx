@@ -95,6 +95,7 @@ export default function DoctorDiagnoseisScreen() {
       if (!silent && diagnoses.length === 0) setLoading(true);
       const files = await listFolderFilesOrEmpty(folderUrl, accessToken);
       const diagnosisFiles = files.filter((url) => url.endsWith('.json'));
+      console.log('[ΔΙΑΓΝΩΣΕΙΣ-ΓΙΑΤΡΟΣ] φάκελος:', folderUrl, '| αρχεία στη λίστα:', files.length, '| .json:', diagnosisFiles.length, '| silent:', silent, '| τελευταία:', diagnosisFiles.slice(-3).map((u) => u.split('/').pop()).join(', '));
 
       const valid = await loadProgressively<Diagnosis>({
         urls: diagnosisFiles,
@@ -103,9 +104,13 @@ export default function DoctorDiagnoseisScreen() {
             const content = await fetchFileContent(url, accessToken);
             const record = JSON.parse(content);
             // Αρχεία που δεν έγραψε η εφαρμογή, ή παλιές εγγραφές χωρίς κωδικό, δεν εμφανίζονται.
-            if (!isCompleteRecord('Διαγνώσεις', record)) return null;
+            if (!isCompleteRecord('Διαγνώσεις', record)) {
+              console.log('[ΔΙΑΓΝΩΣΕΙΣ-ΓΙΑΤΡΟΣ] ελλιπής εγγραφή:', url);
+              return null;
+            }
             return { url, retraction: parseRetraction(record), title: record.title, date: record.date, doctorName: record.doctorName, doctorAmka: record.doctorAmka, category: record.category, code: record.code, parentName: record.parentName, links: readLinks(record) } as Diagnosis;
-          } catch {
+          } catch (parseError: any) {
+            console.log('[ΔΙΑΓΝΩΣΕΙΣ-ΓΙΑΤΡΟΣ] αποτυχία ανάγνωσης αρχείου:', url, parseError?.message);
             return null;
           }
         },
@@ -115,10 +120,12 @@ export default function DoctorDiagnoseisScreen() {
         onPartial: !silent && diagnoses.length === 0 ? (records) => setDiagnoses(records) : undefined,
       });
 
+      console.log('[ΔΙΑΓΝΩΣΕΙΣ-ΓΙΑΤΡΟΣ] έγκυρες εγγραφές:', valid.length);
       setDiagnoses(valid);
       setCachedRecords(webId, 'Διαγνώσεις', valid);
       ensureDoctorInfo(valid.map((d) => d.doctorAmka));
     } catch (error: any) {
+      console.log('[ΔΙΑΓΝΩΣΕΙΣ-ΓΙΑΤΡΟΣ] σφάλμα ανανέωσης:', error?.message);
       // 403 από το Pod = ο ασθενής κατάργησε την πρόσβαση όσο ο γιατρός ήταν μέσα. Το αναλαμβάνει
       // ο φύλακας, που βγάζει το σωστό μήνυμα και τον επιστρέφει στην αρχική του.
       if (isPodAccessDenied(error)) {
