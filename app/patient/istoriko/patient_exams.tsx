@@ -78,32 +78,36 @@ function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelet
         <Text style={doctorStyles.diagnosisCardLabel}>Καταχώρηση: </Text>{doctorDisplayName}
       </Text>
 
-      {/* Σε ανακληθείσα παραπομπή δεν ανεβαίνει αποτέλεσμα: η εξέταση έχει αποσυρθεί. */}
+      {/* Ανακληθείσα παραπομπή (ο γιατρός την απέσυρε): καμία ενέργεια, μόνο η σημείωση από
+          κάτω. Ούτε ανεβαίνει αποτέλεσμα ούτε διαγράφεται πια - ο γιατρός έχει ήδη πει ότι
+          δεν ισχύει, οπότε η "δεν θέλω να την κάνω" του ασθενή δεν προσθέτει τίποτα. */}
       {!item.retraction && (
-        <TouchableOpacity
-          style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginTop: 12 }]}
-          onPress={() => onUpload(item)}
-          disabled={uploading}
-        >
-          {uploading ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
-          ) : (
-            <>
-              <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
-              <Text style={doctorStyles.diagnosisSortButtonText}>Μεταφόρτωση Αποτελεσμάτων</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      )}
+        <>
+          <TouchableOpacity
+            style={[doctorStyles.diagnosisSortButton, { flexDirection: 'row', marginHorizontal: 0, marginTop: 12 }]}
+            onPress={() => onUpload(item)}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <>
+                <Ionicons name="cloud-upload-outline" size={18} color={COLORS.white} style={{ marginRight: 8 }} />
+                <Text style={doctorStyles.diagnosisSortButtonText}>Μεταφόρτωση Αποτελεσμάτων</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-      {/* Μόνιμη διαγραφή, ανεξάρτητα από το ποιος την κατέγραψε: όσο η εξέταση δεν έχει
-          αποτέλεσμα, η απόφαση να μη γίνει είναι πάντα του ασθενή. */}
-      <TouchableOpacity
-        style={[doctorStyles.diagnosisSortButton, { marginHorizontal: 0, marginTop: 8, backgroundColor: COLORS.danger }]}
-        onPress={() => onDelete(item)}
-      >
-        <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
-      </TouchableOpacity>
+          {/* Μόνιμη διαγραφή, ανεξάρτητα από το ποιος την κατέγραψε: όσο η εξέταση δεν έχει
+              αποτέλεσμα, η απόφαση να μη γίνει είναι πάντα του ασθενή. */}
+          <TouchableOpacity
+            style={[doctorStyles.diagnosisSortButton, { marginHorizontal: 0, marginTop: 8, backgroundColor: COLORS.danger }]}
+            onPress={() => onDelete(item)}
+          >
+            <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
+          </TouchableOpacity>
+        </>
+      )}
 
       <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>

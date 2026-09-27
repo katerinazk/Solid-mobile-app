@@ -135,25 +135,27 @@ function PendingMedicationCard({ item, doctorDisplayName, onOpen, onStart, onDel
         <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
       </Text>
 
-      {/* Ανακληθείσα συνταγή (ο γιατρός την απέσυρε) δεν ξεκινά πια, μόνο διαγράφεται. */}
-      <View style={{ flexDirection: 'row', marginTop: 12 }}>
-        {!item.retraction && (
+      {/* Ανακληθείσα συνταγή (ο γιατρός την απέσυρε): καμία ενέργεια, μόνο η σημείωση από
+          κάτω. Ούτε ξεκινά ούτε διαγράφεται πια - ο γιατρός έχει ήδη πει ότι δεν ισχύει, οπότε
+          η "δεν θέλω να το πάρω" του ασθενή δεν προσθέτει τίποτα. */}
+      {!item.retraction && (
+        <View style={{ flexDirection: 'row', marginTop: 12 }}>
           <TouchableOpacity
             style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginRight: 8, marginBottom: 0 }]}
             onPress={() => onStart(item)}
           >
             <Text style={doctorStyles.diagnosisSortButtonText}>Έναρξη</Text>
           </TouchableOpacity>
-        )}
-        {/* Μόνιμη διαγραφή, ανεξάρτητα από το ποιος το κατέγραψε: όσο το φάρμακο δεν έχει
-            ξεκινήσει, η απόφαση να μην ληφθεί είναι πάντα του ασθενή. */}
-        <TouchableOpacity
-          style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0, backgroundColor: COLORS.danger }]}
-          onPress={() => onDelete(item)}
-        >
-          <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Μόνιμη διαγραφή, ανεξάρτητα από το ποιος το κατέγραψε: όσο το φάρμακο δεν έχει
+              ξεκινήσει, η απόφαση να μην ληφθεί είναι πάντα του ασθενή. */}
+          <TouchableOpacity
+            style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0, backgroundColor: COLORS.danger }]}
+            onPress={() => onDelete(item)}
+          >
+            <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
