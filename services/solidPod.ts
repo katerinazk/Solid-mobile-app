@@ -242,11 +242,12 @@ export async function fetchFileContentFresh(rawUrl: string, accessToken: string)
   return text;
 }
 
-// Συνάρτηση διαγραφής αρχείου ΔΕΝ υπάρχει, και δεν είναι παράλειψη.
-//
-// Η εφαρμογή δεν σβήνει ποτέ ιατρική εγγραφή: η λανθασμένη σημαίνεται ως ανακληθείσα και
-// μένει στον φάκελο (utils/recordRevision.ts). Ο ασθενής παραμένει φυσικά κύριος του Pod του
-// και μπορεί να σβήσει ό,τι θέλει με άλλο εργαλείο Solid - αλλά όχι από εδώ.
+// Η εφαρμογή δεν σβήνει ποτέ ιατρική εγγραφή που αντιπροσωπεύει κάτι που όντως έγινε: η
+// λανθασμένη σημαίνεται ως ανακληθείσα και μένει στον φάκελο (utils/recordRevision.ts). Ο
+// ασθενής παραμένει φυσικά κύριος του Pod του και μπορεί να σβήσει ό,τι θέλει με άλλο εργαλείο
+// Solid - αλλά όχι από εδώ, με μία εξαίρεση: deleteFile πιο κάτω, μόνο για εκκρεμή συνταγή ή
+// παραπομπή που ο ασθενής αποφασίζει να μην εκτελέσει ποτέ (δεν υπάρχει ακόμα γεγονός να
+// διατηρηθεί ως ίχνος).
 
 /**
  * Μοναδικό όνομα αρχείου για νέα εγγραφή ιστορικού.
@@ -305,6 +306,33 @@ export async function saveFileContent(rawUrl: string, accessToken: string, conte
     throwIfAccessDenied(response.status);
     const errorText = await response.text();
     throw new Error(`ΚΩΔΙΚΟΣ: ${response.status}\n\nΛΟΓΟΣ:\n${errorText.substring(0, 150)}`);
+  }
+}
+
+/**
+ * Σβήνει μόνιμα ένα αρχείο από το Pod. Καμία άλλη λειτουργία της εφαρμογής δεν σβήνει ποτέ
+ * ιατρική εγγραφή (βλ. σχόλιο πιο πάνω) - αυτή υπάρχει ΜΟΝΟ για μια εκκρεμή συνταγή ή
+ * παραπομπή που δεν έχει ακόμα εκτελεστεί (utils/recordRevision.ts, deletePendingRecord στο
+ * services/recordRevisions.ts): αφού δεν έχει συμβεί τίποτα ιατρικά, δεν υπάρχει γεγονός να
+ * διατηρηθεί ως ίχνος - σε αντίθεση με μια εγγραφή που ήδη ξεκίνησε ή ολοκληρώθηκε, όπου η
+ * μόνη επιτρεπτή ενέργεια είναι η ανάκληση.
+ */
+export async function deleteFile(rawUrl: string, accessToken: string): Promise<void> {
+  const url = normalizePodUrl(rawUrl);
+  const dpopToken = await createDpopToken('DELETE', url);
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `DPoP ${accessToken}`,
+      'DPoP': dpopToken,
+    },
+  });
+
+  // 404 σημαίνει ότι το αρχείο έχει ήδη φύγει (π.χ. διπλό πάτημα) - το αποτέλεσμα που θέλει ο
+  // χρήστης (να μην υπάρχει πια) ισχύει ήδη, οπότε δεν το μετράμε ως σφάλμα.
+  if (!response.ok && response.status !== 404) {
+    throwIfAccessDenied(response.status);
+    throw new Error(`Αποτυχία διαγραφής (${response.status}).`);
   }
 }
 

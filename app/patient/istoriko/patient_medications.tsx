@@ -14,7 +14,7 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord, undoRetraction, saveRecordCompletion } from '../../../services/recordRevisions';
+import { retractRecord, undoRetraction, saveRecordCompletion, deletePendingRecord } from '../../../services/recordRevisions';
 import { resolveRecordAuthor } from '../../../utils/recordAuthor';
 import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
@@ -104,14 +104,15 @@ function MedicationCard({ item, doctorDisplayName, canRetract, onOpen, onRetract
 
 // Το φάρμακο που συνταγογραφήθηκε αλλά δεν έχει πατηθεί ακόμα "Έναρξη". Δεν έχει ημερομηνία
 // έναρξης να δείξει, και κρατά τα δύο κουμπιά ενέργειας.
-function PendingMedicationCard({ item, doctorDisplayName, canRetract, onOpen, onStart, onRetract, onUndo }: {
+// Όσο το φάρμακο είναι εκκρεμές δεν υπάρχει ανάκληση - μόνο Έναρξη ή Διαγραφή. Η ανάκληση
+// έχει νόημα μόνο για αγωγή που όντως δόθηκε (βλ. MedicationCard πιο πάνω)· όσο δεν έχει
+// ξεκινήσει, η Διαγραφή καλύπτει ήδη πλήρως την περίπτωση που ο ασθενής δεν θέλει να τη λάβει.
+function PendingMedicationCard({ item, doctorDisplayName, onOpen, onStart, onDelete }: {
   item: Medication;
   doctorDisplayName: string;
   onOpen: (item: Medication) => void;
   onStart: (item: Medication) => void;
-  canRetract: boolean;
-  onRetract: (item: Medication) => void;
-  onUndo: (item: Medication) => void;
+  onDelete: (item: Medication) => void;
 }) {
   return (
     <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
@@ -134,7 +135,7 @@ function PendingMedicationCard({ item, doctorDisplayName, canRetract, onOpen, on
         <Text style={doctorStyles.diagnosisCardLabel}>Διάρκεια Χορήγησης: </Text>{formatDuration(item.durationDays, item.durationMonths)}
       </Text>
 
-      {/* Ανακληθείσα συνταγή δεν ξεκινά: η αγωγή έχει αποσυρθεί από όποιον την έγραψε. */}
+      {/* Ανακληθείσα συνταγή (ο γιατρός την απέσυρε) δεν ξεκινά πια, μόνο διαγράφεται. */}
       <View style={{ flexDirection: 'row', marginTop: 12 }}>
         {!item.retraction && (
           <TouchableOpacity
@@ -144,15 +145,16 @@ function PendingMedicationCard({ item, doctorDisplayName, canRetract, onOpen, on
             <Text style={doctorStyles.diagnosisSortButtonText}>Έναρξη</Text>
           </TouchableOpacity>
         )}
-        {canRetract && (
-          <TouchableOpacity
-            style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
-            onPress={() => (item.retraction ? onUndo(item) : onRetract(item))}
-          >
-            <Text style={doctorStyles.diagnosisSortButtonText}>{item.retraction ? 'Αναίρεση ανάκλησης' : 'Ανάκληση'}</Text>
-          </TouchableOpacity>
-        )}
+        {/* Μόνιμη διαγραφή, ανεξάρτητα από το ποιος το κατέγραψε: όσο το φάρμακο δεν έχει
+            ξεκινήσει, η απόφαση να μην ληφθεί είναι πάντα του ασθενή. */}
+        <TouchableOpacity
+          style={[doctorStyles.diagnosisSortButton, { flex: 1, marginHorizontal: 0, marginBottom: 0, backgroundColor: COLORS.danger }]}
+          onPress={() => onDelete(item)}
+        >
+          <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
+        </TouchableOpacity>
       </View>
+
       <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
   );
@@ -363,6 +365,25 @@ export default function PatientMedicationsScreen() {
     }
   };
 
+  // Διαγραφή, όχι ανάκληση: το φάρμακο δεν έχει ξεκινήσει ακόμα, οπότε δεν έχει συμβεί τίποτα
+  // ιατρικά να μείνει ίχνος του. Ισχύει για κάθε εκκρεμές φάρμακο, είτε το κατέγραψε ο ίδιος ο
+  // ασθενής είτε ο γιατρός - η απόφαση να μην το πάρει είναι πάντα δική του.
+  const handleDeletePendingMedication = async (item: Medication) => {
+    const confirmed = await askConfirm({
+      message: 'Είστε σίγουροι ότι δεν θέλετε να λάβετε αυτό το φάρμακο; Η ενέργεια αυτή δεν αναιρείται.',
+      confirmText: 'Διαγραφή',
+      cancelText: 'Ακύρωση',
+    });
+    if (!confirmed) return;
+
+    try {
+      await deletePendingRecord(item.url, accessToken);
+      updateMedications((prev) => prev.filter((m) => m.url !== item.url));
+    } catch (error: any) {
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία διαγραφής.'));
+    }
+  };
+
   const { activeMedications, previousMedications } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -524,10 +545,8 @@ export default function PatientMedicationsScreen() {
                 item={item}
                 doctorDisplayName={displayDoctorName(item)}
                 onOpen={openDetail}
-                canRetract={item.doctorAmka === loggedInPatientAmka}
                 onStart={handleStartMedication}
-                onRetract={handleRetractMedication}
-                onUndo={handleUndoRetractMedication}
+                onDelete={handleDeletePendingMedication}
               />
             ) : (
               <MedicationCard

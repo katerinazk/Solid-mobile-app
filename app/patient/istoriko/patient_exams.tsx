@@ -18,16 +18,14 @@ import { groupByYear } from '../../../utils/groupByYear';
 import { YearSectionHeader } from '../../../components/YearSectionHeader';
 import { parseRetraction, Retraction, withRetractedLast } from '../../../utils/recordRevision';
 import { RetractedNote, retractedCardStyle } from '../../../components/RetractedNote';
-import { retractRecord, undoRetraction, saveRecordCompletion } from '../../../services/recordRevisions';
-import { resolveRecordAuthor } from '../../../utils/recordAuthor';
-import { RecordCardActions } from '../../../components/RecordCardActions';
+import { saveRecordCompletion, deletePendingRecord } from '../../../services/recordRevisions';
 import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
 import { listFolderFiles, fetchFileContent, saveFileContent, getCategoryFolderUrl, getOwnerWebId, uploadAttachment, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
-import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
+import { askConfirm, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage, isNetworkError, NETWORK_ERROR_MESSAGE } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
@@ -57,13 +55,16 @@ interface Exam {
 }
 
 
-function PendingExamCard({ item, doctorDisplayName, uploading, canRetract, onUpload, onRetract, onUndo, onOpen }: { item: Exam; doctorDisplayName: string; uploading: boolean; canRetract: boolean; onUpload: (item: Exam) => void; onRetract: (item: Exam) => void; onUndo: (item: Exam) => void; onOpen: (item: Exam) => void }) {
+// Όσο η εξέταση είναι εκκρεμής δεν υπάρχει ανάκληση από τον ασθενή - μόνο Μεταφόρτωση ή
+// Διαγραφή. Η ολοκληρωμένη εξέταση δεν έχει ανάκληση καθόλου (CompletedExamCard πιο κάτω),
+// οπότε η Διαγραφή καλύπτει ήδη πλήρως την περίπτωση που ο ασθενής δεν θέλει να την κάνει.
+// Ο γιατρός που την παρήγγειλε μπορεί ακόμα να την ανακαλέσει από τη δική του οθόνη.
+function PendingExamCard({ item, doctorDisplayName, uploading, onUpload, onDelete, onOpen }: { item: Exam; doctorDisplayName: string; uploading: boolean; onUpload: (item: Exam) => void; onDelete: (item: Exam) => void; onOpen: (item: Exam) => void }) {
   return (
     // Η κάρτα ανοίγει την αναλυτική προβολή. Τα κουμπιά μέσα της κρατούν το δικό τους πάτημα.
     <TouchableOpacity style={[doctorStyles.diagnosisCard, item.retraction && retractedCardStyle]} onPress={() => onOpen(item)}>
       <View style={doctorStyles.diagnosisCardHeader}>
         <CodedCardTitle code={item.code} title={item.title} parentName={item.parentName} />
-        <RecordCardActions visible={canRetract} retracted={!!item.retraction} onRetract={() => onRetract(item)} onUndo={() => onUndo(item)} />
       </View>
       <Text style={doctorStyles.diagnosisCardDetail}>
         <Text style={doctorStyles.diagnosisCardLabel}>Τύπος: </Text>{item.type}
@@ -94,6 +95,15 @@ function PendingExamCard({ item, doctorDisplayName, uploading, canRetract, onUpl
           )}
         </TouchableOpacity>
       )}
+
+      {/* Μόνιμη διαγραφή, ανεξάρτητα από το ποιος την κατέγραψε: όσο η εξέταση δεν έχει
+          αποτέλεσμα, η απόφαση να μη γίνει είναι πάντα του ασθενή. */}
+      <TouchableOpacity
+        style={[doctorStyles.diagnosisSortButton, { marginHorizontal: 0, marginTop: 8, backgroundColor: COLORS.danger }]}
+        onPress={() => onDelete(item)}
+      >
+        <Text style={doctorStyles.diagnosisSortButtonText}>Διαγραφή</Text>
+      </TouchableOpacity>
 
       <RetractedNote retraction={item.retraction} />
     </TouchableOpacity>
@@ -291,42 +301,22 @@ export default function PatientExamsScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: CATEGORY, webId } });
   };
 
-  // Καμία εγγραφή δεν σβήνεται από την εφαρμογή, και ο ασθενής ανακαλεί μόνο ό,τι
-  // καταχώρησε ο ίδιος: η παραπομπή ή η συνταγή του γιατρού δεν είναι δική του να την
-  // αποσύρει, αλλιώς ο φάκελος παύει να είναι αξιόπιστος για τον επόμενο γιατρό.
-  const handleRetractExam = async (item: Exam) => {
-    const reason = await askText({
-      message: 'Ανάκληση: η εξέταση δεν διαγράφεται, σημαίνεται ως αποσυρμένη. Για ποιον λόγο;',
-      placeholder: 'π.χ. την καταχώρησα δύο φορές',
-      confirmText: 'Ανάκληση',
-    });
-    if (!reason) return;
-
-    try {
-      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
-      const retraction = await retractRecord(item.url, accessToken, author, reason);
-      updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction } : e)));
-    } catch (error: any) {
-      showMessage(friendlyErrorMessage(error, 'Αποτυχία ανάκλησης.'));
-    }
-  };
-
-  // Αναίρεση της ανάκλησης: η εγγραφή ξαναγίνεται ενεργή. Η ανάκληση που προηγήθηκε μένει
-  // καταγεγραμμένη μέσα στο αρχείο, οπότε δεν χάνεται ίχνος.
-  const handleUndoRetractExam = async (item: Exam) => {
+  // Διαγραφή, όχι ανάκληση: η εξέταση δεν έχει αποτέλεσμα ακόμα, οπότε δεν έχει συμβεί τίποτα
+  // ιατρικά να μείνει ίχνος του. Ισχύει για κάθε εκκρεμή εξέταση, είτε την κατέγραψε ο ίδιος ο
+  // ασθενής είτε ο γιατρός - η απόφαση να μην την κάνει είναι πάντα δική του.
+  const handleDeletePendingExam = async (item: Exam) => {
     const confirmed = await askConfirm({
-      message: 'Να αναιρεθεί η ανάκληση; Η εγγραφή θα ξαναγίνει ενεργή.',
-      confirmText: 'Αναίρεση',
+      message: 'Είστε σίγουροι ότι δεν θέλετε να κάνετε αυτή την εξέταση; Η ενέργεια αυτή δεν αναιρείται.',
+      confirmText: 'Διαγραφή',
       cancelText: 'Ακύρωση',
     });
     if (!confirmed) return;
 
     try {
-      const author = await resolveRecordAuthor('patient', '', loggedInPatientAmka);
-      await undoRetraction(item.url, accessToken, author);
-      updateExams((prev) => prev.map((e) => (e.url === item.url ? { ...e, retraction: undefined } : e)));
+      await deletePendingRecord(item.url, accessToken);
+      updateExams((prev) => prev.filter((e) => e.url !== item.url));
     } catch (error: any) {
-      showMessage(friendlyErrorMessage(error, 'Αποτυχία αναίρεσης ανάκλησης.'));
+      showMessage(friendlyErrorMessage(error, 'Αποτυχία διαγραφής.'));
     }
   };
 
@@ -538,9 +528,7 @@ export default function PatientExamsScreen() {
                 doctorDisplayName={displayDoctorName(item)}
                 uploading={uploadingFor === item.url}
                 onUpload={handleUploadResult}
-                canRetract={item.doctorAmka === loggedInPatientAmka}
-                onRetract={handleRetractExam}
-                onUndo={handleUndoRetractExam}
+                onDelete={handleDeletePendingExam}
                 onOpen={openDetail}
               />
             )

@@ -6,7 +6,7 @@
 // στο διάστημα που μεσολάβησε μπορεί να το έχει αλλάξει άλλος γιατρός με πρόσβαση, και δεν
 // θέλουμε να σβήσουμε τη δουλειά του γράφοντας πάνω σε παλιά εικόνα.
 
-import { fetchFileContentFresh, saveFileContent } from './solidPod';
+import { fetchFileContentFresh, saveFileContent, deleteFile } from './solidPod';
 import { RecordStamp, Retraction, withExistingHistory, withRetraction, withRevision, withoutRetraction } from '../utils/recordRevision';
 import { todayIsoDate } from '../utils/podRecords';
 import { RecordAuthor } from '../utils/recordAuthor';
@@ -59,6 +59,17 @@ export async function undoRetraction(
 ): Promise<void> {
   const existing = await readRecord(url, accessToken);
   await saveFileContent(url, accessToken, JSON.stringify(withoutRetraction(existing, stampOf(author))));
+}
+
+/**
+ * Σβήνει μόνιμα μια εκκρεμή εγγραφή (φάρμακο που δεν έχει ξεκινήσει, εξέταση χωρίς
+ * αποτέλεσμα): ο ασθενής αποφάσισε να μην την εκτελέσει ποτέ. Δεν είναι ανάκληση - δεν μένει
+ * κανένα ίχνος στο Pod, γιατί δεν έχει συμβεί κανένα ιατρικό γεγονός. Μόλις μια εγγραφή
+ * ξεκινήσει ή ολοκληρωθεί, δεν είναι πια εκκρεμής και η μόνη επιτρεπτή ενέργεια είναι η
+ * ανάκληση (retractRecord πιο κάτω) - το επιβάλλουν οι οθόνες, όχι αυτή η συνάρτηση.
+ */
+export async function deletePendingRecord(url: string, accessToken: string): Promise<void> {
+  await deleteFile(url, accessToken);
 }
 
 /** Σημαίνει την εγγραφή ως ανακληθείσα. Το περιεχόμενό της μένει ακέραιο. */
