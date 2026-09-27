@@ -24,6 +24,7 @@ import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { SortDropdown } from '../../../components/SortDropdown';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
@@ -226,11 +227,14 @@ export default function PatientVaccinationsScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Εμβολιασμοί', webId } });
   };
 
+  // Δείχνει τις πρώτες ομάδες εμβολίου και φορτώνει άλλες τόσες καθώς ο χρήστης φτάνει στο τέλος.
+  const { visibleItems: pagedGroups, hasMore, loadMore } = usePagedList(sortedGroups, `${searchQuery}|${newestFirst}`);
+
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα - τώρα σε
   // επίπεδο ομάδας εμβολίου, με βάση την πιο πρόσφατη δόση της.
   const sections = useMemo(
-    () => groupByYearRetractedLast(sortedGroups, (group) => timeOf(group.latest.administeredDate)),
-    [sortedGroups],
+    () => groupByYearRetractedLast(pagedGroups, (group) => timeOf(group.latest.administeredDate)),
+    [pagedGroups],
   );
 
   // Η κάρτα μιας δόσης, ίδια είτε είναι η πιο πρόσφατη είτε μία από τις κρυμμένες παλαιότερες -
@@ -287,6 +291,9 @@ export default function PatientVaccinationsScreen() {
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(group) => group.key}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>

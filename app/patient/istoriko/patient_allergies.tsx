@@ -21,6 +21,7 @@ import { RecordCardActions } from '../../../components/RecordCardActions';
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId } from '../../../services/solidPod';
 import { useDoctorNames, formatDoctorName } from '../../../hooks/useDoctorNames';
 import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
@@ -230,9 +231,12 @@ export default function PatientAllergiesScreen() {
   );
 
   // Ομαδοποίηση ανά έτος, με βάση την ημερομηνία καταχώρησης.
+  // Δείχνει τις πρώτες εγγραφές και φορτώνει άλλες τόσες καθώς ο χρήστης φτάνει στο τέλος.
+  const { visibleItems: pagedRecords, hasMore, loadMore } = usePagedList(sortedAllergies, searchQuery);
+
   const sections = useMemo(
-    () => groupByYearRetractedLast(sortedAllergies, (item) => timeOf(item.createdDate)),
-    [sortedAllergies],
+    () => groupByYearRetractedLast(pagedRecords, (item) => timeOf(item.createdDate)),
+    [pagedRecords],
   );
 
   return (
@@ -255,6 +259,9 @@ export default function PatientAllergiesScreen() {
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>

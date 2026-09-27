@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -18,6 +18,7 @@ import { fetchAccessEntry } from '../../../services/access';
 import { accessUnavailableMessage } from '../../../services/accessMessages';
 import { hasPendingAccessRequest, createAccessRequest } from '../../../services/accessRequests';
 import { useRecordSearch } from '../../../utils/recordSearch';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { Patient } from '../../../types/Patient';
 import { askConfirm, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
@@ -86,6 +87,21 @@ export default function DoctorHomeScreen() {
   // αίτημα για νέο ασθενή γίνεται πλέον από ξεχωριστή οθόνη (βλ. openAddAccess).
   const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: foundPatients } =
     useRecordSearch(patients, (item) => [item.first_name, item.last_name, item.amka]);
+
+  // Δείχνει τους πρώτους ασθενείς και φορτώνει άλλους τόσους καθώς ο γιατρός φτάνει στο τέλος
+  // της κύλισης. Η οθόνη είναι ένα ScrollView (μαζί με τις ειδοποιήσεις από κάτω), όχι λίστα
+  // με δικό της onEndReached, οπότε το τέλος εντοπίζεται από το ίδιο το onScroll.
+  const { visibleItems: pagedPatients, hasMore: hasMorePatients, loadMore: loadMorePatients } =
+    usePagedList(foundPatients, searchQuery);
+  const loadMoreBusy = useRef(false);
+  const handleScroll = ({ nativeEvent }: { nativeEvent: { layoutMeasurement: { height: number }; contentOffset: { y: number }; contentSize: { height: number } } }) => {
+    if (loadMoreBusy.current || !hasMorePatients) return;
+    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+    if (layoutMeasurement.height + contentOffset.y < contentSize.height - 200) return;
+    loadMoreBusy.current = true;
+    loadMorePatients();
+    setTimeout(() => { loadMoreBusy.current = false; }, 400);
+  };
 
   const openAddAccess = () => {
     router.push(ROUTES.DOCTOR_ADD_ACCESS);
@@ -194,7 +210,11 @@ export default function DoctorHomeScreen() {
         <Text style={localStyles.welcome}>Καλωσορίσατε Δρ. {doctor?.last_name || ''}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onScroll={handleScroll}
+        scrollEventThrottle={200}
+      >
         {/* Ίδιο μπλε φόντο/γραμματοσειρά με τους τίτλους των υπόλοιπων οθονών (historyHeader/
             historyTitle) - εδώ όμως ΔΕΝ μένει σταθερός στην κορυφή, γιατί είναι μέσα στο
             ScrollView: κυλάει μαζί με το υπόλοιπο περιεχόμενο, όχι μόνος του πάνω από αυτό. */}
@@ -242,7 +262,10 @@ export default function DoctorHomeScreen() {
               {searching ? 'Δεν βρέθηκε ασθενής με αυτά τα στοιχεία.' : 'Δεν έχετε πρόσβαση σε κανέναν ασθενή.'}
             </Text>
           ) : (
-            foundPatients.map(renderPatientCard)
+            <>
+              {pagedPatients.map(renderPatientCard)}
+              {hasMorePatients && <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />}
+            </>
           )}
         </View>
 

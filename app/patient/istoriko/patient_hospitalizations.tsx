@@ -17,6 +17,7 @@ import { RetractedNote, retractedCardStyle } from '../../../components/Retracted
 import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { listFolderFiles, fetchFileContent, getCategoryFolderUrl, getOwnerWebId, downloadAttachment } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
 import { openLocalFile } from '../../../utils/openLocalFile';
@@ -170,9 +171,12 @@ export default function PatientHospitalizationsScreen() {
   );
 
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
+  // Δείχνει τις πρώτες εγγραφές και φορτώνει άλλες τόσες καθώς ο χρήστης φτάνει στο τέλος.
+  const { visibleItems: pagedRecords, hasMore, loadMore } = usePagedList(sortedHospitalizations, searchQuery);
+
   const sections = useMemo(
-    () => groupByYearRetractedLast(sortedHospitalizations, (item) => timeOf(item.admissionDate)),
-    [sortedHospitalizations],
+    () => groupByYearRetractedLast(pagedRecords, (item) => timeOf(item.admissionDate)),
+    [pagedRecords],
   );
 
   return (
@@ -195,6 +199,9 @@ export default function PatientHospitalizationsScreen() {
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         ListHeaderComponent={
           <RecordSearchBar
             label="Αναζήτηση νοσηλείας:"

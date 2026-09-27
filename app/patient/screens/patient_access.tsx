@@ -18,6 +18,7 @@ import { ACCESS_TYPES, GRANTABLE_ACCESS_TYPES } from '../../../constants/accessT
 import { AccessCard } from '../../../components/AccessCard';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useRecordSearch } from '../../../utils/recordSearch';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 
@@ -71,6 +72,12 @@ export default function PatientAccessScreen() {
   // Η αναζήτηση σε όλη τη βάση, για να δοθεί ΝΕΑ πρόσβαση, γίνεται στην άλλη οθόνη.
   const { query: searchQuery, setQuery: setSearchQuery, searchVisible, searching, results: searchedAccessList } =
     useRecordSearch(visibleAccessList, (item) => [item.doctors?.first_name, item.doctors?.last_name]);
+
+  // Δείχνει τους πρώτους γιατρούς και φορτώνει άλλους τόσους καθώς ο χρήστης φτάνει στο τέλος.
+  const { visibleItems: pagedAccessList, hasMore, loadMore } = usePagedList(
+    searchedAccessList,
+    `${searchQuery}|${accessFilter}`,
+  );
 
   const [isRequestsModalVisible, setIsRequestsModalVisible] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -196,9 +203,12 @@ export default function PatientAccessScreen() {
           στο ύψος του περιεχομένου της. */}
       <FlatList
         style={{ flex: 1 }}
-        data={searchedAccessList}
+        data={pagedAccessList}
         keyExtractor={(item) => item.doctor_amka}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin, flexGrow: 1 }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>

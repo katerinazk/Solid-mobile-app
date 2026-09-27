@@ -21,6 +21,7 @@ import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { SortDropdown } from '../../../components/SortDropdown';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied, isPodTokenExpired } from '../../../services/solidPod';
 import { calculateAge, formatDate } from '../../../utils/age';
 import { SPACING } from '../../../constants/designSystem';
@@ -244,10 +245,17 @@ export default function DoctorDiagnoseisScreen() {
     router.push({ pathname: ROUTES.RECORD_DETAIL, params: { url: item.url, category: 'Διαγνώσεις', webId, amka, firstName, lastName } });
   };
 
+  // Δείχνει τις πρώτες εγγραφές και φορτώνει άλλες τόσες καθώς ο χρήστης φτάνει στο τέλος.
+  // Αλλαγή καρτέλας, αναζήτηση ή σειρά ταξινόμησης ξαναρχίζουν από την πρώτη σελίδα.
+  const { visibleItems: pagedDiagnoses, hasMore, loadMore } = usePagedList(
+    visibleDiagnoses,
+    `${activeCategory}|${searchQuery}|${newestFirst}`,
+  );
+
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
   const sections = useMemo(
-    () => groupByYearRetractedLast(visibleDiagnoses, (item) => timeOf(item.date)),
-    [visibleDiagnoses],
+    () => groupByYearRetractedLast(pagedDiagnoses, (item) => timeOf(item.date)),
+    [pagedDiagnoses],
   );
 
   return (
@@ -271,6 +279,9 @@ export default function DoctorDiagnoseisScreen() {
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         ListHeaderComponent={
           <>
             <View style={[doctorStyles.diagnosisCategoryRow, { marginTop: SPACING.groupGap }]}>

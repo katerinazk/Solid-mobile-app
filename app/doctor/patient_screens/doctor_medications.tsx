@@ -21,6 +21,7 @@ import { useSearchField, normalizeForSearch } from '../../../utils/recordSearch'
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, isPodAccessDenied, isPodTokenExpired } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -321,10 +322,15 @@ export default function DoctorMedicationsScreen() {
     return { activeMedications: withRetractedLast(active), previousMedications: previous };
   }, [medications, searchQuery]);
 
+  // Δείχνει τις πρώτες εγγραφές της προηγούμενης αγωγής και φορτώνει άλλες τόσες καθώς ο
+  // χρήστης φτάνει στο τέλος. Η ενεργή αγωγή δεν σελιδοποιείται: είναι η τρέχουσα κατάσταση,
+  // όχι ιστορικό προς σελιδοποίηση.
+  const { visibleItems: pagedPreviousMedications, hasMore, loadMore } = usePagedList(previousMedications, searchQuery);
+
   // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.
   const previousSections = useMemo(
-    () => groupByYear(previousMedications, (item) => timeOf(item.startDate)),
-    [previousMedications],
+    () => groupByYear(pagedPreviousMedications, (item) => timeOf(item.startDate)),
+    [pagedPreviousMedications],
   );
 
   const previousSectionOpen = showPrevious || (searchQuery.trim().length > 0 && previousMedications.length > 0);
@@ -377,6 +383,9 @@ export default function DoctorMedicationsScreen() {
           ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
       <SectionList
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
         sections={sections}
         keyExtractor={(item) => item.url}

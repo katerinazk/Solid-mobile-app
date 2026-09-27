@@ -21,6 +21,7 @@ import { useRecordSearch } from '../../../utils/recordSearch';
 import { RecordSearchBar } from '../../../components/RecordSearchBar';
 import { useDoctorAccessGuard } from '../../../hooks/useDoctorAccessGuard';
 import { usePodAutoRefresh } from '../../../hooks/usePodAutoRefresh';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { CodedCardTitle } from '../../../components/CodedCardTitle';
 import { listFolderFilesOrEmpty, fetchFileContent, getCategoryFolderUrl, downloadAttachment, isPodAccessDenied, isPodTokenExpired } from '../../../services/solidPod';
 import { formatDate } from '../../../utils/age';
@@ -262,9 +263,12 @@ export default function DoctorHospitalizationsScreen() {
   );
 
   // Ομαδοποίηση ανά έτος, ώστε να υπάρχει σημείο αναφοράς καθώς κατεβαίνει η λίστα.
+  // Δείχνει τις πρώτες εγγραφές και φορτώνει άλλες τόσες καθώς ο χρήστης φτάνει στο τέλος.
+  const { visibleItems: pagedRecords, hasMore, loadMore } = usePagedList(sortedHospitalizations, searchQuery);
+
   const sections = useMemo(
-    () => groupByYearRetractedLast(sortedHospitalizations, (item) => timeOf(item.admissionDate)),
-    [sortedHospitalizations],
+    () => groupByYearRetractedLast(pagedRecords, (item) => timeOf(item.admissionDate)),
+    [pagedRecords],
   );
 
   return (
@@ -288,6 +292,9 @@ export default function DoctorHospitalizationsScreen() {
         renderSectionHeader={({ section }) => <YearSectionHeader title={section.title} />}
         keyExtractor={(item) => item.url}
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         ListHeaderComponent={
           <>
             <View style={{ paddingHorizontal: SPACING.sideMargin }}>

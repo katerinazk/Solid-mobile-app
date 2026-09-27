@@ -32,6 +32,7 @@ import { askConfirm, askText, showMessage } from '../../../utils/appMessage';
 import { friendlyErrorMessage } from '../../../utils/networkError';
 import { getCachedRecords, setCachedRecords } from '../../../utils/recordCache';
 import { loadProgressively } from '../../../utils/progressiveLoad';
+import { usePagedList } from '../../../hooks/usePagedList';
 
 const CATEGORY = 'Εξετάσεις';
 
@@ -264,10 +265,18 @@ export default function DoctorExamsScreen() {
     }
   }, [visibleCategories, selectedCategory]);
 
+  // Δείχνει τις πρώτες ολοκληρωμένες εξετάσεις και φορτώνει άλλες τόσες καθώς ο χρήστης φτάνει
+  // στο τέλος. Οι εκκρεμείς δεν σελιδοποιούνται: αντιπροσωπεύουν την τρέχουσα κατάσταση, όχι
+  // ιστορικό προς σελιδοποίηση.
+  const { visibleItems: pagedCompletedExams, hasMore, loadMore } = usePagedList(
+    completedExams,
+    `${searchQuery}|${selectedCategory}`,
+  );
+
   // Ομαδοποίηση ανά έτος μόνο στην ενότητα που μαζεύει εγγραφές με τα χρόνια.
   const completedSections = useMemo(
-    () => groupByYear(completedExams, (item) => timeOf(item.completedDate || item.createdDate)),
-    [completedExams],
+    () => groupByYear(pagedCompletedExams, (item) => timeOf(item.completedDate || item.createdDate)),
+    [pagedCompletedExams],
   );
 
   const isSearching = searchQuery.trim().length > 0;
@@ -406,6 +415,9 @@ export default function DoctorExamsScreen() {
           ListHeaderComponent, οπότε κυλούν μαζί με τη λίστα. */}
       <SectionList
         contentContainerStyle={{ paddingBottom: SPACING.bottomMargin }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={hasMore ? <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} /> : null}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />}
         sections={sections}
         keyExtractor={(item) => item.url}
